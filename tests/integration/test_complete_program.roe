@@ -1,0 +1,32 @@
+show "Integration Test: Complete Program"
+show "=================================="
+
+show "Testing multiple features working together:"
+
+show "1. Variables and arrays:"
+set students which are group of text to ["Alice", "Bob", "Charlie"]
+set scores which are group of numbers to [85, 92, 78]
+
+show "2. Loops and conditionals:"
+for each student in students
+  show student
+end for
+
+set total to 0
+set count to 0
+
+for each score in scores
+  set total to total plus score
+  set count to count plus 1
+  
+  when score is greater than 80 then show "Good score!"
+end for
+
+show "3. Arithmetic and final result:"
+set average to total divided by count
+show "Average score:"
+show average
+
+when average is greater than 80 then show "Class did well!"
+
+show "Integration test completed successfully!"

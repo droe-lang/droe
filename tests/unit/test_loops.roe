@@ -1,0 +1,26 @@
+show "Unit Test: Loops"
+show "================"
+
+show "Testing while loops:"
+set counter to 1
+
+while counter is less than or equal to 3
+  show counter
+  set counter to counter plus 1
+end while
+
+show "Testing for each loops:"
+set items to [10, 20, 30]
+
+for each item in items
+  show item
+end for
+
+show "Testing loop syntax:"
+set colors to ["red", "blue"]
+
+loop color in colors
+  show color
+end loop
+
+show "Loop tests completed successfully!"

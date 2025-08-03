@@ -1,0 +1,9 @@
+show "Error Test: Variable Reassignment Type Errors"
+show "============================================="
+
+show "Create a typed variable:"
+set count which is number to 42
+show count
+
+show "This should fail - wrong type on reassignment:"
+set count to "hello"

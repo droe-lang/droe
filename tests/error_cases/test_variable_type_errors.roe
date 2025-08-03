@@ -1,0 +1,5 @@
+show "Error Test: Variable Type Mismatches"
+show "===================================="
+
+show "This should fail - wrong type on declaration:"
+set count which is number to "hello"

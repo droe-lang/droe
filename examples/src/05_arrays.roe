@@ -1,0 +1,24 @@
+show "Arrays in Roelang"
+show "================="
+
+show "1. Number arrays:"
+set numbers to [10, 20, 30, 40, 50]
+
+show "First array created - numbers contains 5 elements"
+
+show "2. String arrays:"
+set names to ["Alice", "Bob", "Charlie", "Diana"]
+
+show "Second array created - names contains 4 elements"
+
+show "3. Type-safe array declarations:"
+set scores which are group of numbers to [95, 87, 92, 88, 91]
+set colors which are group of text to ["red", "green", "blue"]
+
+show "Type-safe arrays ensure all elements are the same type"
+
+show "4. Empty arrays:"
+set empty_numbers which are group of numbers to []
+set empty_text which are group of text to []
+
+show "Empty arrays are allowed and type-safe"

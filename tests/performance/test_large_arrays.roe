@@ -1,0 +1,27 @@
+show "Performance Test: Large Arrays"
+show "=============================="
+
+show "Testing performance with larger datasets:"
+
+show "Creating large number array:"
+set big_numbers to [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+show "Processing all elements:"
+set sum to 0
+
+for each number in big_numbers
+  set sum to sum plus number
+end for
+
+show "Sum of 1-20:"
+show sum
+
+show "Creating large string array:"
+set many_words to ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"]
+
+show "Processing all strings:"
+for each word in many_words
+  show word
+end for
+
+show "Performance test completed!"

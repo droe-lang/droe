@@ -1,0 +1,34 @@
+show "While Loops in Roelang"
+show "======================"
+
+show "1. Basic counting loop:"
+set counter to 1
+
+while counter is less than or equal to 5
+  show counter
+  set counter to counter plus 1
+end while
+
+show "Loop completed!"
+
+show "2. Countdown loop:"
+set countdown to 3
+
+while countdown is greater than 0
+  show countdown
+  set countdown to countdown minus 1
+end while
+
+show "Blast off!"
+
+show "3. Accumulator loop:"
+set i to 1
+set total to 0
+
+while i is less than or equal to 4
+  set total to total plus i
+  set i to i plus 1
+end while
+
+show "Sum of 1+2+3+4 ="
+show total

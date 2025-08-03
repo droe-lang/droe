@@ -10,7 +10,16 @@
       "Bash(git push:*)",
       "Bash(git add:*)",
       "Bash(wat2wasm:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(chmod:*)",
+      "Bash(./sync-dev.sh:*)",
+      "Bash(roe run:*)",
+      "Bash(roe compile:*)",
+      "Bash(cat:*)",
+      "Bash(echo:*)",
+      "Bash(node:*)",
+      "Bash(find:*)"
     ],
     "deny": []
   }

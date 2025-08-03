@@ -1,0 +1,16 @@
+show "Welcome to Roelang!"
+show "This example demonstrates the 'show' statement"
+
+show "You can display text with double quotes:"
+show "Hello, World!"
+
+show "Or with single quotes:"
+show 'Single quotes work too!'
+
+show "Numbers can be displayed via variables:"
+set answer to 42
+show answer
+
+show "Boolean values via variables:"
+set flag to true
+show flag

@@ -1,0 +1,31 @@
+show "Variables in Roelang"
+show "==================="
+
+show "1. Basic variable assignment:"
+set count to 42
+set message to "Hello"
+show count
+show message
+
+show "2. Type-safe variable declarations:"
+set age which is number to 25
+set name which is text to "Alice"
+set active which is boolean to true
+
+show age
+show name
+show active
+
+show "3. Same-type reassignment works:"
+set age to 30
+set name to "Bob"
+show age
+show name
+
+show "4. Arithmetic with variables:"
+set x to 10
+set y to 5
+set sum to x plus y
+set product to x times y
+show sum
+show product

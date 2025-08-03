@@ -1,0 +1,24 @@
+show "Unit Test: Variables"
+show "===================="
+
+show "Testing basic variable assignment:"
+set x to 42
+show x
+
+show "Testing string variables:"
+set name to "Alice"
+show name
+
+show "Testing type-safe declarations:"
+set count which is number to 100
+set title which is text to "Test"
+show count
+show title
+
+show "Testing arithmetic:"
+set a to 10
+set b to 5
+set sum to a plus b
+show sum
+
+show "Variable tests completed successfully!"

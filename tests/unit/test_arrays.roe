@@ -1,0 +1,30 @@
+show "Unit Test: Arrays"
+show "================="
+
+show "Testing number arrays:"
+set numbers to [1, 2, 3, 4, 5]
+
+for each num in numbers
+  show num
+end for
+
+show "Testing string arrays:"
+set words to ["hello", "world", "test"]
+
+for each word in words
+  show word
+end for
+
+show "Testing type-safe arrays:"
+set scores which are group of numbers to [95, 87, 92]
+set names which are group of text to ["Alice", "Bob"]
+
+for each score in scores
+  show score
+end for
+
+for each name in names
+  show name
+end for
+
+show "Array tests completed successfully!"

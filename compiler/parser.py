@@ -102,8 +102,42 @@ class Parser:
         return IfStatement(condition=condition, then_body=then_body)
     
     def parse_assignment(self, line: str) -> Assignment:
-        """Parse a variable assignment (set x to value)."""
-        # Match pattern: set variable to value
+        """Parse a variable assignment (set x to value or set x which are group of type to value)."""
+        # Match pattern with optional type declaration:
+        # set variable to value
+        # set variable which are group of type to value
+        
+        # First try the typed array version
+        typed_array_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+are\s+group\s+of\s+(\w+)\s+to\s+(.+)', line, re.IGNORECASE)
+        if typed_array_match:
+            variable = typed_array_match.group(1)
+            declared_type = typed_array_match.group(2).lower()
+            value_str = typed_array_match.group(3)
+            
+            # Parse the value expression
+            value = self.parse_expression(value_str)
+            
+            # Add type information to the assignment
+            assignment = Assignment(variable=variable, value=value)
+            assignment.declared_type = declared_type  # Store the declared type for arrays
+            return assignment
+        
+        # Try the typed variable version  
+        typed_var_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+(?:a\s+)?(\w+)\s+to\s+(.+)', line, re.IGNORECASE)
+        if typed_var_match:
+            variable = typed_var_match.group(1)
+            declared_type = typed_var_match.group(2).lower()
+            value_str = typed_var_match.group(3)
+            
+            # Parse the value expression
+            value = self.parse_expression(value_str)
+            
+            # Add type information to the assignment
+            assignment = Assignment(variable=variable, value=value)
+            assignment.declared_var_type = declared_type  # Store the declared type for variables
+            return assignment
+        
+        # Fallback to regular assignment
         match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+to\s+(.+)', line, re.IGNORECASE)
         if not match:
             raise ParseError(f"Invalid assignment statement: {line}")

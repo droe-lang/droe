@@ -1,0 +1,8 @@
+show "Error Test: Type Mismatches"
+show "==========================="
+
+show "This file contains examples that should FAIL compilation"
+show "Use these to test error handling"
+
+show "1. Mixed array types (should fail):"
+set bad_array to ["hello", 42, "world"]

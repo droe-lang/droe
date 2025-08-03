@@ -6,11 +6,23 @@ import json
 from pathlib import Path
 import importlib.util
 
-# Load compiler.py from ~/.roelang/
+# Load compiler from ~/.roelang/
 def load_compiler():
+    # First try to load the new modular compiler
+    compiler_module_path = Path.home() / ".roelang" / "compiler"
+    if compiler_module_path.exists() and (compiler_module_path / "__init__.py").exists():
+        # Add the parent directory to sys.path so we can import the module
+        sys.path.insert(0, str(Path.home() / ".roelang"))
+        try:
+            from compiler import compiler
+            return compiler
+        except ImportError:
+            pass
+    
+    # Fallback to standalone compiler
     compiler_path = Path.home() / ".roelang" / "compiler.py"
     if not compiler_path.exists():
-        print("❌ Error: compiler.py not found in ~/.roelang/")
+        print("❌ Error: compiler not found in ~/.roelang/")
         exit(1)
 
     spec = importlib.util.spec_from_file_location("compiler", str(compiler_path))
@@ -103,7 +115,11 @@ if not roe_file.exists() or not roe_file.suffix == ".roe":
 build_dir.mkdir(exist_ok=True)
 
 # Compile to .wat
-compiler.compile_roe_to_wat(roe_file, wat_file)
+# Try new compiler API first, then fallback to old
+if hasattr(compiler, 'compile_file'):
+    compiler.compile_file(str(roe_file), str(wat_file))
+else:
+    compiler.compile_roe_to_wat(roe_file, wat_file)
 
 # Compile to .wasm
 os.system(f"wat2wasm {wat_file} -o {wasm_file}")
