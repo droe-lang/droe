@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+from pathlib import Path
+import importlib.util
+
+# Load compiler.py from ~/.roelang/
+def load_compiler():
+    compiler_path = Path.home() / ".roelang" / "compiler.py"
+    if not compiler_path.exists():
+        print("❌ Error: compiler.py not found in ~/.roelang/")
+        exit(1)
+
+    spec = importlib.util.spec_from_file_location("compiler", str(compiler_path))
+    compiler = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(compiler)
+    return compiler
+
+# Load config from roeconfig.json if available
+def load_config():
+    default_config = {"src": "src", "build": "build"}
+    config_path = Path.cwd() / "roeconfig.json"
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+                return {
+                    "src": config.get("src", "src"),
+                    "build": config.get("build", "build")
+                }
+        except Exception as e:
+            print(f"❌ Error reading roeconfig.json: {e}")
+            exit(1)
+    return default_config
+
+# Initialize a Roelang project
+def init_project():
+    project_root = Path.cwd()
+    src_dir = project_root / "src"
+    build_dir = project_root / "build"
+    config_path = project_root / "roeconfig.json"
+
+    if any(project_root.iterdir()) and not config_path.exists():
+        confirm = input("⚠️ Current directory is not empty. Continue? (y/N): ")
+        if confirm.lower() != "y":
+            print("❌ Aborted.")
+            exit(1)
+
+    src_dir.mkdir(exist_ok=True)
+    build_dir.mkdir(exist_ok=True)
+
+    if not config_path.exists():
+        with open(config_path, "w") as f:
+            json.dump({"src": "src", "build": "build"}, f, indent=2)
+        print("✅ Created roeconfig.json")
+
+    print("✅ Initialized empty Roelang project.")
+    print("\nNext steps:")
+    print("  Add a file to src/, e.g. src/main.roe")
+    print("  roe run main.roe")
+
+# Load compiler
+compiler = load_compiler()
+
+# Command line parsing
+if len(sys.argv) < 2:
+    print("Usage:\n  roe init\n  roe compile <filename>\n  roe run <filename>")
+    exit(1)
+
+command = sys.argv[1]
+
+if command == "init":
+    init_project()
+    exit(0)
+
+if len(sys.argv) < 3:
+    print("Usage:\n  roe compile <filename>\n  roe run <filename>")
+    exit(1)
+
+roe_filename = sys.argv[2]
+config = load_config()
+
+# Resolve paths based on config
+project_root = Path.cwd()
+src_dir = project_root / config["src"]
+build_dir = project_root / config["build"]
+tool_dir = Path.home() / ".roelang"
+runtime = tool_dir / "run.js"
+
+roe_file = src_dir / roe_filename
+basename = roe_file.stem
+wat_file = build_dir / f"{basename}.wat"
+wasm_file = build_dir / f"{basename}.wasm"
+
+# Validations
+if not roe_file.exists() or not roe_file.suffix == ".roe":
+    print(f"❌ Error: {roe_file} not found or not a .roe file")
+    exit(1)
+
+# Ensure build directory exists
+build_dir.mkdir(exist_ok=True)
+
+# Compile to .wat
+compiler.compile_roe_to_wat(roe_file, wat_file)
+
+# Compile to .wasm
+os.system(f"wat2wasm {wat_file} -o {wasm_file}")
+
+# Run if needed
+if command == "run":
+    os.system(f"node {runtime} {wasm_file}")

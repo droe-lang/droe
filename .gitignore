@@ -1,0 +1,56 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Installer and build artifacts
+build/
+dist/
+*.spec
+
+# PyInstaller temp files
+*.bak
+*.log
+*.tmp
+*.pkg
+*.dmg
+*.DS_Store
+
+# Mac-specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# VSCode and other editor settings
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Virtual environments
+venv/
+env/
+.roelang/
+
+# Optional logs
+*.log
+
+# Runtime output
+*.wasm
+*.wat
+*.out
+
+# Generated configs
+*.egg-info/
+*.pyo
+
+# OS junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+CLAUDE.md
