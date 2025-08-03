@@ -10,7 +10,7 @@ pyinstaller installer_gui.py \
   --windowed \
   --name "Roelang Installer" \
   --add-data "roe:." \
-  --add-data "compiler.py:." \
+  --add-data "compiler_standalone.py:." \
   --add-data "run.js:." \
   --icon=assets/icon.icns
 
