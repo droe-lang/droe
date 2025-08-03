@@ -1,0 +1,3 @@
+Display This is the legacy syntax without quotes
+Display It only supports a single Display statement per file
+Display The new compiler still supports this for backward compatibility

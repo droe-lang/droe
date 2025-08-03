@@ -38,7 +38,7 @@ def install():
 
         # Copy binaries
         shutil.copy(BASE_DIR / "roe", BIN_DIR / "roe")
-        shutil.copy(BASE_DIR / "compiler.py", ROELANG_DIR / "compiler.py")
+        shutil.copy(BASE_DIR / "compiler_standalone.py", ROELANG_DIR / "compiler.py")
         shutil.copy(BASE_DIR / "run.js", ROELANG_DIR / "run.js")
 
         # Make CLI executable (Unix only)

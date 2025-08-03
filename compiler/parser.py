@@ -1,0 +1,164 @@
+"""Parser for Roe DSL - converts DSL text to AST."""
+
+import re
+from typing import List, Optional, Tuple
+from .ast import (
+    ASTNode, Program, DisplayStatement, IfStatement,
+    Literal, Identifier, BinaryOp, PropertyAccess
+)
+
+
+class ParseError(Exception):
+    """Raised when parsing fails."""
+    pass
+
+
+class Parser:
+    """Simple recursive-descent parser for Roe DSL."""
+    
+    def __init__(self, source: str):
+        self.source = source
+        self.lines = source.strip().split('\n')
+        self.current_line = 0
+    
+    def parse(self) -> Program:
+        """Parse the entire program."""
+        statements = []
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            if not line:  # Skip empty lines
+                self.current_line += 1
+                continue
+                
+            stmt = self.parse_statement(line)
+            if stmt:
+                statements.append(stmt)
+            self.current_line += 1
+        
+        return Program(statements=statements)
+    
+    def parse_statement(self, line: str) -> Optional[ASTNode]:
+        """Parse a single statement."""
+        line = line.strip()
+        
+        # Display/Show statement
+        if line.startswith('display ') or line.startswith('show '):
+            return self.parse_display(line)
+        
+        # If/When statement
+        elif line.startswith('if ') or line.startswith('when '):
+            return self.parse_if(line)
+        
+        else:
+            raise ParseError(f"Unknown statement: {line}")
+    
+    def parse_display(self, line: str) -> DisplayStatement:
+        """Parse a display/show statement."""
+        # Remove 'display ' or 'show ' prefix
+        if line.startswith('display '):
+            content = line[8:].strip()
+        elif line.startswith('show '):
+            content = line[5:].strip()
+        else:
+            raise ParseError(f"Invalid display statement: {line}")
+        
+        # Parse the expression
+        expr = self.parse_expression(content)
+        return DisplayStatement(expression=expr)
+    
+    def parse_if(self, line: str) -> IfStatement:
+        """Parse an if/when-then statement."""
+        # Simple regex to extract condition and then-body
+        match = re.match(r'(?:if|when)\s+(.+?)\s+then\s+(.+)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid if/when statement: {line}")
+        
+        condition_str = match.group(1)
+        then_str = match.group(2)
+        
+        # Parse condition
+        condition = self.parse_expression(condition_str)
+        
+        # Parse then body (for now, just a single statement)
+        then_stmt = self.parse_statement(then_str)
+        then_body = [then_stmt] if then_stmt else []
+        
+        # TODO: Support multi-line if statements and else clauses
+        
+        return IfStatement(condition=condition, then_body=then_body)
+    
+    def parse_expression(self, expr_str: str) -> ASTNode:
+        """Parse an expression."""
+        expr_str = expr_str.strip()
+        
+        # Boolean literals (check these early to avoid "is" operator confusion)
+        if expr_str.lower() == 'true' or expr_str.lower() == 'the condition is true':
+            return Literal(value=True, type='boolean')
+        elif expr_str.lower() == 'false' or expr_str.lower() == 'the condition is false':
+            return Literal(value=False, type='boolean')
+        
+        # String literal
+        if (expr_str.startswith('"') and expr_str.endswith('"')) or \
+           (expr_str.startswith("'") and expr_str.endswith("'")):
+            return Literal(value=expr_str[1:-1], type='string')
+        
+        # Number literal
+        try:
+            if '.' in expr_str:
+                return Literal(value=float(expr_str), type='number')
+            else:
+                return Literal(value=int(expr_str), type='number')
+        except ValueError:
+            pass
+        
+        # Natural language operators (check these first)
+        natural_ops = [
+            (' is greater than or equal to ', '>='),
+            (' is less than or equal to ', '<='),
+            (' is greater than ', '>'),
+            (' is less than ', '<'),
+            (' does not equal ', '!='),
+            (' is not equal to ', '!='),
+            (' is not ', '!='),
+            (' equals ', '=='),
+            (' is equal to ', '=='),
+            (' is ', '=='),  # Generic 'is' maps to equality
+        ]
+        
+        for natural_op, symbol_op in natural_ops:
+            if natural_op in expr_str:
+                parts = expr_str.split(natural_op, 1)
+                if len(parts) == 2:
+                    left = self.parse_expression(parts[0].strip())
+                    right = self.parse_expression(parts[1].strip())
+                    return BinaryOp(left=left, operator=symbol_op, right=right)
+        
+        # Binary operations (symbolic - check after natural language)
+        for op in ['>=', '<=', '==', '!=', '>', '<', '+', '-', '*', '/']:
+            if op in expr_str:
+                parts = expr_str.split(op, 1)
+                if len(parts) == 2:
+                    left = self.parse_expression(parts[0].strip())
+                    right = self.parse_expression(parts[1].strip())
+                    return BinaryOp(left=left, operator=op, right=right)
+        
+        # Property access (e.g., user.age)
+        if '.' in expr_str:
+            parts = expr_str.split('.', 1)
+            if len(parts) == 2:
+                obj = Identifier(name=parts[0].strip())
+                return PropertyAccess(object=obj, property=parts[1].strip())
+        
+        
+        # Simple identifier
+        if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr_str):
+            return Identifier(name=expr_str)
+        
+        raise ParseError(f"Unable to parse expression: {expr_str}")
+
+
+def parse(source: str) -> Program:
+    """Convenience function to parse Roe DSL source code."""
+    parser = Parser(source)
+    return parser.parse()
