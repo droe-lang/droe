@@ -20,7 +20,8 @@
       "Bash(cat:*)",
       "Bash(echo:*)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

@@ -94,17 +94,35 @@ if len(sys.argv) < 3:
 roe_filename = sys.argv[2]
 config = load_config()
 
-# Resolve paths based on config
+# Resolve paths
 project_root = Path.cwd()
-src_dir = project_root / config["src"]
-build_dir = project_root / config["build"]
+config_build_dir = project_root / config["build"]
 tool_dir = Path.home() / ".roelang"
 runtime = tool_dir / "run.js"
 
-roe_file = src_dir / roe_filename
+# Handle file path relative to current working directory
+roe_file = Path(roe_filename)
+if not roe_file.is_absolute():
+    roe_file = project_root / roe_filename
+
+# Create build directory based on source file location
+# If file is in a subdirectory, maintain that structure in build
+relative_path = roe_file.relative_to(project_root) if roe_file.is_relative_to(project_root) else roe_file.name
 basename = roe_file.stem
-wat_file = build_dir / f"{basename}.wat"
-wasm_file = build_dir / f"{basename}.wasm"
+
+# Determine build directory - use config build dir or create alongside source
+if config["build"] == "build" and not (project_root / "roeconfig.json").exists():
+    # No config file, create build files alongside source
+    build_dir = roe_file.parent
+    wat_file = build_dir / f"{basename}.wat"  
+    wasm_file = build_dir / f"{basename}.wasm"
+else:
+    # Use configured build directory, maintaining subdirectory structure
+    build_dir = config_build_dir
+    if relative_path.parent != Path("."):
+        build_dir = build_dir / relative_path.parent
+    wat_file = build_dir / f"{basename}.wat"
+    wasm_file = build_dir / f"{basename}.wasm"
 
 # Validations
 if not roe_file.exists() or not roe_file.suffix == ".roe":
@@ -112,7 +130,7 @@ if not roe_file.exists() or not roe_file.suffix == ".roe":
     exit(1)
 
 # Ensure build directory exists
-build_dir.mkdir(exist_ok=True)
+build_dir.mkdir(parents=True, exist_ok=True)
 
 # Compile to .wat
 # Try new compiler API first, then fallback to old
