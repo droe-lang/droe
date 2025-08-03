@@ -31,8 +31,8 @@ class WATCodeGenerator:
         self.emit("(module")
         self.indent_level += 1
         
-        # Import display function
-        self.emit('(import "env" "display" (func $display (param i32)))')
+        # Import print function  
+        self.emit('(import "env" "print" (func $print (param i32 i32)))')
         
         # Memory for string storage
         self.emit('(memory 1)')
@@ -127,13 +127,15 @@ class WATCodeGenerator:
         self.emit(';; display statement')
         
         if isinstance(stmt.expression, Literal) and stmt.expression.type == 'string':
-            # Get string index
+            # Get string index and calculate offset
             string_index = self.string_constants.get(stmt.expression.value, 0)
             offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
+            string_length = len(stmt.expression.value)
             
-            # Push string address and call display
+            # Push string address and length, then call print
             self.emit(f'i32.const {offset}')
-            self.emit('call $display')
+            self.emit(f'i32.const {string_length}')
+            self.emit('call $print')
         
         else:
             # TODO: Support other expression types
