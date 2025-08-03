@@ -5,13 +5,11 @@ show "The following features are parsed but not yet implemented in code generati
 show "1. Property access (parsed but not compiled):"
 show "Example: when user.age is greater than 18 then show 'adult'"
 
-show "2. Variables and identifiers (parsed but not compiled):"
-show "Example: when myVariable is greater than 10 then show 'big'"
+show "2. Arrays and for each loops (parsed but basic implementation):"
+show "Example: set items to ['apple', 'banana']"
+show "Example: for each item in items ... end for"
 
-show "3. Arithmetic operations in show (parsed but not compiled):"
-show "Example: show 5 + 3"
-
-show "4. Multi-line when statements (not parsed):"
+show "3. Multi-line when statements (not parsed):"
 show "Example: when condition then"
 show "  statement1"
 show "  statement2"

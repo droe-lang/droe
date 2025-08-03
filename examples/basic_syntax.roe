@@ -1,0 +1,29 @@
+show "Basic Roelang Syntax Examples"
+show "================================"
+
+show "Numbers, strings, and booleans:"
+set age to 25
+set name to "Alice"
+set isStudent to true
+
+show age
+show name  
+show isStudent
+
+show "Arithmetic:"
+set x to 10
+set y to 5
+set sum to x plus y
+set difference to x minus y
+set product to x times y
+set quotient to x divided by y
+
+show sum
+show difference
+show product
+show quotient
+
+show "Conditionals:"
+when age is greater than 18 then show "You are an adult"
+when isStudent equals true then show "You are a student"
+when x is greater than y then show "X is bigger than Y"

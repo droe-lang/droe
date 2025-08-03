@@ -1,0 +1,30 @@
+show "=== Roelang Variables and Loops Demo ==="
+
+show "1. Variable assignments:"
+set counter to 1
+set name to "Roelang"
+set isActive to true
+
+show "2. Displaying variables:"
+show counter
+show name
+show isActive
+
+show "3. Arithmetic operations:"
+set counter to counter plus 1
+show counter
+set result to 5 times 3
+show result
+
+show "4. While loop example:"
+set i to 1
+while i is less than 4
+  show i
+  set i to i plus 1
+end while
+
+show "5. Comparison operations:"
+when counter is greater than 0 then show "Counter is positive"
+when name equals "Roelang" then show "Name matches!"
+
+show "=== Demo completed! ==="

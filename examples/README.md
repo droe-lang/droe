@@ -12,6 +12,9 @@ Shows all currently implemented features:
 - Natural language operators: "is greater than", "is less than", "equals", etc.
 - Symbolic operators: >, <, >=, <=, ==, !=
 - Boolean literals (true, false, "the condition is true")
+- **NEW: Variable assignments with natural language**
+- **NEW: Arithmetic operations with natural language**
+- **NEW: While loops with natural language**
 
 ### limitations.roe
 Documents features that are partially implemented or planned:
@@ -23,6 +26,19 @@ Documents features that are partially implemented or planned:
 - Loops
 - Functions
 - Variable assignments
+
+### variables_and_loops.roe
+Comprehensive demo of the new variable and loop features:
+- Variable assignments: `set name to "value"`
+- Arithmetic: `set result to x plus y`
+- While loops: `while condition ... end while`
+- Variable display and comparisons
+
+### simple_counter.roe  
+Simple counter loop example showing while loops in action.
+
+### basic_syntax.roe
+Basic examples of variables, arithmetic, and conditionals.
 
 ### legacy_syntax.roe
 Shows the original "Display" syntax that's still supported for backward compatibility.

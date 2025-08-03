@@ -5,7 +5,12 @@
       "Bash(python test:*)",
       "Bash(mv:*)",
       "Bash(python -m compiler.compiler:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(wat2wasm:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

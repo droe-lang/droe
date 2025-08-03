@@ -53,6 +53,42 @@ class PropertyAccess(ASTNode):
 
 
 @dataclass
+class Assignment(ASTNode):
+    """Represents a variable assignment (set x to value)."""
+    variable: str
+    value: ASTNode
+
+
+@dataclass
+class ArrayLiteral(ASTNode):
+    """Represents an array literal like ["a", "b", "c"]."""
+    elements: List[ASTNode]
+
+
+@dataclass
+class WhileLoop(ASTNode):
+    """Represents a while loop."""
+    condition: ASTNode
+    body: List[ASTNode]
+
+
+@dataclass
+class ForEachLoop(ASTNode):
+    """Represents a for each loop."""
+    variable: str
+    iterable: ASTNode
+    body: List[ASTNode]
+
+
+@dataclass
+class ArithmeticOp(ASTNode):
+    """Represents arithmetic operations (+, -, *, /)."""
+    left: ASTNode
+    operator: str
+    right: ASTNode
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]

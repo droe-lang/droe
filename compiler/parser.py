@@ -4,7 +4,8 @@ import re
 from typing import List, Optional, Tuple
 from .ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
-    Literal, Identifier, BinaryOp, PropertyAccess
+    Literal, Identifier, BinaryOp, PropertyAccess,
+    Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp
 )
 
 
@@ -18,7 +19,7 @@ class Parser:
     
     def __init__(self, source: str):
         self.source = source
-        self.lines = source.strip().split('\n')
+        self.lines = [line.strip() for line in source.strip().split('\n')]
         self.current_line = 0
     
     def parse(self) -> Program:
@@ -49,6 +50,18 @@ class Parser:
         # If/When statement
         elif line.startswith('if ') or line.startswith('when '):
             return self.parse_if(line)
+        
+        # Variable assignment (set x to value)
+        elif line.startswith('set '):
+            return self.parse_assignment(line)
+        
+        # While loop
+        elif line.startswith('while '):
+            return self.parse_while_loop()
+        
+        # For each loop
+        elif line.startswith('for each ') or line.startswith('loop '):
+            return self.parse_foreach_loop()
         
         else:
             raise ParseError(f"Unknown statement: {line}")
@@ -88,6 +101,91 @@ class Parser:
         
         return IfStatement(condition=condition, then_body=then_body)
     
+    def parse_assignment(self, line: str) -> Assignment:
+        """Parse a variable assignment (set x to value)."""
+        # Match pattern: set variable to value
+        match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+to\s+(.+)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid assignment statement: {line}")
+        
+        variable = match.group(1)
+        value_str = match.group(2)
+        
+        # Parse the value expression
+        value = self.parse_expression(value_str)
+        return Assignment(variable=variable, value=value)
+    
+    def parse_while_loop(self) -> WhileLoop:
+        """Parse a while loop (multi-line)."""
+        # Current line should be "while condition"
+        line = self.lines[self.current_line]
+        
+        # Extract condition
+        match = re.match(r'while\s+(.+)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid while statement: {line}")
+        
+        condition_str = match.group(1)
+        condition = self.parse_expression(condition_str)
+        
+        # Parse body until "end while"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() == 'end while':
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError("Missing 'end while' for while loop")
+        
+        return WhileLoop(condition=condition, body=body)
+    
+    def parse_foreach_loop(self) -> ForEachLoop:
+        """Parse a for each loop (multi-line)."""
+        # Current line should be "for each item in items" or "loop item in items"
+        line = self.lines[self.current_line]
+        
+        # Extract variable and iterable
+        match = re.match(r'(?:for each|loop)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.+)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid for each statement: {line}")
+        
+        variable = match.group(1)
+        iterable_str = match.group(2)
+        iterable = self.parse_expression(iterable_str)
+        
+        # Parse body until "end for" or "end loop"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end for', 'end loop']:
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError("Missing 'end for' or 'end loop' for loop")
+        
+        return ForEachLoop(variable=variable, iterable=iterable, body=body)
+    
     def parse_expression(self, expr_str: str) -> ASTNode:
         """Parse an expression."""
         expr_str = expr_str.strip()
@@ -97,6 +195,10 @@ class Parser:
             return Literal(value=True, type='boolean')
         elif expr_str.lower() == 'false' or expr_str.lower() == 'the condition is false':
             return Literal(value=False, type='boolean')
+        
+        # Array literal
+        if expr_str.startswith('[') and expr_str.endswith(']'):
+            return self.parse_array_literal(expr_str)
         
         # String literal
         if (expr_str.startswith('"') and expr_str.endswith('"')) or \
@@ -124,6 +226,10 @@ class Parser:
             (' equals ', '=='),
             (' is equal to ', '=='),
             (' is ', '=='),  # Generic 'is' maps to equality
+            (' plus ', '+'),
+            (' minus ', '-'),
+            (' times ', '*'),
+            (' divided by ', '/'),
         ]
         
         for natural_op, symbol_op in natural_ops:
@@ -132,7 +238,11 @@ class Parser:
                 if len(parts) == 2:
                     left = self.parse_expression(parts[0].strip())
                     right = self.parse_expression(parts[1].strip())
-                    return BinaryOp(left=left, operator=symbol_op, right=right)
+                    # Use ArithmeticOp for arithmetic operators, BinaryOp for comparisons
+                    if symbol_op in ['+', '-', '*', '/']:
+                        return ArithmeticOp(left=left, operator=symbol_op, right=right)
+                    else:
+                        return BinaryOp(left=left, operator=symbol_op, right=right)
         
         # Binary operations (symbolic - check after natural language)
         for op in ['>=', '<=', '==', '!=', '>', '<', '+', '-', '*', '/']:
@@ -141,7 +251,11 @@ class Parser:
                 if len(parts) == 2:
                     left = self.parse_expression(parts[0].strip())
                     right = self.parse_expression(parts[1].strip())
-                    return BinaryOp(left=left, operator=op, right=right)
+                    # Use ArithmeticOp for arithmetic operators, BinaryOp for comparisons
+                    if op in ['+', '-', '*', '/']:
+                        return ArithmeticOp(left=left, operator=op, right=right)
+                    else:
+                        return BinaryOp(left=left, operator=op, right=right)
         
         # Property access (e.g., user.age)
         if '.' in expr_str:
@@ -156,6 +270,27 @@ class Parser:
             return Identifier(name=expr_str)
         
         raise ParseError(f"Unable to parse expression: {expr_str}")
+    
+    def parse_array_literal(self, expr_str: str) -> ArrayLiteral:
+        """Parse an array literal like ["a", "b", "c"]."""
+        # Remove brackets
+        content = expr_str[1:-1].strip()
+        
+        if not content:  # Empty array
+            return ArrayLiteral(elements=[])
+        
+        # Split by commas and parse each element
+        elements = []
+        # Simple comma splitting (doesn't handle nested arrays properly, but sufficient for now)
+        parts = content.split(',')
+        
+        for part in parts:
+            part = part.strip()
+            if part:
+                element = self.parse_expression(part)
+                elements.append(element)
+        
+        return ArrayLiteral(elements=elements)
 
 
 def parse(source: str) -> Program:

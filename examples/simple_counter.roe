@@ -1,0 +1,9 @@
+set counter to 1
+show "Starting counter loop:"
+
+while counter is less than or equal to 5
+  show counter
+  set counter to counter plus 1
+end while
+
+show "Counter loop completed!"

@@ -60,9 +60,106 @@ class PropertyAccess(ASTNode):
 
 
 @dataclass
+class Assignment(ASTNode):
+    """Represents a variable assignment (set x to value)."""
+    variable: str
+    value: ASTNode
+
+
+@dataclass
+class ArrayLiteral(ASTNode):
+    """Represents an array literal like ["a", "b", "c"]."""
+    elements: List[ASTNode]
+
+
+@dataclass
+class WhileLoop(ASTNode):
+    """Represents a while loop."""
+    condition: ASTNode
+    body: List[ASTNode]
+
+
+@dataclass
+class ForEachLoop(ASTNode):
+    """Represents a for each loop."""
+    variable: str
+    iterable: ASTNode
+    body: List[ASTNode]
+
+
+@dataclass
+class ArithmeticOp(ASTNode):
+    """Represents arithmetic operations (+, -, *, /)."""
+    left: ASTNode
+    operator: str
+    right: ASTNode
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]
+
+
+# ============= Symbol Table =============
+
+from enum import Enum
+
+
+class VariableType(Enum):
+    """Supported variable types."""
+    NUMBER = "number"
+    STRING = "string"
+    BOOLEAN = "boolean"
+    ARRAY = "array"
+
+
+class Variable:
+    """Represents a variable in the symbol table."""
+    
+    def __init__(self, name: str, var_type: VariableType, value: Any = None, wasm_index: int = -1):
+        self.name = name
+        self.type = var_type
+        self.value = value
+        self.wasm_index = wasm_index  # Index in WASM local variables
+
+
+class SymbolTable:
+    """Manages variables and their types during compilation."""
+    
+    def __init__(self):
+        self.variables = {}
+        self.next_local_index = 0
+    
+    def declare_variable(self, name: str, var_type: VariableType, value: Any = None):
+        """Declare a new variable."""
+        if name in self.variables:
+            # Allow redeclaration (assignment)
+            var = self.variables[name]
+            var.type = var_type
+            var.value = value
+            return var
+        
+        var = Variable(name, var_type, value, self.next_local_index)
+        self.variables[name] = var
+        self.next_local_index += 1
+        return var
+    
+    def get_variable(self, name: str):
+        """Get a variable by name."""
+        return self.variables.get(name)
+    
+    def has_variable(self, name: str) -> bool:
+        """Check if variable exists."""
+        return name in self.variables
+    
+    def get_all_variables(self):
+        """Get all variables."""
+        return self.variables.copy()
+    
+    def get_local_count(self) -> int:
+        """Get the number of local variables needed."""
+        return self.next_local_index
 
 
 # ============= Parser =============
