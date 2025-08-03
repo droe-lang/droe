@@ -5,7 +5,8 @@ from typing import List, Optional, Tuple
 from .ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
-    Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp
+    Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp,
+    TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation
 )
 
 
@@ -62,6 +63,23 @@ class Parser:
         # For each loop
         elif line.startswith('for each ') or line.startswith('loop '):
             return self.parse_foreach_loop()
+        
+        # Task action definition
+        elif line.startswith('task '):
+            return self.parse_task_action()
+        
+        # Task invocation
+        elif line.startswith('run '):
+            return self.parse_task_invocation(line)
+        
+        # Action definition
+        elif line.startswith('action '):
+            return self.parse_action_definition()
+        
+        # Return statements (respond with, answer is, output, give)
+        elif (line.startswith('respond with ') or line.startswith('answer is ') or 
+              line.startswith('output ') or line.startswith('give ')):
+            return self.parse_return_statement(line)
         
         else:
             raise ParseError(f"Unknown statement: {line}")
@@ -299,8 +317,11 @@ class Parser:
                 return PropertyAccess(object=obj, property=parts[1].strip())
         
         
-        # Simple identifier
+        # Action invocation (for getting return values in expressions)
+        # Check if this could be an action call - we'll determine at code gen if it's an action vs variable
         if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr_str):
+            # This could be either a variable or an action invocation
+            # We'll resolve this during code generation
             return Identifier(name=expr_str)
         
         raise ParseError(f"Unable to parse expression: {expr_str}")
@@ -325,6 +346,104 @@ class Parser:
                 elements.append(element)
         
         return ArrayLiteral(elements=elements)
+    
+    def parse_task_action(self) -> TaskAction:
+        """Parse a task action definition (task name ... end)."""
+        # Current line should be "task name"
+        line = self.lines[self.current_line]
+        
+        # Extract task name
+        match = re.match(r'task\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid task statement: {line}")
+        
+        task_name = match.group(1)
+        
+        # Parse body until "end"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() == 'end':
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end' for task '{task_name}'")
+        
+        return TaskAction(name=task_name, body=body)
+    
+    def parse_task_invocation(self, line: str) -> TaskInvocation:
+        """Parse a task invocation (run task_name)."""
+        # Extract task name
+        match = re.match(r'run\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid run statement: {line}")
+        
+        task_name = match.group(1)
+        return TaskInvocation(task_name=task_name)
+    
+    def parse_action_definition(self) -> ActionDefinition:
+        """Parse an action definition (action name ... end action)."""
+        # Current line should be "action name"
+        line = self.lines[self.current_line]
+        
+        # Extract action name
+        match = re.match(r'action\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid action statement: {line}")
+        
+        action_name = match.group(1)
+        
+        # Parse body until "end action" or "end"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end action', 'end']:
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end action' or 'end' for action '{action_name}'")
+        
+        return ActionDefinition(name=action_name, body=body)
+    
+    def parse_return_statement(self, line: str) -> ReturnStatement:
+        """Parse return statements with natural language."""
+        
+        # Try different natural language patterns
+        patterns = [
+            (r'respond\s+with\s+(.+)', 'respond_with'),
+            (r'answer\s+is\s+(.+)', 'answer_is'),
+            (r'output\s+(.+)', 'output'),
+            (r'give\s+(.+)', 'give')
+        ]
+        
+        for pattern, return_type in patterns:
+            match = re.match(pattern, line, re.IGNORECASE)
+            if match:
+                expression_str = match.group(1)
+                expression = self.parse_expression(expression_str)
+                return ReturnStatement(expression=expression, return_type=return_type)
+        
+        raise ParseError(f"Invalid return statement: {line}")
 
 
 def parse(source: str) -> Program:

@@ -1,0 +1,31 @@
+show "=== Task Actions Demo ==="
+
+task send_reminder
+  show "Don't forget to log in"
+end
+
+task greet_user
+  show "Hello! Welcome to Roelang"
+  show "Hope you enjoy using task actions!"
+end
+
+task process_data
+  set count to 5
+  show "Processing data..."
+  show count
+  show "Processing complete!"
+end
+
+show "Running send_reminder task:"
+run send_reminder
+
+show ""
+show "Running greet_user task:"
+run greet_user
+
+show ""
+show "Running process_data task:"
+run process_data
+
+show ""
+show "Task actions demonstration complete!"

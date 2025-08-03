@@ -4,7 +4,8 @@ from typing import List, Dict, Any
 from .ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
-    Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp
+    Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp,
+    TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation
 )
 from .symbols import SymbolTable, VariableType
 
@@ -27,6 +28,8 @@ class WATCodeGenerator:
         self.needs_itoa = False  # Track if we need the integer-to-string function
         self.memory_offset = 1024  # Start arrays after string constants
         self.array_metadata = {}  # Map array var name to (offset, length, element_type)
+        self.task_definitions = {}  # Map task name -> TaskAction
+        self.action_definitions = {}  # Map action name -> ActionDefinition
         
     def generate(self, ast: Program) -> str:
         """Generate WAT code from AST."""
@@ -51,7 +54,14 @@ class WATCodeGenerator:
         for stmt in ast.statements:
             self.visit(stmt)
         
-        # First pass: collect variables from assignments
+        # First pass: collect task and action definitions
+        for stmt in ast.statements:
+            if isinstance(stmt, TaskAction):
+                self.task_definitions[stmt.name] = stmt
+            elif isinstance(stmt, ActionDefinition):
+                self.action_definitions[stmt.name] = stmt
+        
+        # Second pass: collect variables from assignments (now that actions are known)
         for stmt in ast.statements:
             self.collect_variables(stmt)
         
@@ -122,6 +132,41 @@ class WATCodeGenerator:
             self.visit(node.left)
             self.visit(node.right)
         
+        elif isinstance(node, TaskAction):
+            # Visit task body to collect string constants
+            for stmt in node.body:
+                self.visit(stmt)
+        
+        elif isinstance(node, ActionDefinition):
+            # Visit action body to collect string constants
+            for stmt in node.body:
+                self.visit(stmt)
+        
+        elif isinstance(node, ReturnStatement):
+            # Visit return expression to collect string constants
+            self.visit(node.expression)
+        
+        elif isinstance(node, WhileLoop):
+            self.visit(node.condition)
+            for stmt in node.body:
+                self.visit(stmt)
+        
+        elif isinstance(node, ForEachLoop):
+            self.visit(node.iterable)
+            for stmt in node.body:
+                self.visit(stmt)
+        
+        elif isinstance(node, Assignment):
+            self.visit(node.value)
+        
+        elif isinstance(node, ArithmeticOp):
+            self.visit(node.left)
+            self.visit(node.right)
+        
+        elif isinstance(node, ArrayLiteral):
+            for elem in node.elements:
+                self.visit(elem)
+        
         elif isinstance(node, Program):
             for stmt in node.statements:
                 self.visit(stmt)
@@ -159,6 +204,16 @@ class WATCodeGenerator:
             if node.else_body:
                 for stmt in node.else_body:
                     self.collect_variables(stmt)
+        
+        elif isinstance(node, TaskAction):
+            # Collect variables from task body
+            for stmt in node.body:
+                self.collect_variables(stmt)
+        
+        elif isinstance(node, ActionDefinition):
+            # Collect variables from action body
+            for stmt in node.body:
+                self.collect_variables(stmt)
     
     def infer_type(self, node: ASTNode) -> VariableType:
         """Infer the type of a value node."""
@@ -172,13 +227,23 @@ class WATCodeGenerator:
         elif isinstance(node, ArrayLiteral):
             return VariableType.ARRAY
         elif isinstance(node, Identifier):
-            # Look up existing variable type
-            var = self.symbol_table.get_variable(node.name)
-            if var:
-                return var.type
-            else:
-                # Default to string if unknown
+            # Check if this is an action invocation
+            if node.name in self.action_definitions:
+                # For actions, we need to infer return type from the action body
+                action = self.action_definitions[node.name]
+                for stmt in action.body:
+                    if isinstance(stmt, ReturnStatement):
+                        return self.infer_type(stmt.expression)
+                # Default to string if no return statement
                 return VariableType.STRING
+            else:
+                # Look up existing variable type
+                var = self.symbol_table.get_variable(node.name)
+                if var:
+                    return var.type
+                else:
+                    # Default to string if unknown
+                    return VariableType.STRING
         elif isinstance(node, ArithmeticOp):
             return VariableType.NUMBER
         elif isinstance(node, BinaryOp):
@@ -295,6 +360,18 @@ class WATCodeGenerator:
         elif isinstance(stmt, ForEachLoop):
             self.emit_foreach_loop(stmt)
         
+        elif isinstance(stmt, TaskAction):
+            self.emit_task_action(stmt)
+        
+        elif isinstance(stmt, TaskInvocation):
+            self.emit_task_invocation(stmt)
+        
+        elif isinstance(stmt, ActionDefinition):
+            self.emit_action_definition(stmt)
+        
+        elif isinstance(stmt, ReturnStatement):
+            self.emit_return_statement(stmt)
+        
         else:
             raise CodeGenError(f"Unsupported statement type: {type(stmt).__name__}")
     
@@ -314,35 +391,71 @@ class WATCodeGenerator:
             self.emit('call $print')
         
         elif isinstance(stmt.expression, Identifier):
-            # Display a variable - for now, convert numbers to strings
-            var = self.symbol_table.get_variable(stmt.expression.name)
-            if not var:
-                raise CodeGenError(f"Undeclared variable: {stmt.expression.name}")
-            
-            if var.type == VariableType.NUMBER:
-                # Print number directly
-                self.needs_itoa = True
-                self.emit(f'local.get {var.wasm_index}')
-                self.emit('call $print_i32')
-            elif var.type == VariableType.STRING:
-                # For string variables, they contain memory offsets
-                # We need to calculate the length and print the string
-                self.emit(f'local.get {var.wasm_index}')  # Get offset
-                self.emit('call $print_string_from_offset')
+            # Check if this is an action invocation or variable
+            if stmt.expression.name in self.action_definitions:
+                # This is an action invocation - get its return value and display it
+                action = self.action_definitions[stmt.expression.name]
+                action_return_type = None
+                
+                # Find the return type from the action
+                for action_stmt in action.body:
+                    if isinstance(action_stmt, ReturnStatement):
+                        action_return_type = self.infer_type(action_stmt.expression)
+                        break
+                
+                # Execute the action and get return value
+                self.emit_action_invocation(stmt.expression.name)
+                
+                # Display based on return type
+                if action_return_type == VariableType.NUMBER:
+                    self.emit('call $print_i32')
+                elif action_return_type == VariableType.STRING:
+                    # For string actions returning literals, we need both offset and length
+                    # The action returns just the offset, we need to get the length
+                    # For now, let's emit both offset and length manually
+                    for action_stmt in action.body:
+                        if isinstance(action_stmt, ReturnStatement) and isinstance(action_stmt.expression, Literal):
+                            string_value = action_stmt.expression.value
+                            string_length = len(string_value)
+                            self.emit(f'i32.const {string_length}')
+                            self.emit('call $print')
+                            break
+                    else:
+                        # Fallback if we can't determine length
+                        self.emit('call $print_string_from_offset')
+                else:
+                    # Default to string offset display
+                    self.emit('call $print_string_from_offset')
             else:
-                # For other types, use placeholder
-                placeholder = f"<{var.type.value}:{stmt.expression.name}>"
-                if placeholder not in self.string_constants:
-                    self.string_constants[placeholder] = self.next_string_index
-                    self.next_string_index += 1
+                # Display a variable - for now, convert numbers to strings
+                var = self.symbol_table.get_variable(stmt.expression.name)
+                if not var:
+                    raise CodeGenError(f"Undeclared variable or action: {stmt.expression.name}")
                 
-                string_index = self.string_constants[placeholder]
-                offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
-                string_length = len(placeholder)
-                
-                self.emit(f'i32.const {offset}')
-                self.emit(f'i32.const {string_length}')
-                self.emit('call $print')
+                if var.type == VariableType.NUMBER:
+                    # Print number directly
+                    self.needs_itoa = True
+                    self.emit(f'local.get {var.wasm_index}')
+                    self.emit('call $print_i32')
+                elif var.type == VariableType.STRING:
+                    # For string variables, they contain memory offsets
+                    # We need to calculate the length and print the string
+                    self.emit(f'local.get {var.wasm_index}')  # Get offset
+                    self.emit('call $print_string_from_offset')
+                else:
+                    # For other types, use placeholder
+                    placeholder = f"<{var.type.value}:{stmt.expression.name}>"
+                    if placeholder not in self.string_constants:
+                        self.string_constants[placeholder] = self.next_string_index
+                        self.next_string_index += 1
+                    
+                    string_index = self.string_constants[placeholder]
+                    offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
+                    string_length = len(placeholder)
+                    
+                    self.emit(f'i32.const {offset}')
+                    self.emit(f'i32.const {string_length}')
+                    self.emit('call $print')
         
         else:
             # TODO: Support other expression types
@@ -419,11 +532,16 @@ class WATCodeGenerator:
             raise CodeGenError("Property access not yet implemented")
         
         elif isinstance(expr, Identifier):
-            # Load variable value
-            var = self.symbol_table.get_variable(expr.name)
-            if not var:
-                raise CodeGenError(f"Undeclared variable: {expr.name}")
-            self.emit(f'local.get {var.wasm_index}')
+            # Check if this is an action invocation or variable
+            if expr.name in self.action_definitions:
+                # This is an action invocation - inline the action and get its return value
+                self.emit_action_invocation(expr.name)
+            else:
+                # Load variable value
+                var = self.symbol_table.get_variable(expr.name)
+                if not var:
+                    raise CodeGenError(f"Undeclared variable or action: {expr.name}")
+                self.emit(f'local.get {var.wasm_index}')
         
         elif isinstance(expr, ArithmeticOp):
             # Emit left operand
@@ -605,6 +723,72 @@ class WATCodeGenerator:
             # Execute loop body
             for s in stmt.body:
                 self.emit_statement(s)
+    
+    def emit_task_action(self, stmt: TaskAction):
+        """Emit code for task action definition.""" 
+        # Task actions are stored but not directly emitted as functions
+        # They are inlined when invoked
+        self.emit(f';; task {stmt.name} defined')
+    
+    def emit_task_invocation(self, stmt: TaskInvocation):
+        """Emit code for task invocation."""
+        self.emit(f';; run {stmt.task_name}')
+        
+        # Look up the task definition
+        if stmt.task_name not in self.task_definitions:
+            raise CodeGenError(f"Undefined task: {stmt.task_name}")
+        
+        task = self.task_definitions[stmt.task_name]
+        
+        # Inline the task body
+        self.emit(f';; Begin task {stmt.task_name}')
+        for task_stmt in task.body:
+            self.emit_statement(task_stmt)
+        self.emit(f';; End task {stmt.task_name}')
+    
+    def emit_action_definition(self, stmt: ActionDefinition):
+        """Emit code for action definition."""
+        # Actions are stored but not directly emitted as functions
+        # They are inlined when invoked and return values
+        self.emit(f';; action {stmt.name} defined')
+    
+    def emit_action_invocation(self, action_name: str):
+        """Emit code for action invocation (used in expressions)."""
+        self.emit(f';; invoke action {action_name}')
+        
+        # Look up the action definition
+        if action_name not in self.action_definitions:
+            raise CodeGenError(f"Undefined action: {action_name}")
+        
+        action = self.action_definitions[action_name]
+        
+        # Actions need to return a value
+        # We'll execute the action body and the last return statement provides the value
+        self.emit(f';; Begin action {action_name}')
+        return_value_emitted = False
+        
+        for action_stmt in action.body:
+            if isinstance(action_stmt, ReturnStatement):
+                # Emit the return expression value
+                self.emit_expression(action_stmt.expression)
+                return_value_emitted = True
+            else:
+                # Execute other statements in the action
+                self.emit_statement(action_stmt)
+        
+        # If no return statement was found, emit a default value
+        if not return_value_emitted:
+            self.emit(';; No return statement found, defaulting to 0')
+            self.emit('i32.const 0')
+        
+        self.emit(f';; End action {action_name}')
+    
+    def emit_return_statement(self, stmt: ReturnStatement):
+        """Emit code for return statement."""
+        # Return statements are handled specially in action invocations
+        # This method is called when a return statement appears as a statement
+        self.emit(f';; return statement ({stmt.return_type})')
+        # The actual return value emission is handled in emit_action_invocation
 
 
 def generate_wat(ast: Program) -> str:

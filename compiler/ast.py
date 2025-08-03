@@ -89,6 +89,39 @@ class ArithmeticOp(ASTNode):
 
 
 @dataclass
+class TaskAction(ASTNode):
+    """Represents a task action definition (task name ... end)."""
+    name: str
+    body: List[ASTNode]
+
+
+@dataclass
+class TaskInvocation(ASTNode):
+    """Represents a task invocation (run task_name)."""
+    task_name: str
+
+
+@dataclass
+class ActionDefinition(ASTNode):
+    """Represents an action definition (action name ... end action)."""
+    name: str
+    body: List[ASTNode]
+
+
+@dataclass
+class ReturnStatement(ASTNode):
+    """Represents a return statement (respond with, answer is, output, give)."""
+    expression: ASTNode
+    return_type: str  # 'respond_with', 'answer_is', 'output', 'give'
+
+
+@dataclass
+class ActionInvocation(ASTNode):
+    """Represents an action invocation that returns a value."""
+    action_name: str
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]

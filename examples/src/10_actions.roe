@@ -1,0 +1,47 @@
+show "=== Actions with Return Values Demo ==="
+
+action get_greeting
+  respond with "Hello"
+end action
+
+action get_farewell
+  answer is "Goodbye"
+end action
+
+action get_number
+  output 42
+end action
+
+action get_message
+  give "Actions are working!"
+end action
+
+show "Testing different return statement types:"
+
+show ""
+show "get_greeting returns:"
+show get_greeting
+
+show ""
+show "get_farewell returns:"
+show get_farewell
+
+show ""
+show "get_number returns:"
+show get_number
+
+show ""
+show "get_message returns:"
+show get_message
+
+show ""
+show "Using action return values in expressions:"
+set greeting to get_greeting
+show greeting
+
+set number to get_number
+set doubled to number times 2
+show doubled
+
+show ""
+show "Actions demo complete!"
