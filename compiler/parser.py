@@ -6,7 +6,10 @@ from .ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
     Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp,
-    TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation
+    TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
+    ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams, 
+    ActionParameter, ActionInvocationWithArgs, StringInterpolation,
+    DataInstance, FieldAssignment
 )
 
 
@@ -20,8 +23,74 @@ class Parser:
     
     def __init__(self, source: str):
         self.source = source
-        self.lines = [line.strip() for line in source.strip().split('\n')]
+        # Process comments before splitting into lines
+        self.source = self._remove_comments(source)
+        self.lines = [line.strip() for line in self.source.strip().split('\n')]
         self.current_line = 0
+    
+    def _remove_comments(self, source: str) -> str:
+        """Remove single-line (//) and multi-line (/* */) comments from source code."""
+        result = []
+        lines = source.split('\n')
+        in_multiline_comment = False
+        
+        for line in lines:
+            processed_line = ""
+            i = 0
+            in_string = False
+            string_char = None
+            
+            while i < len(line):
+                char = line[i]
+                
+                # Handle string boundaries
+                if not in_multiline_comment and not in_string and (char == '"' or char == "'"):
+                    in_string = True
+                    string_char = char
+                    processed_line += char
+                    i += 1
+                    continue
+                elif in_string and char == string_char:
+                    # Check if it's escaped
+                    if i > 0 and line[i-1] != '\\':
+                        in_string = False
+                        string_char = None
+                    processed_line += char
+                    i += 1
+                    continue
+                
+                # Skip comment processing if inside a string
+                if in_string:
+                    processed_line += char
+                    i += 1
+                    continue
+                
+                # Check for multi-line comment start
+                if not in_multiline_comment and i < len(line) - 1 and line[i:i+2] == '/*':
+                    in_multiline_comment = True
+                    i += 2
+                    continue
+                
+                # Check for multi-line comment end
+                if in_multiline_comment and i < len(line) - 1 and line[i:i+2] == '*/':
+                    in_multiline_comment = False
+                    i += 2
+                    continue
+                
+                # Check for single-line comment start (only if not in multi-line comment)
+                if not in_multiline_comment and i < len(line) - 1 and line[i:i+2] == '//':
+                    # Rest of line is comment, break
+                    break
+                
+                # Add character if not in comment
+                if not in_multiline_comment:
+                    processed_line += char
+                
+                i += 1
+            
+            result.append(processed_line.rstrip())
+        
+        return '\n'.join(result)
     
     def parse(self) -> Program:
         """Parse the entire program."""
@@ -72,9 +141,20 @@ class Parser:
         elif line.startswith('run '):
             return self.parse_task_invocation(line)
         
-        # Action definition
+        # Module definition
+        elif line.startswith('module '):
+            return self.parse_module_definition()
+        
+        # Data definition
+        elif line.startswith('data '):
+            return self.parse_data_definition()
+        
+        # Action definition (check for parameterized actions first)
         elif line.startswith('action '):
-            return self.parse_action_definition()
+            if ' with ' in line or ' gives ' in line:
+                return self.parse_action_definition_with_params()
+            else:
+                return self.parse_action_definition()
         
         # Return statements (respond with, answer is, output, give)
         elif (line.startswith('respond with ') or line.startswith('answer is ') or 
@@ -124,13 +204,76 @@ class Parser:
         # Match pattern with optional type declaration:
         # set variable to value
         # set variable which are group of type to value
+        # set variable which is type from expression
         
-        # First try the typed array version
-        typed_array_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+are\s+group\s+of\s+(\w+)\s+to\s+(.+)', line, re.IGNORECASE)
+        # First try data instance creation: set variable which is DataType with field1 is value1, field2 is value2
+        data_instance_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+([A-Z][a-zA-Z0-9_]*)\s+with\s+(.+)', line, re.IGNORECASE)
+        if data_instance_match:
+            variable = data_instance_match.group(1)
+            data_type = data_instance_match.group(2)
+            fields_str = data_instance_match.group(3)
+            
+            # Parse field assignments
+            field_assignments = []
+            field_parts = fields_str.split(',')
+            for field_part in field_parts:
+                field_part = field_part.strip()
+                field_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+is\s+(.+)', field_part, re.IGNORECASE)
+                if field_match:
+                    field_name = field_match.group(1)
+                    field_value_str = field_match.group(2)
+                    field_value = self.parse_expression(field_value_str)
+                    field_assignments.append(FieldAssignment(field_name=field_name, value=field_value))
+                else:
+                    raise ParseError(f"Invalid field assignment: {field_part}")
+            
+            # Create data instance
+            data_instance = DataInstance(data_type=data_type, field_values=field_assignments)
+            
+            # Create assignment with data instance
+            assignment = Assignment(variable=variable, value=data_instance)
+            assignment.declared_var_type = data_type  # Store the data type (keep original case)
+            return assignment
+        
+        # Try the "from" syntax with type
+        from_typed_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+(?:a\s+)?(\w+)\s+from\s+(.+)', line, re.IGNORECASE)
+        if from_typed_match:
+            variable = from_typed_match.group(1)
+            declared_type = from_typed_match.group(2).lower()
+            value_str = from_typed_match.group(3)
+            
+            # Parse the value expression (might be a function call)
+            value = self.parse_expression(value_str)
+            
+            # Add type information to the assignment
+            assignment = Assignment(variable=variable, value=value)
+            assignment.declared_var_type = declared_type  # Store the declared type for variables
+            return assignment
+        
+        # Try the typed array versions (list of / group of)
+        # Pattern: set variable which are (list of|group of) type to value
+        typed_array_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+are\s+(list\s+of|group\s+of)\s+(\w+)\s+to\s+(.+)', line, re.IGNORECASE)
         if typed_array_match:
             variable = typed_array_match.group(1)
-            declared_type = typed_array_match.group(2).lower()
-            value_str = typed_array_match.group(3)
+            collection_type = typed_array_match.group(2).lower().replace(' ', '_')  # "list of" -> "list_of"
+            element_type = typed_array_match.group(3).lower()
+            value_str = typed_array_match.group(4)
+            
+            # Parse the value expression
+            value = self.parse_expression(value_str)
+            
+            # Add type information to the assignment
+            assignment = Assignment(variable=variable, value=value)
+            assignment.declared_type = element_type  # Store the element type
+            assignment.collection_type = collection_type  # Store the collection type
+            return assignment
+        
+        # Legacy: set variable which are group of type to value
+        legacy_array_match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+are\s+group\s+of\s+(\w+)\s+to\s+(.+)', line, re.IGNORECASE)
+        if legacy_array_match:
+            variable = legacy_array_match.group(1)
+            declared_type = legacy_array_match.group(2).lower()
+            value_str = legacy_array_match.group(3)
             
             # Parse the value expression
             value = self.parse_expression(value_str)
@@ -238,6 +381,38 @@ class Parser:
         
         return ForEachLoop(variable=variable, iterable=iterable, body=body)
     
+    def _is_complete_quoted_string(self, expr_str: str) -> bool:
+        """Check if the expression is a complete quoted string (not a concatenation with quotes)."""
+        if not ((expr_str.startswith('"') and expr_str.endswith('"')) or 
+                (expr_str.startswith("'") and expr_str.endswith("'"))):
+            return False
+        
+        # Check if there are unescaped quotes in the middle that would indicate concatenation
+        quote_char = expr_str[0]
+        inside_content = expr_str[1:-1]
+        
+        # Simple check: if there are operators like + outside of quotes, it's not a simple string
+        # For now, just check if there are any + operators in the expression
+        if '+' in expr_str:
+            return False
+        
+        return True
+    
+    def _find_operator_outside_quotes(self, expr_str: str, operator: str) -> int:
+        """Find the position of an operator that's not inside quoted strings."""
+        i = 0
+        while i < len(expr_str):
+            if expr_str[i:i+len(operator)] == operator:
+                # Check if we're inside quotes
+                quote_count_single = expr_str[:i].count("'") - expr_str[:i].count("\\'")
+                quote_count_double = expr_str[:i].count('"') - expr_str[:i].count('\\"')
+                
+                # If we have an even number of quotes (or zero), we're outside quotes
+                if quote_count_single % 2 == 0 and quote_count_double % 2 == 0:
+                    return i
+            i += 1
+        return -1
+    
     def parse_expression(self, expr_str: str) -> ASTNode:
         """Parse an expression."""
         expr_str = expr_str.strip()
@@ -252,10 +427,15 @@ class Parser:
         if expr_str.startswith('[') and expr_str.endswith(']'):
             return self.parse_array_literal(expr_str)
         
-        # String literal
-        if (expr_str.startswith('"') and expr_str.endswith('"')) or \
-           (expr_str.startswith("'") and expr_str.endswith("'")):
-            return Literal(value=expr_str[1:-1], type='string')
+        # String literal (check for interpolation first) - only if it's a complete quoted string
+        if self._is_complete_quoted_string(expr_str):
+            string_content = expr_str[1:-1]
+            
+            # Check if string contains interpolation markers [variable]
+            if '[' in string_content and ']' in string_content:
+                return self.parse_string_interpolation(string_content)
+            else:
+                return Literal(value=string_content, type='string')
         
         # Number literal
         try:
@@ -285,11 +465,13 @@ class Parser:
         ]
         
         for natural_op, symbol_op in natural_ops:
-            if natural_op in expr_str:
-                parts = expr_str.split(natural_op, 1)
-                if len(parts) == 2:
-                    left = self.parse_expression(parts[0].strip())
-                    right = self.parse_expression(parts[1].strip())
+            op_pos = self._find_operator_outside_quotes(expr_str, natural_op)
+            if op_pos != -1:
+                left_part = expr_str[:op_pos].strip()
+                right_part = expr_str[op_pos + len(natural_op):].strip()
+                if left_part and right_part:
+                    left = self.parse_expression(left_part)
+                    right = self.parse_expression(right_part)
                     # Use ArithmeticOp for arithmetic operators, BinaryOp for comparisons
                     if symbol_op in ['+', '-', '*', '/']:
                         return ArithmeticOp(left=left, operator=symbol_op, right=right)
@@ -298,16 +480,47 @@ class Parser:
         
         # Binary operations (symbolic - check after natural language)
         for op in ['>=', '<=', '==', '!=', '>', '<', '+', '-', '*', '/']:
-            if op in expr_str:
-                parts = expr_str.split(op, 1)
-                if len(parts) == 2:
-                    left = self.parse_expression(parts[0].strip())
-                    right = self.parse_expression(parts[1].strip())
+            op_pos = self._find_operator_outside_quotes(expr_str, op)
+            if op_pos != -1:
+                left_part = expr_str[:op_pos].strip()
+                right_part = expr_str[op_pos + len(op):].strip()
+                if left_part and right_part:
+                    left = self.parse_expression(left_part)
+                    right = self.parse_expression(right_part)
                     # Use ArithmeticOp for arithmetic operators, BinaryOp for comparisons
                     if op in ['+', '-', '*', '/']:
                         return ArithmeticOp(left=left, operator=op, right=right)
                     else:
                         return BinaryOp(left=left, operator=op, right=right)
+        
+        # Function call with arguments (run module.action with arg1, arg2)
+        run_match = re.match(r'run\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s+with\s+(.+)', expr_str, re.IGNORECASE)
+        if run_match:
+            function_name = run_match.group(1)
+            args_str = run_match.group(2)
+            
+            # Parse module.action format
+            if '.' in function_name:
+                module_name, action_name = function_name.split('.', 1)
+            else:
+                module_name = None
+                action_name = function_name
+            
+            # Parse arguments
+            arguments = []
+            if args_str.strip():
+                # Simple comma splitting (doesn't handle nested commas properly, but sufficient for now)
+                arg_parts = args_str.split(',')
+                for arg_part in arg_parts:
+                    arg_part = arg_part.strip()
+                    if arg_part:
+                        arguments.append(self.parse_expression(arg_part))
+            
+            return ActionInvocationWithArgs(
+                module_name=module_name, 
+                action_name=action_name, 
+                arguments=arguments
+            )
         
         # Property access (e.g., user.age)
         if '.' in expr_str:
@@ -346,6 +559,53 @@ class Parser:
                 elements.append(element)
         
         return ArrayLiteral(elements=elements)
+    
+    def parse_string_interpolation(self, string_content: str) -> StringInterpolation:
+        """Parse a string with variable interpolation like 'Hello [name]'."""
+        parts = []
+        current_pos = 0
+        
+        while current_pos < len(string_content):
+            # Find the next interpolation marker
+            start_bracket = string_content.find('[', current_pos)
+            
+            if start_bracket == -1:
+                # No more interpolation, add remaining text as literal
+                if current_pos < len(string_content):
+                    remaining_text = string_content[current_pos:]
+                    if remaining_text:  # Only add non-empty text
+                        parts.append(Literal(value=remaining_text, type='string'))
+                break
+            
+            # Add text before the bracket as literal
+            if start_bracket > current_pos:
+                text_before = string_content[current_pos:start_bracket]
+                if text_before:  # Only add non-empty text
+                    parts.append(Literal(value=text_before, type='string'))
+            
+            # Find the closing bracket
+            end_bracket = string_content.find(']', start_bracket)
+            if end_bracket == -1:
+                raise ParseError(f"Unclosed interpolation bracket in string: {string_content}")
+            
+            # Extract variable name
+            var_name = string_content[start_bracket + 1:end_bracket].strip()
+            if not var_name:
+                raise ParseError(f"Empty interpolation bracket in string: {string_content}")
+            
+            # Check if this is property access (object.property)
+            if '.' in var_name:
+                obj_name, prop_name = var_name.split('.', 1)
+                obj_identifier = Identifier(name=obj_name.strip())
+                parts.append(PropertyAccess(object=obj_identifier, property=prop_name.strip()))
+            else:
+                # Add variable as identifier
+                parts.append(Identifier(name=var_name))
+            
+            # Move past the closing bracket
+            current_pos = end_bracket + 1
+        
+        return StringInterpolation(parts=parts)
     
     def parse_task_action(self) -> TaskAction:
         """Parse a task action definition (task name ... end)."""
@@ -444,6 +704,156 @@ class Parser:
                 return ReturnStatement(expression=expression, return_type=return_type)
         
         raise ParseError(f"Invalid return statement: {line}")
+    
+    def parse_module_definition(self) -> ModuleDefinition:
+        """Parse a module definition (module name ... end module)."""
+        # Current line should be "module name"
+        line = self.lines[self.current_line]
+        
+        # Extract module name
+        match = re.match(r'module\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid module statement: {line}")
+        
+        module_name = match.group(1)
+        
+        # Parse body until "end module" or "end"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end module', 'end']:
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end module' or 'end' for module '{module_name}'")
+        
+        return ModuleDefinition(name=module_name, body=body)
+    
+    def parse_data_definition(self) -> DataDefinition:
+        """Parse a data structure definition (data Name ... end data)."""
+        # Current line should be "data Name"
+        line = self.lines[self.current_line]
+        
+        # Extract data name
+        match = re.match(r'data\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid data statement: {line}")
+        
+        data_name = match.group(1)
+        
+        # Parse fields until "end data" or "end"
+        fields = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end data', 'end']:
+                break
+            
+            if line:  # Skip empty lines
+                # Parse field definition: "name is type"
+                field_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+is\s+(\w+)', line, re.IGNORECASE)
+                if field_match:
+                    field_name = field_match.group(1)
+                    field_type = field_match.group(2).lower()
+                    fields.append(DataField(name=field_name, type=field_type))
+                else:
+                    raise ParseError(f"Invalid field definition: {line}")
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end data' or 'end' for data '{data_name}'")
+        
+        return DataDefinition(name=data_name, fields=fields)
+    
+    def parse_action_definition_with_params(self) -> ActionDefinitionWithParams:
+        """Parse an action definition with parameters (action name with param1 which is type1, param2 which is type2 gives return_type)."""
+        # Current line should be "action name [with params] [gives return_type]"
+        line = self.lines[self.current_line]
+        
+        # Parse the action signature
+        # Pattern: action name [with param1 which is type1, param2 which is type2] [gives return_type]
+        action_match = re.match(r'action\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not action_match:
+            raise ParseError(f"Invalid action statement: {line}")
+        
+        action_name = action_match.group(1)
+        parameters = []
+        return_type = None
+        
+        # Check for parameters
+        with_match = re.search(r'\s+with\s+(.+?)(?:\s+gives\s+(\w+))?$', line, re.IGNORECASE)
+        if with_match:
+            params_str = with_match.group(1)
+            return_type = with_match.group(2)
+            
+            # Parse parameters: "param1 which is type1, param2 which is type2"
+            if params_str:
+                param_parts = params_str.split(',')
+                for param_part in param_parts:
+                    param_part = param_part.strip()
+                    # Handle compound types like "list of text" or "group of int"
+                    compound_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+(?:a\s+)?(list\s+of|group\s+of)\s+(\w+)', param_part, re.IGNORECASE)
+                    if compound_match:
+                        param_name = compound_match.group(1)
+                        collection_type = compound_match.group(2).lower().replace(' ', '_')
+                        element_type = compound_match.group(3).lower()
+                        param_type = f"{collection_type}_{element_type}"  # e.g., "list_of_text"
+                        parameters.append(ActionParameter(name=param_name, type=param_type))
+                    else:
+                        # Regular type
+                        param_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+(?:a\s+)?(\w+)', param_part, re.IGNORECASE)
+                        if param_match:
+                            param_name = param_match.group(1)
+                            param_type = param_match.group(2).lower()
+                            parameters.append(ActionParameter(name=param_name, type=param_type))
+                        else:
+                            raise ParseError(f"Invalid parameter definition: {param_part}")
+        
+        # Check for return type without parameters
+        elif ' gives ' in line:
+            gives_match = re.search(r'\s+gives\s+(\w+)', line, re.IGNORECASE)
+            if gives_match:
+                return_type = gives_match.group(1).lower()
+        
+        # Parse body until "end action" or "end"
+        body = []
+        self.current_line += 1  # Move to next line
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end action', 'end']:
+                break
+            
+            if line:  # Skip empty lines
+                stmt = self.parse_statement(line)
+                if stmt:
+                    body.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end action' or 'end' for action '{action_name}'")
+        
+        return ActionDefinitionWithParams(
+            name=action_name, 
+            parameters=parameters, 
+            return_type=return_type, 
+            body=body
+        )
 
 
 def parse(source: str) -> Program:

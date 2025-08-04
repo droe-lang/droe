@@ -1,0 +1,4 @@
+set numbers which are list of int to [1, 2, 3]
+set names which are group of text to ["Alice", "Bob", "Charlie"]
+display numbers
+display names

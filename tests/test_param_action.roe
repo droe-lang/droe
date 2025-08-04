@@ -1,0 +1,17 @@
+module calculator
+
+  action add with x which is int, y which is int gives int
+    give x + y
+  end action
+
+  action greet with name which is text, age which is int gives text
+    give "Hello " + name
+  end action
+
+end module
+
+set result which is int from run calculator.add with 10, 5
+set greeting which is text from run calculator.greet with "Alice", 25
+
+display result
+display greeting

@@ -1,0 +1,14 @@
+module user
+
+  data User
+    name is text
+    email is text
+  end data
+
+  action greet with name which is text, age which is number gives text
+    give "Hello, " + name
+  end action
+
+end module
+
+set result which is text from run user.greet with "Alice", 12

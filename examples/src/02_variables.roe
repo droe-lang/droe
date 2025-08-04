@@ -1,31 +1,37 @@
-show "Variables in Roelang"
-show "==================="
+display "Variables in Roelang"
+display "==================="
 
-show "1. Basic variable assignment:"
-set count to 42
-set message to "Hello"
-show count
-show message
+display "1. Modern type system:"
+set count which is int to 42
+set price which is decimal to 99.50
+set message which is text to "Hello"
+set active which is flag to true
+set ready which is yesno to false
 
-show "2. Type-safe variable declarations:"
-set age which is number to 25
-set name which is text to "Alice"
-set active which is boolean to true
+display count
+display price  
+display message
+display active
+display ready
 
-show age
-show name
-show active
+display "2. String interpolation:"
+display "Count: [count], Message: [message]"
+display "Price: $[price], Active: [active]"
 
-show "3. Same-type reassignment works:"
-set age to 30
-set name to "Bob"
-show age
-show name
+display "3. String concatenation:"
+set greeting to "Hello " + message + "!"
+display greeting
 
-show "4. Arithmetic with variables:"
-set x to 10
-set y to 5
-set sum to x plus y
-set product to x times y
-show sum
-show product
+display "4. Collections:"
+set numbers which are list of int to [1, 2, 3, 4, 5]
+set names which are group of text to ["Alice", "Bob", "Charlie"]
+display numbers
+display names
+
+display "5. Arithmetic with variables:"
+set x which is int to 10
+set y which is int to 5
+set sum to x + y
+set product to x * y
+display sum
+display product

@@ -1,0 +1,4 @@
+set is_active which is boolean to true
+set is_complete which is boolean to false
+display is_active
+display is_complete

@@ -1,0 +1,22 @@
+module user
+
+  data User
+    name is text
+    email is text
+  end data
+  
+  action create_greeting with name which is text gives text
+    give "Welcome, " + name
+  end action
+
+  action create_welcome with user which is User
+    give user
+  end action
+
+end module
+
+set greeting which is text from run user.create_greeting with "Bob"
+display greeting
+
+set user which is User with name is "Bob", email is "bob@example.com"
+display "[user.name] email is [user.email]"

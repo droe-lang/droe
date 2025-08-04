@@ -1,0 +1,10 @@
+module user
+
+  action greet with name which is text gives text
+    give "Hello, " + name
+  end action
+
+end module
+
+set result which is text from run user.greet with "Alice"
+display result

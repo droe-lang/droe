@@ -1,0 +1,15 @@
+set age which is int to 25
+set price which is decimal to 99
+set is_active which is flag to true
+set is_complete which is yesno to false
+set name which is text to "John"
+set birthday which is date to 1234567890
+set config which is file to "/path/to/config.txt"
+
+display age
+display price
+display is_active
+display is_complete
+display name
+display birthday
+display config

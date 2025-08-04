@@ -6,10 +6,30 @@ from enum import Enum
 
 class VariableType(Enum):
     """Supported variable types."""
-    NUMBER = "number"
-    STRING = "string"
-    BOOLEAN = "boolean"
-    ARRAY = "array"
+    # Numeric types
+    INT = "int"
+    DECIMAL = "decimal"
+    NUMBER = "number"  # Legacy support
+    
+    # Boolean types
+    BOOLEAN = "boolean"  # Legacy support
+    FLAG = "flag"
+    YESNO = "yesno"
+    
+    # Text types
+    STRING = "string"  # Legacy support
+    TEXT = "text"
+    
+    # Date type
+    DATE = "date"
+    
+    # Collection types
+    ARRAY = "array"  # Legacy support
+    LIST_OF = "list_of"
+    GROUP_OF = "group_of"
+    
+    # File type
+    FILE = "file"
 
 
 class Variable:

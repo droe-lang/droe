@@ -37,12 +37,34 @@ roe run main.roe
 
 ## 🗂️ Project Structure
 
+### Roelang Project Structure
 ```
 my-project/
 ├── src/
 │   └── main.roe       # Your Roelang source file
 ├── build/             # Generated .wat and .wasm files
-└── roeconfig.json     # (coming soon) project configuration
+└── roeconfig.json     # Project configuration
+```
+
+### Repository Structure
+```
+roelang-installer/
+├── compiler/          # Core compiler components
+│   ├── ast.py        # Abstract Syntax Tree definitions
+│   ├── parser.py     # DSL parser with comment support
+│   ├── codegen_wat.py # WebAssembly Text generation
+│   └── symbols.py    # Symbol table and type system
+├── examples/          # Example programs and documentation
+│   ├── src/          # Example .roe files (01-11)
+│   └── README.md     # Learning guide and feature documentation
+├── tests/            # Comprehensive test suite
+│   ├── unit/         # Unit tests
+│   ├── integration/  # Integration tests
+│   ├── type_system/  # Type system validation
+│   └── README.md     # Test documentation
+├── assets/           # Icons and DMG assets
+├── roe               # Command-line interface
+└── run.js           # WebAssembly runtime
 ```
 
 ---

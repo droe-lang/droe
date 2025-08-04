@@ -1,0 +1,74 @@
+// Modern Roelang Features - All Working!
+// ✅ Strong Type System: int, decimal, flag, text, date, file, list of, group of
+// ✅ String Interpolation: "Hello [name], you are [age] years old"  
+// ✅ String Concatenation: "Hello " + name + "!"
+// ✅ Collections: Arrays with proper display [1, 2, 3]
+// ✅ Module System: Parameterized actions with return types
+// ✅ Data Structures: Custom types with property access
+// ✅ Mixed Expressions: Complex interpolation and concatenation
+// ✅ Comments: Single-line (//) and multi-line (/* */) support
+
+display "=== Modern Roelang Features Demo ==="
+display "Features: Strong Types, String Interpolation, Concatenation, Collections, Modules"
+
+module user_system /* User management module */
+
+  data User
+    name is text      // User's full name
+    age is int        // User's age in years  
+    active is flag    // Account status
+  end data
+
+  action create_greeting with name which is text, age which is int gives text
+    give "Hello " + name + ", you are " + age + " years old!" // Personalized greeting
+  end action
+
+  action check_adult with age which is int gives flag
+    give age >= 18    // Legal adult check
+  end action
+
+end module
+
+display "1. Strong Type System:"
+set username which is text to "Alice"              // Text type
+set user_age which is int to 25                    // Integer type
+set account_active which is flag to true           // Boolean type
+set balance which is decimal to 150.50             // Decimal type
+
+display "Username: [username]"
+display "Age: [user_age]"
+display "Active: [account_active]"
+display "Balance: $[balance]"
+
+display ""
+display "2. Collections:"
+set favorite_numbers which are list of int to [7, 13, 42]
+set programming_languages which are group of text to ["Python", "JavaScript", "Roelang"]
+
+display "Favorite numbers: [favorite_numbers]"
+display "Languages: [programming_languages]"
+
+display ""
+display "3. String Operations:"
+set first_name which is text to "John"
+set last_name which is text to "Doe"
+set full_name to first_name + " " + last_name
+display "Full name: [full_name]"
+
+display ""
+display "4. Module Actions:"
+set greeting which is text from run user_system.create_greeting with username, user_age
+display greeting
+
+set is_adult which is flag from run user_system.check_adult with user_age
+display "Is adult: [is_adult]"
+
+display ""
+display "5. Mixed Expressions:"
+display "Status: [username] ([user_age] years) - Balance: $[balance]"
+
+set welcome_message to "Welcome back, " + username + "! Your balance is $" + balance
+display welcome_message
+
+display ""
+display "Modern Roelang Demo Complete!"

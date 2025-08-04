@@ -1,5 +1,0 @@
-task send_reminder
-  show "Don't forget to log in"
-end
-
-run send_reminder

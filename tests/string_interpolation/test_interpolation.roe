@@ -1,0 +1,10 @@
+set name which is text to "Alice"
+set age which is int to 25
+set active which is flag to true
+
+display "Hello [name]"
+display "You are [age] years old"
+display "Status: [active]"
+
+set greeting which is text to "Welcome, [name]!"
+display greeting

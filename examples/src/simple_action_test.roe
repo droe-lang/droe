@@ -1,5 +1,0 @@
-action get_greeting
-  respond with "Hello"
-end action
-
-show get_greeting

@@ -1,21 +1,22 @@
 # Roelang Examples
 
-This directory contains example Roelang (.roe) files demonstrating all language features. Each example focuses on one core functionality.
+This directory contains example Roelang (.roe) files demonstrating all modern language features. Each example focuses on core functionality with the latest syntax.
 
 ## Example Files
 
 ### 01_display.roe
 **Basic Display Statements**
-- `show` statements with strings
+- `display` statements with strings
 - Double and single quote strings
 - Displaying variables
 
 ### 02_variables.roe  
-**Variables and Type Safety**
-- Basic variable assignment: `set name to value`
-- Type-safe declarations: `set name which is text to "Alice"`
-- Variable reassignment with type checking
-- Arithmetic with variables
+**Modern Type System & String Features**
+- Strong type system: `set name which is text to "Alice"`
+- New type names: `int`, `decimal`, `flag`, `yesno`, `text`
+- String interpolation: `"Hello [name]!"`
+- String concatenation: `"Welcome " + name + "!"`
+- Collections: `list of`, `group of`
 
 ### 03_conditionals.roe
 **Conditional Statements**
@@ -56,24 +57,40 @@ This directory contains example Roelang (.roe) files demonstrating all language 
 - Student grade analysis program
 - Shows real-world usage patterns
 
+### 10_actions.roe
+**Modern Actions with Parameters**
+- Module system: `module name ... end module`
+- Parameterized actions: `action greet with name which is text gives text`
+- Action invocation: `run module.action with arguments`
+- Data structures: `data User ... end data`
+
+### 11_modern_features.roe
+**Complete Modern Feature Demo**
+- All new features in one comprehensive example
+- Real-world usage patterns with modern syntax
+- Best practices demonstration
+
 ## Language Features
 
-### ✅ Fully Implemented
-- **Display**: `show "text"` and `show variable`
-- **Variables**: Type-safe variables with explicit declarations
-- **Arrays**: Homogeneous arrays with type checking
-- **Conditionals**: Natural language comparisons
-- **While Loops**: Full loop control with proper exit
-- **For Each Loops**: Array iteration with type safety
-- **Arithmetic**: Natural language math operations
-- **Type Safety**: Compile-time type checking prevents runtime errors
+### ✅ Fully Implemented Modern Features
+- **Display**: `display "text"` and `display variable`
+- **Strong Type System**: `int`, `decimal`, `text`, `flag`, `yesno`, `date`, `file`
+- **String Interpolation**: `"Hello [name]!"` - Variables in square brackets
+- **String Concatenation**: `"Welcome " + name + "!"` - Tech-friendly + operator
+- **Collections**: `list of type`, `group of type` with type safety
+- **Modules**: Organized code with `module name ... end module`
+- **Parameterized Actions**: Functions with typed parameters and return values
+- **Data Structures**: `data Name ... end data` with typed fields
+- **Type Compatibility**: Related types work together seamlessly
 
-### 🔧 Type System
-- **Explicit Types**: `set name which is text to "value"`
-- **Array Types**: `set items which are group of numbers to [1, 2, 3]`
-- **Type Inference**: Types inferred from first assignment
-- **Type Checking**: Prevents type mismatches at compile time
-- **Error Messages**: Clear, helpful error descriptions
+### 🔧 Enhanced Type System
+- **Numeric Types**: `int` (integers), `decimal` (floating point), `number` (legacy)
+- **Boolean Types**: `flag` (true/false), `yesno` (yes/no), `boolean` (legacy)
+- **Text Types**: `text` (modern), `string` (legacy)
+- **Collection Types**: `list of type`, `group of type`, `array` (legacy)
+- **Special Types**: `date` (timestamps), `file` (file paths)
+- **Type Checking**: Prevents type mismatches with helpful error messages
+- **Type Compatibility**: Compatible types can be used interchangeably
 
 ## Running Examples
 

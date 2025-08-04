@@ -1,0 +1,30 @@
+display "=== Comprehensive Feature Test ==="
+
+display "1. Type System:"
+set name which is text to "Alice"
+set age which is int to 25
+set active which is flag to true
+set balance which is decimal to 100
+
+display name
+display age
+display active
+display balance
+
+display "2. String Interpolation:"
+display "Hello [name]!"
+display "Age: [age], Active: [active]"
+
+display "3. String Concatenation:"
+set greeting to "Welcome " + name
+display greeting
+
+display "4. Collections:"
+set numbers which are list of int to [1, 2, 3]
+display numbers
+
+display "5. Arithmetic:"
+set sum to age + 5
+display sum
+
+display "Test Complete!"

@@ -1,0 +1,11 @@
+module user
+
+  data User
+    name is text
+    email is text
+  end data
+
+end module
+
+set user which is User with name is "Bob", email is "bob@example.com"
+display "[user.name] email is [user.email]"

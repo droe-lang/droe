@@ -1,0 +1,5 @@
+set count which is int to 42
+set price which is decimal to 19
+set ready which is yesno to false
+
+display "Items: [count], Price: $[price], Ready: [ready]"

@@ -122,6 +122,71 @@ class ActionInvocation(ASTNode):
 
 
 @dataclass
+class ModuleDefinition(ASTNode):
+    """Represents a module definition (module name ... end module)."""
+    name: str
+    body: List[ASTNode]
+
+
+@dataclass
+class DataDefinition(ASTNode):
+    """Represents a data structure definition (data Name ... end data)."""
+    name: str
+    fields: List['DataField']
+
+
+@dataclass
+class DataField(ASTNode):
+    """Represents a field in a data structure."""
+    name: str
+    type: str
+
+
+@dataclass
+class ActionDefinitionWithParams(ASTNode):
+    """Represents an action definition with parameters and return type."""
+    name: str
+    parameters: List['ActionParameter']
+    return_type: Optional[str]
+    body: List[ASTNode]
+
+
+@dataclass
+class ActionParameter(ASTNode):
+    """Represents a parameter in an action definition."""
+    name: str
+    type: str
+
+
+@dataclass
+class ActionInvocationWithArgs(ASTNode):
+    """Represents an action invocation with arguments."""
+    module_name: Optional[str]  # For module.action calls
+    action_name: str
+    arguments: List[ASTNode]
+
+
+@dataclass
+class StringInterpolation(ASTNode):
+    """Represents a string with variable interpolation like 'Hello [name]'."""
+    parts: List[ASTNode]  # Mix of Literal (for text) and Identifier (for variables)
+
+
+@dataclass
+class DataInstance(ASTNode):
+    """Represents a data structure instance creation."""
+    data_type: str  # The data type name (e.g., "User")
+    field_values: List['FieldAssignment']  # Field assignments
+
+
+@dataclass
+class FieldAssignment(ASTNode):
+    """Represents a field assignment in data instance creation."""
+    field_name: str
+    value: ASTNode
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]

@@ -1,47 +1,37 @@
-show "=== Actions with Return Values Demo ==="
+display "=== Modern Actions with Parameters Demo ==="
 
-action get_greeting
-  respond with "Hello"
-end action
+module greetings
 
-action get_farewell
-  answer is "Goodbye"
-end action
+  action get_greeting
+    give "Hello"
+  end action
 
-action get_number
-  output 42
-end action
+  action get_farewell
+    give "Goodbye"
+  end action
 
-action get_message
-  give "Actions are working!"
-end action
+  action greet_person with name which is text gives text
+    give "Hello, " + name + "!"
+  end action
 
-show "Testing different return statement types:"
+  action calculate_age with birth_year which is int gives int
+    give 2024 - birth_year
+  end action
 
-show ""
-show "get_greeting returns:"
-show get_greeting
+end module
 
-show ""
-show "get_farewell returns:"
-show get_farewell
+display "Testing simple actions:"
+display greetings.get_greeting
+display greetings.get_farewell
 
-show ""
-show "get_number returns:"
-show get_number
+display "Testing parameterized actions:"
+set personal_greeting which is text from run greetings.greet_person with "Alice"
+display personal_greeting
 
-show ""
-show "get_message returns:"
-show get_message
+set age which is int from run greetings.calculate_age with 1990
+display "You are [age] years old"
 
-show ""
-show "Using action return values in expressions:"
-set greeting to get_greeting
-show greeting
+display "String interpolation with actions:"
+display "Greeting: [personal_greeting]"
 
-set number to get_number
-set doubled to number times 2
-show doubled
-
-show ""
-show "Actions demo complete!"
+display "Actions demo complete!"

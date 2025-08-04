@@ -1,0 +1,2 @@
+set name which is text to "Bob"
+display "Hello [name]!"

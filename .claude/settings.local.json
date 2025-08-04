@@ -21,7 +21,13 @@
       "Bash(echo:*)",
       "Bash(node:*)",
       "Bash(find:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(../roe build)",
+      "Bash(./roe compile:*)",
+      "Bash(./roe:*)",
+      "Bash(true)",
+      "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3 -c \"from compiler.compiler import compile_file; compile_file(''examples/src/11_modern_features.roe'', ''examples/src/11_modern_features.wat'')\")",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

@@ -1,0 +1,11 @@
+set user which is text to "Alice"
+set message to "Welcome " + user + "!"
+display message
+
+set greeting to "Hello " + "World"
+display greeting
+
+set first which is text to "First"
+set second which is text to "Second"
+set combined to first + second
+display combined
