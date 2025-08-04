@@ -1,6 +1,6 @@
 // StringUtils.roe - A utility module for string operations
 
-module StringUtils
+module utils_StringUtils
   action greet with name which is text gives text
     give "Hello, " + name + "!"
   end action

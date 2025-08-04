@@ -1,4 +1,4 @@
-display "Loading MathUtils from utils subdirectory"
+// MathUtils.roe - A utility module for mathematical operations
 
 module utils_MathUtils
 
@@ -9,10 +9,33 @@ module utils_MathUtils
   action multiply with x which is int, y which is int gives int
     give x * y
   end action
+  
+  action multiply_decimal with x which is decimal, y which is decimal gives decimal
+    give x * y
+  end action
 
   action calculate_percentage with part which is decimal, total which is decimal gives decimal
     set ratio which is decimal to part / total
     give ratio * 100
+  end action
+  
+  action calculate_area with width which is decimal, height which is decimal gives decimal
+    set area which is decimal from run utils_MathUtils.multiply_decimal with width, height
+    give area
+  end action
+  
+  action is_even with number which is int gives flag
+    set remainder which is int to number % 2
+    give remainder is equal to 0
+  end action
+  
+  action factorial with n which is int gives int
+    when n is less than or equal to 1 then
+      give 1
+    end when
+    
+    set prev which is int from run utils_MathUtils.factorial with n - 1
+    give n * prev
   end action
 
 end module

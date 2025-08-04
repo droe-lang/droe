@@ -1,7 +1,7 @@
 // UserManager.roe - Demonstrates data structures and module interactions
 
 // Include string utilities for formatting
-include StringUtils.roe
+include "utils/StringUtils.roe"
 
 // Define user data structure
 data User
@@ -11,10 +11,10 @@ data User
   active is flag
 end data
 
-module UserManager
+module includes_UserManager
   action create_user with name which is text, age which is int, domain which is text gives User
     // Create email from name
-    set email which is text from run StringUtils.create_email with name, "user", domain
+    set email which is text from run utils_StringUtils.create_email with name, "user", domain
     
     // Create user instance
     set new_user which is User with name is name, age is age, email is email, active is true
@@ -22,7 +22,7 @@ module UserManager
   end action
   
   action format_user_info with user which is User gives text
-    set greeting which is text from run StringUtils.greet with user.name
+    set greeting which is text from run utils_StringUtils.greet with user.name
     give greeting + " (Age: " + user.age + ", Email: " + user.email + ")"
   end action
   
