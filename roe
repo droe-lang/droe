@@ -110,19 +110,16 @@ if not roe_file.is_absolute():
 relative_path = roe_file.relative_to(project_root) if roe_file.is_relative_to(project_root) else roe_file.name
 basename = roe_file.stem
 
-# Determine build directory - use config build dir or create alongside source
-if config["build"] == "build" and not (project_root / "roeconfig.json").exists():
-    # No config file, create build files alongside source
-    build_dir = roe_file.parent
-    wat_file = build_dir / f"{basename}.wat"  
-    wasm_file = build_dir / f"{basename}.wasm"
-else:
-    # Use configured build directory, maintaining subdirectory structure
-    build_dir = config_build_dir
-    if relative_path.parent != Path("."):
-        build_dir = build_dir / relative_path.parent
-    wat_file = build_dir / f"{basename}.wat"
-    wasm_file = build_dir / f"{basename}.wasm"
+# Determine build directory - always use build/ with maintained structure
+build_dir = config_build_dir
+
+# Maintain source directory structure in build directory
+if relative_path.parent != Path("."):
+    # Source is in a subdirectory, maintain that structure in build
+    build_dir = build_dir / relative_path.parent
+
+wat_file = build_dir / f"{basename}.wat"
+wasm_file = build_dir / f"{basename}.wasm"
 
 # Validations
 if not roe_file.exists() or not roe_file.suffix == ".roe":
