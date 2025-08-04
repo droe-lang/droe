@@ -1,0 +1,6 @@
+{
+  "src": ".",
+  "build": "build",
+  "dist": "dist",
+  "main": "src/main.roe"
+}

@@ -64,21 +64,186 @@ def init_project():
     build_dir.mkdir(exist_ok=True)
 
     if not config_path.exists():
+        config_data = {
+            "src": ".",
+            "build": "build",
+            "dist": "dist",
+            "main": "src/main.roe"
+        }
         with open(config_path, "w") as f:
-            json.dump({"src": "src", "build": "build"}, f, indent=2)
+            json.dump(config_data, f, indent=2)
         print("✅ Created roeconfig.json")
 
     print("✅ Initialized empty Roelang project.")
     print("\nNext steps:")
-    print("  Add a file to src/, e.g. src/main.roe")
-    print("  roe run main.roe")
+    print("  Add files anywhere in the project")
+    print("  roe run filename.roe (supports paths like src/main.roe)")
+    print("  Build files will be organized in build/ directory")
 
 # Load compiler
 compiler = load_compiler()
 
+# Find project root by looking for roeconfig.json
+def find_project_root():
+    """Find the project root by looking for roeconfig.json up to 10 levels."""
+    current = Path.cwd()
+    original = current
+    root = current.root
+    max_depth = 10  # Look up to 10 levels
+    depth = 0
+    
+    # Look for roeconfig.json in current and parent directories (up to max_depth)
+    while current != Path(root) and depth < max_depth:
+        if (current / "roeconfig.json").exists():
+            return current
+        
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+        depth += 1
+    
+    # No roeconfig.json found - require user to create one
+    print(f"❌ Error: No roeconfig.json found (searched up {depth} directories)")
+    print(f"📂 Current directory: {original}")
+    print(f"\n💡 To create a Roelang project, run: roe init")
+    print(f"   This will create roeconfig.json in the current directory")
+    exit(1)
+
+# Build distribution package
+def build_distribution(project_root):
+    """Build distribution package with manifest.json and .wasm files."""
+    import shutil
+    import subprocess
+    from glob import glob
+    
+    # Load config
+    config_path = project_root / "roeconfig.json"
+    if not config_path.exists():
+        print("❌ Error: roeconfig.json not found")
+        exit(1)
+    
+    with open(config_path) as f:
+        config = json.load(f)
+    
+    # Get config values with defaults
+    src_pattern = config.get("src", ".")
+    build_dir = project_root / config.get("build", "build")
+    dist_dir = project_root / config.get("dist", "dist")
+    main_file = config.get("main", "src/main.roe")
+    
+    print(f"📦 Building distribution package...")
+    print(f"📂 Source pattern: {src_pattern}")
+    print(f"📂 Build directory: {build_dir}")
+    print(f"📂 Dist directory: {dist_dir}")
+    print(f"🎯 Main entry: {main_file}")
+    
+    # Find all .roe files in the project
+    if src_pattern == ".":
+        search_root = project_root
+    else:
+        search_root = project_root / src_pattern
+    
+    roe_files = []
+    if search_root.exists():
+        roe_files = list(search_root.rglob("*.roe"))
+    
+    if not roe_files:
+        print(f"⚠️  Warning: No .roe files found in {search_root}")
+        print("💡 Add some .roe files to your project first")
+    else:
+        print(f"🔍 Found {len(roe_files)} .roe files to compile:")
+        for roe_file in roe_files:
+            rel_path = roe_file.relative_to(project_root)
+            print(f"   {rel_path}")
+        
+        # Compile all .roe files
+        print(f"🔨 Compiling {len(roe_files)} files...")
+        compiled_count = 0
+        failed_count = 0
+        
+        for roe_file in roe_files:
+            rel_path = roe_file.relative_to(project_root)
+            try:
+                # Use subprocess to call roe compile for each file
+                result = subprocess.run([
+                    sys.executable, str(Path.home() / ".roelang" / "bin" / "roe"), 
+                    "compile", str(rel_path)
+                ], cwd=project_root, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    compiled_count += 1
+                    print(f"   ✅ {rel_path}")
+                else:
+                    failed_count += 1
+                    print(f"   ❌ {rel_path}: {result.stderr.strip()}")
+            except Exception as e:
+                failed_count += 1
+                print(f"   ❌ {rel_path}: {e}")
+        
+        print(f"📊 Compilation complete: {compiled_count} succeeded, {failed_count} failed")
+        
+        if failed_count > 0:
+            print("⚠️  Some files failed to compile. Distribution will only include successful compilations.")
+    
+    # Ensure build directory exists (might be created by compilation)
+    build_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create/clean dist directory
+    if dist_dir.exists():
+        shutil.rmtree(dist_dir)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Find all .wasm files in build directory
+    wasm_files = []
+    for wasm_file in build_dir.rglob("*.wasm"):
+        relative_path = wasm_file.relative_to(build_dir)
+        wasm_files.append(str(relative_path))
+        
+        # Copy to dist with same structure
+        dest_file = dist_dir / relative_path
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(wasm_file, dest_file)
+        print(f"📋 Copied: {relative_path}")
+    
+    if not wasm_files:
+        print("⚠️  Warning: No .wasm files found in build directory")
+        print("💡 Run 'roe compile' or 'roe run' on some files first")
+    
+    # Generate manifest.json
+    main_wasm = None
+    if main_file:
+        # Convert main .roe file to expected .wasm path
+        main_stem = Path(main_file).stem
+        # Look for matching .wasm file in the list
+        for wasm_file in wasm_files:
+            if Path(wasm_file).stem == main_stem:
+                main_wasm = wasm_file
+                break
+    
+    manifest = {
+        "name": project_root.name,
+        "version": "1.0.0",
+        "description": f"Roelang project: {project_root.name}",
+        "main": main_wasm or (wasm_files[0] if wasm_files else None),
+        "files": wasm_files,
+        "build_time": __import__('datetime').datetime.now().isoformat(),
+        "roelang_version": "1.0.0"
+    }
+    
+    manifest_path = dist_dir / "manifest.json"
+    with open(manifest_path, "w") as f:
+        json.dump(manifest, f, indent=2)
+    
+    print(f"📄 Created manifest.json")
+    print(f"✅ Distribution built successfully!")
+    print(f"📦 {len(wasm_files)} files copied to {dist_dir}")
+    if main_wasm:
+        print(f"🎯 Main entry: {main_wasm}")
+
 # Command line parsing
 if len(sys.argv) < 2:
-    print("Usage:\n  roe init\n  roe compile <filename>\n  roe run <filename>")
+    print("Usage:\n  roe init\n  roe compile <filename>\n  roe run <filename>\n  roe build")
     exit(1)
 
 command = sys.argv[1]
@@ -87,15 +252,22 @@ if command == "init":
     init_project()
     exit(0)
 
-if len(sys.argv) < 3:
-    print("Usage:\n  roe compile <filename>\n  roe run <filename>")
+if command == "build":
+    # Build command doesn't need additional arguments - handle it separately
+    project_root = find_project_root()
+    build_distribution(project_root)
+    exit(0)
+elif len(sys.argv) < 3:
+    print("Usage:\n  roe compile <filename>\n  roe run <filename>\n  roe build")
     exit(1)
 
 roe_filename = sys.argv[2]
+
+# Determine project root
+project_root = find_project_root()
 config = load_config()
 
 # Resolve paths
-project_root = Path.cwd()
 config_build_dir = project_root / config["build"]
 tool_dir = Path.home() / ".roelang"
 runtime = tool_dir / "run.js"
@@ -103,11 +275,24 @@ runtime = tool_dir / "run.js"
 # Handle file path relative to current working directory
 roe_file = Path(roe_filename)
 if not roe_file.is_absolute():
-    roe_file = project_root / roe_filename
+    roe_file = Path.cwd() / roe_filename
 
 # Create build directory based on source file location
-# If file is in a subdirectory, maintain that structure in build
-relative_path = roe_file.relative_to(project_root) if roe_file.is_relative_to(project_root) else roe_file.name
+# Calculate relative path from project root
+if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
+    relative_path = roe_file.relative_to(project_root)
+elif not roe_file.is_absolute():
+    # For relative paths, calculate from project root
+    absolute_roe_file = roe_file.resolve()
+    if absolute_roe_file.is_relative_to(project_root):
+        relative_path = absolute_roe_file.relative_to(project_root)
+    else:
+        # File is outside project root, just use the filename
+        relative_path = Path(roe_file.name)
+else:
+    # Absolute path outside project root
+    relative_path = Path(roe_file.name)
+
 basename = roe_file.stem
 
 # Determine build directory - always use build/ with maintained structure
