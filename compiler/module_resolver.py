@@ -20,13 +20,14 @@ class ModuleResolver:
         self.module_paths: Dict[str, str] = {}        # module_name -> file_path
         self.loading_stack: Set[str] = set()          # Track circular imports
     
-    def resolve_includes(self, program: Program, current_file_path: str) -> Program:
+    def resolve_includes(self, program: Program, current_file_path: str, preserve_base_path: bool = False) -> Program:
         """
         Resolve all include statements in a program and load referenced modules.
         
         Args:
             program: The main program AST
             current_file_path: Path to the current file being compiled
+            preserve_base_path: If True, don't change the base path (for recursive calls)
             
         Returns:
             Program with resolved includes and loaded modules
@@ -34,9 +35,10 @@ class ModuleResolver:
         Raises:
             ModuleResolutionError: If module resolution fails
         """
-        # Set base path relative to current file
-        current_dir = os.path.dirname(os.path.abspath(current_file_path))
-        self.base_path = current_dir
+        # Set base path relative to current file (only for top-level calls)
+        if not preserve_base_path:
+            current_dir = os.path.dirname(os.path.abspath(current_file_path))
+            self.base_path = current_dir
         
         # Find all include statements
         includes = [stmt for stmt in program.statements if isinstance(stmt, IncludeStatement)]
@@ -109,8 +111,8 @@ class ModuleResolver:
             # Parse the module
             module_program = parse(source_code)
             
-            # Recursively resolve includes in the module
-            module_program = self.resolve_includes(module_program, full_path)
+            # Recursively resolve includes in the module (preserve base path)
+            module_program = self.resolve_includes(module_program, full_path, preserve_base_path=True)
             
             # Cache the loaded module
             self.loaded_modules[module_name] = module_program

@@ -5,6 +5,7 @@ import os
 from typing import Optional
 from .parser import parse, ParseError
 from .codegen_wat import generate_wat, CodeGenError
+from .module_resolver import ModuleResolver, ModuleResolutionError
 
 
 class CompilerError(Exception):
@@ -12,12 +13,13 @@ class CompilerError(Exception):
     pass
 
 
-def compile(source: str) -> str:
+def compile(source: str, file_path: Optional[str] = None) -> str:
     """
     Compile Roe DSL source code to WebAssembly Text format.
     
     Args:
         source: Roe DSL source code
+        file_path: Optional path to source file (for module resolution)
         
     Returns:
         WAT (WebAssembly Text) string
@@ -29,6 +31,11 @@ def compile(source: str) -> str:
         # Parse source to AST
         ast = parse(source)
         
+        # Resolve includes if file path is provided
+        if file_path:
+            resolver = ModuleResolver()
+            ast = resolver.resolve_includes(ast, file_path)
+        
         # Generate WAT from AST
         wat = generate_wat(ast)
         
@@ -36,6 +43,8 @@ def compile(source: str) -> str:
         
     except ParseError as e:
         raise CompilerError(f"Parse error: {str(e)}")
+    except ModuleResolutionError as e:
+        raise CompilerError(f"Module resolution error: {str(e)}")
     except CodeGenError as e:
         raise CompilerError(f"Code generation error: {str(e)}")
     except Exception as e:
@@ -63,8 +72,8 @@ def compile_file(input_path: str, output_path: Optional[str] = None) -> str:
     except IOError as e:
         raise CompilerError(f"Failed to read input file: {str(e)}")
     
-    # Compile to WAT
-    wat = compile(source)
+    # Compile to WAT (pass file path for module resolution)
+    wat = compile(source, input_path)
     
     # Determine output path
     if output_path is None:

@@ -1,0 +1,18 @@
+display "Loading MathUtils from utils subdirectory"
+
+module utils_MathUtils
+
+  action add with a which is int, b which is int gives int
+    give a + b
+  end action
+
+  action multiply with x which is int, y which is int gives int
+    give x * y
+  end action
+
+  action calculate_percentage with part which is decimal, total which is decimal gives decimal
+    set ratio which is decimal to part / total
+    give ratio * 100
+  end action
+
+end module

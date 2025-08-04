@@ -70,6 +70,19 @@ This directory contains example Roelang (.roe) files demonstrating all modern la
 - Real-world usage patterns with modern syntax
 - Best practices demonstration
 
+### MathUtils.roe, StringUtils.roe, UserManager.roe
+**Utility Modules**
+- Reusable modules with mathematical and string operations
+- Demonstrates module organization and code reuse
+- Example actions with parameters and return values
+
+### main_with_includes.roe
+**Include System Demo**
+- `include ModuleName.roe` syntax for importing modules
+- Cross-module action calls: `run ModuleName.ActionName with params`
+- Parameter passing between modules
+- Complete Include functionality demonstration
+
 ## Language Features
 
 ### ✅ Fully Implemented Modern Features
@@ -79,6 +92,8 @@ This directory contains example Roelang (.roe) files demonstrating all modern la
 - **String Concatenation**: `"Welcome " + name + "!"` - Tech-friendly + operator
 - **Collections**: `list of type`, `group of type` with type safety
 - **Modules**: Organized code with `module name ... end module`
+- **Include System**: `include ModuleName.roe` for importing modules
+- **Cross-Module Calls**: `run ModuleName.ActionName with params`
 - **Parameterized Actions**: Functions with typed parameters and return values
 - **Data Structures**: `data Name ... end data` with typed fields
 - **Type Compatibility**: Related types work together seamlessly
@@ -101,12 +116,15 @@ This directory contains example Roelang (.roe) files demonstrating all modern la
 cd examples
 
 # Run any example directly
-roe run 01_display.roe
-roe run 02_variables.roe
-roe run 08_complete_example.roe
+roe run src/01_display.roe
+roe run src/02_variables.roe
+roe run src/08_complete_example.roe
+
+# Try the new Include functionality
+roe run src/main_with_includes.roe
 
 # Just compile (creates .wat and .wasm files)
-roe compile 01_display.roe
+roe compile src/01_display.roe
 ```
 
 ### Manual Compilation
@@ -129,6 +147,8 @@ node run.js examples/01_display.wasm
 3. **Continue with**: `03_conditionals.roe` - Learn decision making
 4. **Move to**: `04_while_loops.roe` and `06_for_each_loops.roe` - Master loops
 5. **Explore**: `05_arrays.roe` and `07_arithmetic.roe` - Data structures and math
-6. **Complete**: `08_complete_example.roe` - See it all working together
+6. **Advanced**: `10_actions.roe` and `11_modern_features.roe` - Modules and actions
+7. **Module System**: `MathUtils.roe`, `StringUtils.roe` - Reusable modules
+8. **Complete**: `main_with_includes.roe` - Include system and cross-module calls
 
-Each example builds on concepts from previous ones, so following this order will give you a solid understanding of Roelang!
+Each example builds on concepts from previous ones, so following this order will give you a solid understanding of Roelang including the powerful new Include system!

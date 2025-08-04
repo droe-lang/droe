@@ -175,20 +175,33 @@ class Parser:
             raise ParseError(f"Unknown statement: {line}")
     
     def parse_include(self, line: str) -> IncludeStatement:
-        """Parse an include statement (include ModuleName.roe)."""
+        """Parse an include statement (include ModuleName.roe or include "utils/ModuleName.roe")."""
         # Remove 'include ' prefix
         file_path = line[8:].strip()
+        
+        # Handle quoted paths (allows subdirectories)
+        if file_path.startswith('"') and file_path.endswith('"'):
+            file_path = file_path[1:-1]  # Remove quotes
+        elif file_path.startswith("'") and file_path.endswith("'"):
+            file_path = file_path[1:-1]  # Remove quotes
         
         # Validate file path format
         if not file_path.endswith('.roe'):
             raise ParseError(f"Include statement must specify a .roe file: {line}")
         
-        # Extract module name (filename without .roe extension)
-        module_name = file_path[:-4]  # Remove .roe extension
+        # Extract module name from file path
+        # For subdirectory paths like "utils/MathUtils.roe", use the full path structure
+        if '/' in file_path:
+            # For subdirectory paths, create a module name by replacing / with _
+            # "utils/MathUtils.roe" -> "utils_MathUtils"
+            module_name = file_path[:-4].replace('/', '_')
+        else:
+            # Simple filename without directory
+            module_name = file_path[:-4]
         
-        # Validate module name format (should be valid identifier)
+        # Validate module name format (allow underscores for directory separators)
         if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', module_name):
-            raise ParseError(f"Invalid module name in include: {module_name}")
+            raise ParseError(f"Invalid module name derived from include path: {module_name} (from {file_path})")
         
         return IncludeStatement(module_name=module_name, file_path=file_path)
     

@@ -1,0 +1,13 @@
+display "=== Simple Subdirectory Include Test ==="
+
+// Include modules from subdirectories using quoted paths
+include "utils/MathUtils.roe"
+include "common/StringHelpers.roe"
+
+display "Successfully included modules from subdirectories!"
+display "This demonstrates that the parser and module resolver support quoted paths."
+
+display "Module utils_MathUtils included from utils/MathUtils.roe"
+display "Module common_StringHelpers included from common/StringHelpers.roe"
+
+display "Subdirectory include functionality is working!"

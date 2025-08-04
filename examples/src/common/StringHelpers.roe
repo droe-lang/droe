@@ -1,0 +1,18 @@
+display "Loading StringHelpers from common subdirectory"
+
+module common_StringHelpers
+
+  action format_name with first which is text, last which is text gives text
+    give first + " " + last
+  end action
+
+  action create_greeting with name which is text gives text
+    give "Hello, " + name + "!"
+  end action
+
+  action uppercase_first_letter with text which is text gives text
+    // Simplified - just return the text for now
+    give text
+  end action
+
+end module
