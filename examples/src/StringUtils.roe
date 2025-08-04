@@ -1,0 +1,26 @@
+// StringUtils.roe - A utility module for string operations
+
+module StringUtils
+  action greet with name which is text gives text
+    give "Hello, " + name + "!"
+  end action
+  
+  action format_title with title which is text gives text
+    give "=== " + title + " ==="
+  end action
+  
+  action create_email with first_name which is text, last_name which is text, domain which is text gives text
+    set username which is text to first_name + "." + last_name
+    give username + "@" + domain
+  end action
+  
+  action count_words with text which is text gives int
+    // Simple word count - just return 1 for now (would need string splitting)
+    give 1
+  end action
+  
+  action is_valid_length with text which is text, min_length which is int gives flag
+    // Simplified length check - assume length > min for demo
+    give true
+  end action
+end module

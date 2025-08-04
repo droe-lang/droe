@@ -1,0 +1,30 @@
+// MathUtils.roe - A utility module for mathematical operations
+
+module MathUtils
+  action add with a which is int, b which is int gives int
+    give a + b
+  end action
+  
+  action multiply with x which is decimal, y which is decimal gives decimal
+    give x * y
+  end action
+  
+  action calculate_area with width which is decimal, height which is decimal gives decimal
+    set area which is decimal from run MathUtils.multiply with width, height
+    give area
+  end action
+  
+  action is_even with number which is int gives flag
+    set remainder which is int to number % 2
+    give remainder is equal to 0
+  end action
+  
+  action factorial with n which is int gives int
+    when n is less than or equal to 1 then
+      give 1
+    end when
+    
+    set prev which is int from run MathUtils.factorial with n - 1
+    give n * prev
+  end action
+end module

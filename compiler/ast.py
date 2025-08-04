@@ -1,6 +1,6 @@
 """AST node definitions for Roe DSL compiler."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, List, Optional, Union
 
 
@@ -90,15 +90,17 @@ class ArithmeticOp(ASTNode):
 
 @dataclass
 class TaskAction(ASTNode):
-    """Represents a task action definition (task name ... end)."""
+    """Represents a task action definition (task name with params ... end)."""
     name: str
-    body: List[ASTNode]
+    parameters: List['ActionParameter'] = field(default_factory=list)  # Reuse ActionParameter for consistency
+    body: List[ASTNode] = field(default_factory=list)
 
 
 @dataclass
 class TaskInvocation(ASTNode):
-    """Represents a task invocation (run task_name)."""
+    """Represents a task invocation (run task_name with args)."""
     task_name: str
+    arguments: List[ASTNode] = field(default_factory=list)  # Arguments for parameterized tasks
 
 
 @dataclass
@@ -187,6 +189,14 @@ class FieldAssignment(ASTNode):
 
 
 @dataclass
+class IncludeStatement(ASTNode):
+    """Represents an include statement (include ModuleName.roe)."""
+    module_name: str  # The module name without .roe extension
+    file_path: str    # The full file path (ModuleName.roe)
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]
+    included_modules: List['IncludeStatement'] = None  # Track included modules

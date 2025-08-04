@@ -9,7 +9,7 @@ from .ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams, 
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment
+    DataInstance, FieldAssignment, IncludeStatement
 )
 
 
@@ -113,8 +113,12 @@ class Parser:
         """Parse a single statement."""
         line = line.strip()
         
+        # Include statement
+        if line.startswith('include '):
+            return self.parse_include(line)
+        
         # Display/Show statement
-        if line.startswith('display ') or line.startswith('show '):
+        elif line.startswith('display ') or line.startswith('show '):
             return self.parse_display(line)
         
         # If/When statement
@@ -161,8 +165,32 @@ class Parser:
               line.startswith('output ') or line.startswith('give ')):
             return self.parse_return_statement(line)
         
+        # End statements (these should be handled by their respective parsing contexts)
+        elif (line.lower().startswith('end ')):
+            # This should not happen if parsing contexts are working correctly
+            # But we'll return None to avoid errors
+            return None
+        
         else:
             raise ParseError(f"Unknown statement: {line}")
+    
+    def parse_include(self, line: str) -> IncludeStatement:
+        """Parse an include statement (include ModuleName.roe)."""
+        # Remove 'include ' prefix
+        file_path = line[8:].strip()
+        
+        # Validate file path format
+        if not file_path.endswith('.roe'):
+            raise ParseError(f"Include statement must specify a .roe file: {line}")
+        
+        # Extract module name (filename without .roe extension)
+        module_name = file_path[:-4]  # Remove .roe extension
+        
+        # Validate module name format (should be valid identifier)
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', module_name):
+            raise ParseError(f"Invalid module name in include: {module_name}")
+        
+        return IncludeStatement(module_name=module_name, file_path=file_path)
     
     def parse_display(self, line: str) -> DisplayStatement:
         """Parse a display/show statement."""
@@ -180,24 +208,75 @@ class Parser:
     
     def parse_if(self, line: str) -> IfStatement:
         """Parse an if/when-then statement."""
-        # Simple regex to extract condition and then-body
-        match = re.match(r'(?:if|when)\s+(.+?)\s+then\s+(.+)', line, re.IGNORECASE)
-        if not match:
-            raise ParseError(f"Invalid if/when statement: {line}")
+        # Check for single-line format: "when condition then action"
+        single_line_match = re.match(r'(?:if|when)\s+(.+?)\s+then\s+(.+)', line, re.IGNORECASE)
+        if single_line_match:
+            condition_str = single_line_match.group(1)
+            then_str = single_line_match.group(2)
+            
+            # Parse condition
+            condition = self.parse_expression(condition_str)
+            
+            # Parse then body (single statement)
+            then_stmt = self.parse_statement(then_str)
+            then_body = [then_stmt] if then_stmt else []
+            
+            return IfStatement(condition=condition, then_body=then_body)
+            
+        # Check for multi-line format: "when condition then"
+        multi_line_match = re.match(r'(?:if|when)\s+(.+?)\s+then\s*$', line, re.IGNORECASE)
+        if multi_line_match:
+            condition_str = multi_line_match.group(1)
+            
+            # Parse condition
+            condition = self.parse_expression(condition_str)
+            
+            # Parse multi-line then body
+            then_body = []
+            else_body = None
+            self.current_line += 1
+            
+            # Read then body until we hit 'otherwise', 'else', or 'end'
+            while self.current_line < len(self.lines):
+                line = self.lines[self.current_line].strip()
+                
+                if line.lower() in ['otherwise', 'else']:
+                    # Start of else body
+                    else_body = []
+                    self.current_line += 1
+                    
+                    # Read else body
+                    while self.current_line < len(self.lines):
+                        line = self.lines[self.current_line].strip()
+                        
+                        if line.lower() in ['end when', 'end if', 'end']:
+                            break
+                        
+                        if line:  # Skip empty lines
+                            stmt = self.parse_statement(line)
+                            if stmt:
+                                else_body.append(stmt)
+                        
+                        self.current_line += 1
+                    break
+                    
+                elif line.lower() in ['end when', 'end if', 'end']:
+                    break
+                
+                if line:  # Skip empty lines
+                    stmt = self.parse_statement(line)
+                    if stmt:
+                        then_body.append(stmt)
+                
+                self.current_line += 1
+            
+            if self.current_line >= len(self.lines):
+                raise ParseError(f"Missing 'end when' or 'end if' for if statement")
+            
+            return IfStatement(condition=condition, then_body=then_body, else_body=else_body)
         
-        condition_str = match.group(1)
-        then_str = match.group(2)
-        
-        # Parse condition
-        condition = self.parse_expression(condition_str)
-        
-        # Parse then body (for now, just a single statement)
-        then_stmt = self.parse_statement(then_str)
-        then_body = [then_stmt] if then_stmt else []
-        
-        # TODO: Support multi-line if statements and else clauses
-        
-        return IfStatement(condition=condition, then_body=then_body)
+        # Neither format matched
+        raise ParseError(f"Invalid if/when statement: {line}")
     
     def parse_assignment(self, line: str) -> Assignment:
         """Parse a variable assignment (set x to value or set x which are group of type to value)."""
@@ -391,10 +470,23 @@ class Parser:
         quote_char = expr_str[0]
         inside_content = expr_str[1:-1]
         
-        # Simple check: if there are operators like + outside of quotes, it's not a simple string
-        # For now, just check if there are any + operators in the expression
-        if '+' in expr_str:
-            return False
+        # If the string is properly quoted at start and end, and there are no unescaped
+        # quotes inside, then it's a complete quoted string regardless of operators inside
+        # The + operators inside the quotes are part of the string content, not concatenation
+        
+        # Check for unescaped quotes inside
+        i = 0
+        while i < len(inside_content):
+            if inside_content[i] == quote_char:
+                # Check if it's escaped
+                if i > 0 and inside_content[i-1] == '\\':
+                    # It's escaped, continue
+                    i += 1
+                    continue
+                else:
+                    # Unescaped quote found inside, this is not a simple string
+                    return False
+            i += 1
         
         return True
     
@@ -479,7 +571,7 @@ class Parser:
                         return BinaryOp(left=left, operator=symbol_op, right=right)
         
         # Binary operations (symbolic - check after natural language)
-        for op in ['>=', '<=', '==', '!=', '>', '<', '+', '-', '*', '/']:
+        for op in ['>=', '<=', '==', '!=', '>', '<', '+', '-', '*', '/', '%']:
             op_pos = self._find_operator_outside_quotes(expr_str, op)
             if op_pos != -1:
                 left_part = expr_str[:op_pos].strip()
@@ -488,7 +580,7 @@ class Parser:
                     left = self.parse_expression(left_part)
                     right = self.parse_expression(right_part)
                     # Use ArithmeticOp for arithmetic operators, BinaryOp for comparisons
-                    if op in ['+', '-', '*', '/']:
+                    if op in ['+', '-', '*', '/', '%']:
                         return ArithmeticOp(left=left, operator=op, right=right)
                     else:
                         return BinaryOp(left=left, operator=op, right=right)
@@ -608,16 +700,45 @@ class Parser:
         return StringInterpolation(parts=parts)
     
     def parse_task_action(self) -> TaskAction:
-        """Parse a task action definition (task name ... end)."""
-        # Current line should be "task name"
+        """Parse a task action definition (task name [with params] ... end)."""
+        # Current line should be "task name [with params]"
         line = self.lines[self.current_line]
         
         # Extract task name
-        match = re.match(r'task\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
-        if not match:
+        task_match = re.match(r'task\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not task_match:
             raise ParseError(f"Invalid task statement: {line}")
         
-        task_name = match.group(1)
+        task_name = task_match.group(1)
+        parameters = []
+        
+        # Check for parameters
+        with_match = re.search(r'\s+with\s+(.+)$', line, re.IGNORECASE)
+        if with_match:
+            params_str = with_match.group(1)
+            
+            # Parse parameters: "param1 which is type1, param2 which is type2"
+            if params_str:
+                param_parts = params_str.split(',')
+                for param_part in param_parts:
+                    param_part = param_part.strip()
+                    # Handle compound types like "list of text" or "group of int"
+                    compound_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+is\s+(?:a\s+)?(list\s+of|group\s+of)\s+(\w+)', param_part, re.IGNORECASE)
+                    if compound_match:
+                        param_name = compound_match.group(1)
+                        compound_type = compound_match.group(2).replace(' ', '_')  # "list of" -> "list_of"
+                        base_type = compound_match.group(3)
+                        param_type = f"{compound_type}_{base_type}"
+                        parameters.append(ActionParameter(name=param_name, type=param_type))
+                    else:
+                        # Regular parameter: "param which is type" or "param which are type"
+                        param_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*)\s+which\s+(?:is|are)\s+(?:a\s+)?(\w+)', param_part, re.IGNORECASE)
+                        if param_match:
+                            param_name = param_match.group(1)
+                            param_type = param_match.group(2)
+                            parameters.append(ActionParameter(name=param_name, type=param_type))
+                        else:
+                            raise ParseError(f"Invalid parameter syntax: {param_part}")
         
         # Parse body until "end"
         body = []
@@ -626,7 +747,8 @@ class Parser:
         while self.current_line < len(self.lines):
             line = self.lines[self.current_line].strip()
             
-            if line.lower() == 'end':
+            # Check for end conditions first
+            if line.lower() in ['end task', 'end']:
                 break
             
             if line:  # Skip empty lines
@@ -637,13 +759,30 @@ class Parser:
             self.current_line += 1
         
         if self.current_line >= len(self.lines):
-            raise ParseError(f"Missing 'end' for task '{task_name}'")
+            raise ParseError(f"Missing 'end task' or 'end' for task '{task_name}'")
         
-        return TaskAction(name=task_name, body=body)
+        return TaskAction(name=task_name, parameters=parameters, body=body)
     
     def parse_task_invocation(self, line: str) -> TaskInvocation:
-        """Parse a task invocation (run task_name)."""
-        # Extract task name
+        """Parse a task invocation (run task_name [with args])."""
+        # Check for arguments: "run task_name with arg1, arg2, ..."
+        with_match = re.match(r'run\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+with\s+(.+)', line, re.IGNORECASE)
+        if with_match:
+            task_name = with_match.group(1)
+            args_str = with_match.group(2)
+            
+            # Parse arguments
+            arguments = []
+            if args_str:
+                arg_parts = args_str.split(',')
+                for arg_part in arg_parts:
+                    arg_part = arg_part.strip()
+                    arg_expr = self.parse_expression(arg_part)
+                    arguments.append(arg_expr)
+            
+            return TaskInvocation(task_name=task_name, arguments=arguments)
+        
+        # Simple task invocation without arguments: "run task_name"
         match = re.match(r'run\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
         if not match:
             raise ParseError(f"Invalid run statement: {line}")

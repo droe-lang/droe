@@ -1,31 +1,62 @@
-show "=== Task Actions Demo ==="
+display "=== Task Actions Demo ==="
 
+// Tasks without parameters (original functionality)
 task send_reminder
-  show "Don't forget to log in"
-end
+  display "Don't forget to log in"
+end task
 
 task greet_user
-  show "Hello! Welcome to Roelang"
-  show "Hope you enjoy using task actions!"
-end
+  display "Hello! Welcome to Roelang"
+  display "Hope you enjoy using task actions!"
+end task
 
-task process_data
-  set count to 5
-  show "Processing data..."
-  show count
-  show "Processing complete!"
-end
+// Tasks with parameters (new functionality)
+task greet_person with name which is text
+  display "Hello, " + name + "!"
+  display "Welcome to the Roelang community!"
+end task
 
-show "Running send_reminder task:"
+task calculate_area with width which is int, height which is int
+  set area which is int to width * height
+  display "Calculating area for " + width + " x " + height
+  display "Area: " + area + " square units"
+end task
+
+task process_order with item which is text, quantity which is int, price which is decimal
+  display "Processing order:"
+  display "Item: " + item
+  display "Quantity: " + quantity
+  set total which is decimal to quantity * price
+  display "Total: $" + total
+end task
+
+display ""
+display "=== Running Tasks Without Parameters ==="
+
+display "Running send_reminder task:"
 run send_reminder
 
-show ""
-show "Running greet_user task:"
+display ""
+display "Running greet_user task:"
 run greet_user
 
-show ""
-show "Running process_data task:"
-run process_data
+display ""
+display "=== Running Tasks With Parameters ==="
 
-show ""
-show "Task actions demonstration complete!"
+display "Running greet_person with different names:"
+run greet_person with "Alice"
+run greet_person with "Bob"
+
+display ""
+display "Running calculate_area with different dimensions:"
+run calculate_area with 10, 5
+run calculate_area with 8, 12
+
+display ""
+display "Running process_order with different orders:"
+run process_order with "Widget", 3, 15.99
+run process_order with "Gadget", 2, 29.50
+
+display ""
+display "Task actions demonstration complete!"
+display "Tasks now support both parameterless and parameterized workflows!"
