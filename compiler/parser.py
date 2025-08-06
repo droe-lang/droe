@@ -13,6 +13,7 @@ from .ast import (
     MetadataAnnotation, LayoutDefinition, FormDefinition,
     TitleComponent, InputComponent, TextareaComponent, DropdownComponent,
     ToggleComponent, CheckboxComponent, RadioComponent, ButtonComponent,
+    ImageComponent, VideoComponent, AudioComponent, AssetInclude,
     AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute
 )
 
@@ -164,7 +165,18 @@ class Parser:
         
         # Include statement
         if line.startswith('include '):
-            return self.parse_include(line)
+            # Check if it's an asset include or module include
+            include_path = line[8:].strip()
+            # Remove quotes if present
+            if (include_path.startswith('"') and include_path.endswith('"')) or \
+               (include_path.startswith("'") and include_path.endswith("'")):
+                include_path = include_path[1:-1]
+            
+            # Check if it's an asset include
+            if any(include_path.endswith(ext) for ext in ['.css', '.js', '.font', '.ttf', '.woff', '.woff2', '.otf']):
+                return self.parse_asset_include(line)
+            else:
+                return self.parse_include(line)
         
         # Display/Show statement
         elif line.startswith('display ') or line.startswith('show '):
@@ -227,7 +239,13 @@ class Parser:
             return self.parse_radio_component(line)
         elif line.startswith('button '):
             return self.parse_button_component(line)
-        elif line.lower() in ['column', 'row', 'grid', 'stack', 'overlay']:
+        elif line.startswith('image '):
+            return self.parse_image_component(line)
+        elif line.startswith('video '):
+            return self.parse_video_component(line)
+        elif line.startswith('audio '):
+            return self.parse_audio_component(line)
+        elif any(line.lower().startswith(layout + ' ') or line.lower() == layout for layout in ['column', 'row', 'grid', 'stack', 'overlay']):
             return self.parse_inline_layout(line)
         elif line.lower().startswith('end '):
             return None
@@ -1050,12 +1068,14 @@ class Parser:
         # Current line should be "data Name"
         line = self.lines[self.current_line]
         
-        # Extract data name
-        match = re.match(r'data\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        # Extract data name and optional storage type
+        # Match patterns like: data Name, data Name short_store, data Name long_store
+        match = re.match(r'data\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(short_store|long_store))?', line, re.IGNORECASE)
         if not match:
             raise ParseError(f"Invalid data statement: {line}")
         
         data_name = match.group(1)
+        storage_type = match.group(2) if match.group(2) else None
         
         # Parse fields until "end data" or "end"
         fields = []
@@ -1082,7 +1102,11 @@ class Parser:
         if self.current_line >= len(self.lines):
             raise ParseError(f"Missing 'end data' or 'end' for data '{data_name}'")
         
-        return DataDefinition(name=data_name, fields=fields)
+        data_def = DataDefinition(name=data_name, fields=fields)
+        if storage_type:
+            data_def.storage_type = storage_type
+        
+        return data_def
     
     def parse_action_definition_with_params(self) -> ActionDefinitionWithParams:
         """Parse an action definition with parameters (action name with param1 which is type1, param2 which is type2 gives return_type)."""
@@ -1265,7 +1289,28 @@ class Parser:
     
     def parse_inline_layout(self, line: str) -> LayoutDefinition:
         """Parse inline layout (column, row, etc.) - returns immediately for inline parsing."""
-        layout_type = line.lower().strip()
+        parts = line.split()
+        layout_type = parts[0].lower()
+        
+        # Parse class and style attributes
+        css_classes = []
+        style = None
+        
+        # Check for class attribute
+        if 'class ' in line:
+            class_match = re.search(r'class\s+"([^"]+)"', line)
+            if not class_match:
+                class_match = re.search(r"class\s+'([^']+)'", line)
+            if class_match:
+                css_classes = class_match.group(1).split()
+        
+        # Check for style attribute
+        if 'style ' in line:
+            style_match = re.search(r'style\s+"([^"]+)"', line)
+            if not style_match:
+                style_match = re.search(r"style\s+'([^']+)'", line)
+            if style_match:
+                style = style_match.group(1)
         
         # Create an anonymous layout with the specified type
         children = []
@@ -1288,7 +1333,10 @@ class Parser:
         if self.current_line >= len(self.lines):
             raise ParseError(f"Missing 'end {layout_type}' or 'end'")
         
-        return LayoutDefinition(name=f"anonymous_{layout_type}", layout_type=layout_type, children=children)
+        layout = LayoutDefinition(name=f"anonymous_{layout_type}", layout_type=layout_type, children=children, css_classes=css_classes)
+        if style:
+            layout.style = style
+        return layout
     
     def parse_title_component(self, line: str) -> TitleComponent:
         """Parse a title component: title "Welcome to Roe" validate required."""
@@ -1360,18 +1408,49 @@ class Parser:
         return input_comp
     
     def parse_textarea_component(self, line: str) -> TextareaComponent:
-        """Parse textarea component: textarea bind LoginForm.message."""
+        """Parse textarea component: textarea id notes_field bind LoginForm.message class "form-control" rows "4"."""
         parts = line[9:].strip()  # Remove "textarea "
         
-        attributes = self.parse_attributes(parts)
-        binding = None
+        # Extract ID if present
+        words = parts.split()
+        element_id = None
+        if words and words[0] == "id" and len(words) > 1:
+            element_id = words[1]
+            remaining_text = " ".join(words[2:])
+        else:
+            remaining_text = parts
         
-        # Extract binding from attributes
+        # Extract specific textarea attributes like rows
+        if 'rows ' in remaining_text:
+            rows_match = re.search(r'rows\s+"(\d+)"', remaining_text)
+            if not rows_match:
+                rows_match = re.search(r'rows\s+(\d+)', remaining_text)
+            if rows_match:
+                # Remove rows from text to avoid parsing it as attribute
+                remaining_text = remaining_text.replace(rows_match.group(0), '')
+        
+        attributes = self.parse_attributes(remaining_text)
+        binding = None
+        css_classes = []
+        
+        # Extract binding and classes from attributes
         for attr in attributes:
             if isinstance(attr, BindingAttribute):
                 binding = attr.binding_target
         
-        return TextareaComponent(binding=binding, attributes=attributes)
+        # Check for classes
+        if 'class ' in remaining_text:
+            class_match = re.search(r'class\s+"([^"]+)"', remaining_text)
+            if not class_match:
+                class_match = re.search(r"class\s+'([^']+)'", remaining_text)
+            if class_match:
+                css_classes = class_match.group(1).split()
+        
+        textarea = TextareaComponent(binding=binding, attributes=attributes, css_classes=css_classes)
+        if element_id:
+            textarea.element_id = element_id
+        
+        return textarea
     
     def parse_dropdown_component(self, line: str) -> DropdownComponent:
         """Parse dropdown component: dropdown id country_field options ["Option1", "Option2"] bind Form.selection."""
@@ -1563,6 +1642,194 @@ class Parser:
         
         return ButtonComponent(text=text, action=action, attributes=attributes)
     
+    def parse_image_component(self, line: str) -> ImageComponent:
+        """Parse image component: image "path/to/image.png" alt "Description" class "img-fluid thumbnail"."""
+        parts = line[6:].strip()  # Remove "image "
+        
+        # Extract source path
+        if parts.startswith('"') and '"' in parts[1:]:
+            end_quote = parts.find('"', 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        elif parts.startswith("'") and "'" in parts[1:]:
+            end_quote = parts.find("'", 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        else:
+            words = parts.split()
+            src = words[0] if words else ""
+            remaining = " ".join(words[1:]) if len(words) > 1 else ""
+        
+        # Parse alt text and classes
+        alt = None
+        css_classes = []
+        
+        # Check for alt text
+        if remaining.startswith('alt '):
+            alt_parts = remaining[4:].strip()
+            if alt_parts.startswith('"') and '"' in alt_parts[1:]:
+                end_alt = alt_parts.find('"', 1)
+                alt = alt_parts[1:end_alt]
+                remaining = alt_parts[end_alt + 1:].strip()
+            elif alt_parts.startswith("'") and "'" in alt_parts[1:]:
+                end_alt = alt_parts.find("'", 1)
+                alt = alt_parts[1:end_alt]
+                remaining = alt_parts[end_alt + 1:].strip()
+        
+        # Check for classes
+        if remaining.startswith('class '):
+            class_parts = remaining[6:].strip()
+            if class_parts.startswith('"') and '"' in class_parts[1:]:
+                end_class = class_parts.find('"', 1)
+                css_classes = class_parts[1:end_class].split()
+                remaining = class_parts[end_class + 1:].strip()
+            elif class_parts.startswith("'") and "'" in class_parts[1:]:
+                end_class = class_parts.find("'", 1)
+                css_classes = class_parts[1:end_class].split()
+                remaining = class_parts[end_class + 1:].strip()
+        
+        attributes = self.parse_attributes(remaining)
+        return ImageComponent(src=src, alt=alt, attributes=attributes, css_classes=css_classes)
+    
+    def parse_video_component(self, line: str) -> VideoComponent:
+        """Parse video component: video "path/to/video.mp4" controls autoplay muted class "video-player"."""
+        parts = line[6:].strip()  # Remove "video "
+        
+        # Extract source path
+        if parts.startswith('"') and '"' in parts[1:]:
+            end_quote = parts.find('"', 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        elif parts.startswith("'") and "'" in parts[1:]:
+            end_quote = parts.find("'", 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        else:
+            words = parts.split()
+            src = words[0] if words else ""
+            remaining = " ".join(words[1:]) if len(words) > 1 else ""
+        
+        # Parse video attributes
+        controls = True  # Default
+        autoplay = False
+        loop = False
+        muted = False
+        css_classes = []
+        
+        # Parse remaining attributes
+        words = remaining.split()
+        i = 0
+        while i < len(words):
+            word = words[i].lower()
+            if word == 'controls':
+                controls = True
+            elif word == 'nocontrols':
+                controls = False
+            elif word == 'autoplay':
+                autoplay = True
+            elif word == 'loop':
+                loop = True
+            elif word == 'muted':
+                muted = True
+            elif word == 'class' and i + 1 < len(words):
+                # Parse class value
+                class_value = words[i + 1]
+                if class_value.startswith('"') and class_value.endswith('"'):
+                    css_classes = class_value[1:-1].split()
+                elif class_value.startswith("'") and class_value.endswith("'"):
+                    css_classes = class_value[1:-1].split()
+                else:
+                    css_classes = [class_value]
+                i += 1
+            i += 1
+        
+        # Get remaining attributes
+        attr_text = " ".join(w for w in words if w.lower() not in ['controls', 'nocontrols', 'autoplay', 'loop', 'muted'] and not (words.index(w) > 0 and words[words.index(w)-1].lower() == 'class'))
+        attributes = self.parse_attributes(attr_text)
+        
+        return VideoComponent(src=src, controls=controls, autoplay=autoplay, loop=loop, muted=muted, 
+                            attributes=attributes, css_classes=css_classes)
+    
+    def parse_audio_component(self, line: str) -> AudioComponent:
+        """Parse audio component: audio "path/to/audio.mp3" controls autoplay loop class "audio-player"."""
+        parts = line[6:].strip()  # Remove "audio "
+        
+        # Extract source path
+        if parts.startswith('"') and '"' in parts[1:]:
+            end_quote = parts.find('"', 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        elif parts.startswith("'") and "'" in parts[1:]:
+            end_quote = parts.find("'", 1)
+            src = parts[1:end_quote]
+            remaining = parts[end_quote + 1:].strip()
+        else:
+            words = parts.split()
+            src = words[0] if words else ""
+            remaining = " ".join(words[1:]) if len(words) > 1 else ""
+        
+        # Parse audio attributes
+        controls = True  # Default
+        autoplay = False
+        loop = False
+        css_classes = []
+        
+        # Parse remaining attributes
+        words = remaining.split()
+        i = 0
+        while i < len(words):
+            word = words[i].lower()
+            if word == 'controls':
+                controls = True
+            elif word == 'nocontrols':
+                controls = False
+            elif word == 'autoplay':
+                autoplay = True
+            elif word == 'loop':
+                loop = True
+            elif word == 'class' and i + 1 < len(words):
+                # Parse class value
+                class_value = words[i + 1]
+                if class_value.startswith('"') and class_value.endswith('"'):
+                    css_classes = class_value[1:-1].split()
+                elif class_value.startswith("'") and class_value.endswith("'"):
+                    css_classes = class_value[1:-1].split()
+                else:
+                    css_classes = [class_value]
+                i += 1
+            i += 1
+        
+        # Get remaining attributes
+        attr_text = " ".join(w for w in words if w.lower() not in ['controls', 'nocontrols', 'autoplay', 'loop'] and not (words.index(w) > 0 and words[words.index(w)-1].lower() == 'class'))
+        attributes = self.parse_attributes(attr_text)
+        
+        return AudioComponent(src=src, controls=controls, autoplay=autoplay, loop=loop, 
+                            attributes=attributes, css_classes=css_classes)
+    
+    def parse_asset_include(self, line: str) -> AssetInclude:
+        """Parse asset include statement: include "assets/style.css"."""
+        parts = line[8:].strip()  # Remove "include "
+        
+        # Extract asset path
+        if parts.startswith('"') and parts.endswith('"'):
+            asset_path = parts[1:-1]
+        elif parts.startswith("'") and parts.endswith("'"):
+            asset_path = parts[1:-1]
+        else:
+            asset_path = parts
+        
+        # Determine asset type from extension
+        if asset_path.endswith('.css'):
+            asset_type = 'css'
+        elif asset_path.endswith('.js'):
+            asset_type = 'js'
+        elif asset_path.endswith(('.ttf', '.woff', '.woff2', '.otf')):
+            asset_type = 'font'
+        else:
+            asset_type = 'other'
+        
+        return AssetInclude(asset_path=asset_path, asset_type=asset_type)
+    
     def parse_attributes(self, attr_text: str) -> List[AttributeDefinition]:
         """Parse component attributes like 'validate required, email' or 'bind LoginForm.email'."""
         attributes = []
@@ -1570,8 +1837,8 @@ class Parser:
         if not attr_text.strip():
             return attributes
         
-        # Split by keywords: validate, bind, run
-        parts = re.split(r'(?:^|\s+)(validate|bind|run)\s+', attr_text, flags=re.IGNORECASE)
+        # Split by keywords: validate, bind, run, class
+        parts = re.split(r'(?:^|\s+)(validate|bind|run|class)\s+', attr_text, flags=re.IGNORECASE)
         
         i = 1  # Skip first empty part
         while i < len(parts):

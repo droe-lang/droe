@@ -1,0 +1,88 @@
+@target html
+@name "All Components Demo"
+
+module components_demo
+
+  data DemoData
+    name is text
+    email is text
+    message is text
+    subscribe is boolean
+    preference is text
+  end data
+
+  layout demo_layout
+    column class "container"
+      title "All Components Demonstration" class "text-center"
+      
+      column class "form-container"
+        title "Layout Examples"
+        
+        row class "mb-2"
+          button "Row Item 1" class "button"
+          button "Row Item 2" class "button secondary"
+          button "Row Item 3" class "button success"
+        end row
+        
+        grid class "grid-cols-3"
+          column class "p-2"
+            title "Grid Cell 1"
+          end column
+          column class "p-2"
+            title "Grid Cell 2"
+          end column
+          column class "p-2"
+            title "Grid Cell 3"
+          end column
+        end grid
+      end column
+      
+      form demo_form class "form-container"
+        title "Form Components"
+        
+        input id name_input text bind DemoData.name validate required class "mb-2"
+        input id email_input email bind DemoData.email validate required, email class "mb-2"
+        input id password_input password class "mb-2"
+        
+        textarea id message_area bind DemoData.message class "mb-2"
+        
+        dropdown id pref_dropdown options ["Option 1", "Option 2", "Option 3"] bind DemoData.preference class "mb-2"
+        
+        toggle id notify_toggle class "mb-2"
+        
+        checkbox id terms_check "Accept Terms" validate required class "mb-2"
+        checkbox id news_check "Subscribe to newsletter" bind DemoData.subscribe class "mb-2"
+        
+        radio id pref_a "Preference A" value "a" bind DemoData.preference class "mb-2"
+        radio id pref_b "Preference B" value "b" bind DemoData.preference class "mb-2"
+        
+        row class "mt-3"
+          button "Cancel" run cancel_action class "button secondary"
+          button "Submit" run submit_action class "button"
+        end row
+      end form
+      
+      column class "form-container"
+        title "Media Components"
+        
+        image "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='200'%3E%3Crect width='400' height='200' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23999'%3EImage Placeholder%3C/text%3E%3C/svg%3E" alt "Demo Image" class "img-fluid mb-2"
+        
+        video "data:video/mp4;base64,placeholder" controls class "w-full mb-2"
+        
+        audio "data:audio/mp3;base64,placeholder" controls class "w-full"
+      end column
+      
+    end column
+  end layout
+
+  action submit_action gives text
+    display "Form submitted"
+    respond with "Success!"
+  end action
+
+  action cancel_action gives text
+    display "Form cancelled"
+    respond with "Cancelled"
+  end action
+
+end module

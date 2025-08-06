@@ -1,0 +1,116 @@
+/* Custom Styles for Component Showcase */
+
+/* Custom color scheme */
+:root {
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --success-color: #28a745;
+  --danger-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: #17a2b8;
+  --light-color: #f8f9fa;
+  --dark-color: #343a40;
+}
+
+/* Enhanced form container */
+.form-container {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.form-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Custom button sizes */
+.button.sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  min-width: 80px;
+}
+
+.button.lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+/* Gallery effects */
+.img-fluid:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+/* Custom grid gaps */
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 1rem; }
+.gap-4 { gap: 1.5rem; }
+
+/* Position utilities */
+.position-relative { position: relative; }
+
+/* Background utilities */
+.bg-dark { background-color: var(--dark-color); }
+.bg-opacity-50 { opacity: 0.5; }
+
+/* Text utilities */
+.text-white { color: white; }
+.h4 { 
+  font-size: 1.1rem; 
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* Spacing utilities */
+.mr-2 { margin-right: 0.5rem; }
+.justify-content-end { justify-content: flex-end; }
+
+/* Enhanced media elements */
+video {
+  border: 2px solid #ddd;
+}
+
+audio {
+  border-radius: 25px;
+  padding: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Row utilities */
+.row[rows="4"] {
+  min-height: 100px;
+}
+
+/* Custom overlay styles */
+.overlay {
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Card styles for grid items */
+.shadow {
+  transition: all 0.3s ease;
+}
+
+.shadow:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* Style attribute support */
+[style*="height"] {
+  overflow: hidden;
+}
+
+/* Gallery grid enhancements */
+.grid-cols-2.gap-2 img {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.grid-cols-2.gap-2 img:hover {
+  z-index: 10;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}

@@ -38,7 +38,9 @@
       "Bash(../../roe compile:*)",
       "Bash(PYTHONPATH=.:*)",
       "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3 -c \"\nfrom compiler.compiler import compile_file\ntry:\n    output_path = compile_file(''src/frontend_login_ui.roe'', ''src/frontend_login_ui.html'', ''html'')\n    print(f''✅ Successfully compiled to: {output_path}'')\nexcept Exception as e:\n    print(f''❌ Compilation error: {e}'')\n\")",
-      "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3:*)"
+      "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3:*)",
+      "Bash(../sync-dev.sh)",
+      "Bash(roe:*)"
     ],
     "deny": []
   }

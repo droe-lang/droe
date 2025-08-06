@@ -1,0 +1,23 @@
+@target html
+@name "Simple HTML Test"
+@description "Basic test of HTML target functionality"
+
+module simple_test
+
+  data UserData
+    name is text
+    age is number
+    email is text
+  end data
+
+  action greet_user gives text
+    display "Hello from Roelang!"
+    respond with "Welcome to our app!"
+  end action
+
+  action show_info gives text
+    display "Showing user information"
+    respond with "Information displayed"
+  end action
+
+end module

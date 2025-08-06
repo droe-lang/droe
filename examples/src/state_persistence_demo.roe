@@ -1,0 +1,55 @@
+@target html
+@name "State Persistence Demo"
+
+module state_demo
+
+  data UserPreferences short_store
+    username is text
+    theme is text
+    notifications is boolean
+  end data
+
+  data UserProfile long_store
+    name is text
+    email is text
+    bio is text
+  end data
+
+  layout demo_layout
+    column class "container"
+      title "State Persistence Demo"
+      
+      form preferences_form class "form-container"
+        title "Session Storage (Short Store)"
+        
+        input id username_input text bind UserPreferences.username validate required
+        dropdown id theme_select options ["Light", "Dark", "Auto"] bind UserPreferences.theme
+        checkbox id notifications_checkbox "Enable notifications" bind UserPreferences.notifications
+        
+        button "Save Preferences" run save_preferences
+      end form
+      
+      form profile_form class "form-container"
+        title "Local Storage (Long Store)"
+        
+        input id name_input text bind UserProfile.name validate required
+        input id email_input email bind UserProfile.email validate required, email
+        textarea id bio_textarea bind UserProfile.bio
+        
+        button "Save Profile" run save_profile
+      end form
+      
+    end column
+  end layout
+
+  action save_preferences gives text
+    display "Preferences saved to session storage"
+    respond with "Preferences saved!"
+  end action
+
+  action save_profile gives text
+    display "Profile saved to local storage"
+    respond with "Profile saved!"
+  end action
+
+end module

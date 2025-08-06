@@ -135,6 +135,7 @@ class DataDefinition(ASTNode):
     """Represents a data structure definition (data Name ... end data)."""
     name: str
     fields: List['DataField']
+    storage_type: Optional[str] = None  # 'short_store' (sessionStorage) or 'long_store' (localStorage)
 
 
 @dataclass
@@ -196,6 +197,13 @@ class IncludeStatement(ASTNode):
 
 
 @dataclass
+class AssetInclude(ASTNode):
+    """Represents an asset include statement (include assets/style.css)."""
+    asset_path: str  # Path to asset file
+    asset_type: str  # 'css', 'js', 'font', etc.
+
+
+@dataclass
 class FormatExpression(ASTNode):
     """Represents a format expression (format variable as "pattern")."""
     expression: ASTNode  # The expression to format
@@ -216,6 +224,8 @@ class LayoutDefinition(ASTNode):
     layout_type: str  # 'column', 'row', 'grid', 'stack', 'overlay'
     children: List[ASTNode]
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    style: Optional[str] = None  # Inline style attribute
 
 
 @dataclass
@@ -224,6 +234,7 @@ class FormDefinition(ASTNode):
     name: str
     children: List[ASTNode]
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -231,6 +242,7 @@ class TitleComponent(ASTNode):
     """Represents a title component."""
     text: str
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="title", init=False)
 
 
@@ -241,6 +253,7 @@ class InputComponent(ASTNode):
     binding: Optional[str] = None  # Data binding target
     attributes: List['AttributeDefinition'] = field(default_factory=list)
     element_id: Optional[str] = None  # Element ID for form handling
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="input", init=False)
 
 
@@ -249,6 +262,8 @@ class TextareaComponent(ASTNode):
     """Represents a textarea component."""
     binding: Optional[str] = None
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
     component_type: str = field(default="textarea", init=False)
 
 
@@ -259,6 +274,7 @@ class DropdownComponent(ASTNode):
     binding: Optional[str] = None
     attributes: List['AttributeDefinition'] = field(default_factory=list)
     element_id: Optional[str] = None  # Element ID for form handling
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="dropdown", init=False)
 
 
@@ -267,6 +283,8 @@ class ToggleComponent(ASTNode):
     """Represents a toggle/switch component."""
     binding: Optional[str] = None
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
     component_type: str = field(default="toggle", init=False)
 
 
@@ -277,6 +295,7 @@ class CheckboxComponent(ASTNode):
     binding: Optional[str] = None
     attributes: List['AttributeDefinition'] = field(default_factory=list)
     element_id: Optional[str] = None  # Element ID for form handling
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="checkbox", init=False)
 
 
@@ -288,6 +307,7 @@ class RadioComponent(ASTNode):
     binding: Optional[str] = None
     attributes: List['AttributeDefinition'] = field(default_factory=list)
     element_id: Optional[str] = None  # Element ID for form handling
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="radio", init=False)
 
 
@@ -297,7 +317,43 @@ class ButtonComponent(ASTNode):
     text: str
     action: Optional[str] = None  # Action to run on click
     attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
     component_type: str = field(default="button", init=False)
+
+
+@dataclass
+class ImageComponent(ASTNode):
+    """Represents an image component."""
+    src: str  # Image source path
+    alt: Optional[str] = None  # Alt text
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    component_type: str = field(default="image", init=False)
+
+
+@dataclass
+class VideoComponent(ASTNode):
+    """Represents a video component."""
+    src: str  # Video source path
+    controls: bool = True
+    autoplay: bool = False
+    loop: bool = False
+    muted: bool = False
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    component_type: str = field(default="video", init=False)
+
+
+@dataclass
+class AudioComponent(ASTNode):
+    """Represents an audio component."""
+    src: str  # Audio source path
+    controls: bool = True
+    autoplay: bool = False
+    loop: bool = False
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    css_classes: List[str] = field(default_factory=list)
+    component_type: str = field(default="audio", init=False)
 
 
 @dataclass
