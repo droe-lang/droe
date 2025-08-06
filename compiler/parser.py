@@ -10,7 +10,10 @@ from .ast import (
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams, 
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
     DataInstance, FieldAssignment, IncludeStatement, FormatExpression,
-    MetadataAnnotation
+    MetadataAnnotation, LayoutDefinition, FormDefinition,
+    TitleComponent, InputComponent, TextareaComponent, DropdownComponent,
+    ToggleComponent, CheckboxComponent, RadioComponent, ButtonComponent,
+    AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute
 )
 
 
@@ -198,6 +201,36 @@ class Parser:
         # Data definition
         elif line.startswith('data '):
             return self.parse_data_definition()
+        
+        # Layout definition
+        elif line.startswith('layout '):
+            return self.parse_layout_definition()
+        
+        # Form definition
+        elif line.startswith('form '):
+            return self.parse_form_definition()
+        
+        # UI components
+        elif line.startswith('title '):
+            return self.parse_title_component(line)
+        elif line.startswith('input '):
+            return self.parse_input_component(line)
+        elif line.startswith('textarea '):
+            return self.parse_textarea_component(line)
+        elif line.startswith('dropdown '):
+            return self.parse_dropdown_component(line)
+        elif line.startswith('toggle '):
+            return self.parse_toggle_component(line)
+        elif line.startswith('checkbox '):
+            return self.parse_checkbox_component(line)
+        elif line.startswith('radio '):
+            return self.parse_radio_component(line)
+        elif line.startswith('button '):
+            return self.parse_button_component(line)
+        elif line.lower() in ['column', 'row', 'grid', 'stack', 'overlay']:
+            return self.parse_inline_layout(line)
+        elif line.lower().startswith('end '):
+            return None
         
         # Action definition (check for parameterized actions first)
         elif line.startswith('action '):
@@ -1153,6 +1186,420 @@ class Parser:
         pattern = pattern_part[1:-1]  # Remove quotes
         
         return FormatExpression(expression=expression, format_pattern=pattern)
+    
+    def parse_layout_definition(self) -> LayoutDefinition:
+        """Parse a layout definition (layout name type ... end layout)."""
+        line = self.lines[self.current_line]
+        
+        # Extract layout name and type: "layout login_screen column" or "layout name"
+        match = re.match(r'layout\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+(\w+))?', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid layout statement: {line}")
+        
+        layout_name = match.group(1)
+        layout_type = match.group(2).lower() if match.group(2) else None
+        
+        # Parse children and attributes until "end layout" or "end"
+        children = []
+        attributes = []
+        self.current_line += 1
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end layout', 'end']:
+                break
+            
+            if line:
+                # Check if it's a layout type declaration (if not already specified)
+                if layout_type is None and line.lower() in ['column', 'row', 'grid', 'stack', 'overlay']:
+                    layout_type = line.lower()
+                else:
+                    stmt = self.parse_statement(line)
+                    if stmt:
+                        children.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end layout' for layout '{layout_name}'")
+        
+        if layout_type is None:
+            layout_type = "column"  # Default to column layout
+        
+        return LayoutDefinition(name=layout_name, layout_type=layout_type, children=children, attributes=attributes)
+    
+    def parse_form_definition(self) -> FormDefinition:
+        """Parse a form definition (form name ... end form)."""
+        line = self.lines[self.current_line]
+        
+        # Extract form name: "form login_form"
+        match = re.match(r'form\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        if not match:
+            raise ParseError(f"Invalid form statement: {line}")
+        
+        form_name = match.group(1)
+        
+        # Parse children until "end form" or "end"
+        children = []
+        attributes = []
+        self.current_line += 1
+        
+        while self.current_line < len(self.lines):
+            line = self.lines[self.current_line].strip()
+            
+            if line.lower() in ['end form', 'end']:
+                break
+            
+            if line:
+                stmt = self.parse_statement(line)
+                if stmt:
+                    children.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end form' for form '{form_name}'")
+        
+        return FormDefinition(name=form_name, children=children, attributes=attributes)
+    
+    def parse_inline_layout(self, line: str) -> LayoutDefinition:
+        """Parse inline layout (column, row, etc.) - returns immediately for inline parsing."""
+        layout_type = line.lower().strip()
+        
+        # Create an anonymous layout with the specified type
+        children = []
+        self.current_line += 1
+        
+        # Parse children until corresponding end statement
+        while self.current_line < len(self.lines):
+            current_line = self.lines[self.current_line].strip()
+            
+            if current_line.lower() in [f'end {layout_type}', 'end']:
+                break
+            
+            if current_line:
+                stmt = self.parse_statement(current_line)
+                if stmt:
+                    children.append(stmt)
+            
+            self.current_line += 1
+        
+        if self.current_line >= len(self.lines):
+            raise ParseError(f"Missing 'end {layout_type}' or 'end'")
+        
+        return LayoutDefinition(name=f"anonymous_{layout_type}", layout_type=layout_type, children=children)
+    
+    def parse_title_component(self, line: str) -> TitleComponent:
+        """Parse a title component: title "Welcome to Roe" validate required."""
+        # Extract text and attributes
+        parts = line[6:].strip()  # Remove "title "
+        
+        # Find quoted text
+        if parts.startswith('"') and '"' in parts[1:]:
+            end_quote = parts.find('"', 1)
+            text = parts[1:end_quote]
+            attr_text = parts[end_quote + 1:].strip()
+        elif parts.startswith("'") and "'" in parts[1:]:
+            end_quote = parts.find("'", 1)
+            text = parts[1:end_quote]
+            attr_text = parts[end_quote + 1:].strip()
+        else:
+            # No quotes, extract first word as text
+            words = parts.split()
+            text = words[0] if words else ""
+            attr_text = " ".join(words[1:]) if len(words) > 1 else ""
+        
+        attributes = self.parse_attributes(attr_text)
+        return TitleComponent(text=text, attributes=attributes)
+    
+    def parse_input_component(self, line: str) -> InputComponent:
+        """Parse input component: input id name_field email bind LoginForm.email validate required, email."""
+        parts = line[6:].strip()  # Remove "input "
+        
+        # Extract input ID if present: "input id field_name ..."
+        words = parts.split()
+        element_id = None
+        input_type = "text"
+        binding = None
+        
+        if words and words[0] == "id" and len(words) > 1:
+            element_id = words[1]
+            remaining_words = words[2:]
+        else:
+            remaining_words = words
+        
+        if remaining_words:
+            # Check for type specification: "input type password" or direct type
+            if remaining_words[0] == "type" and len(remaining_words) > 1:
+                input_type = remaining_words[1]
+                attr_text = " ".join(remaining_words[2:]) if len(remaining_words) > 2 else ""
+            else:
+                # Check if first word is a known input type
+                if remaining_words[0] in ['email', 'password', 'text', 'number', 'tel', 'url']:
+                    input_type = remaining_words[0]
+                    attr_text = " ".join(remaining_words[1:]) if len(remaining_words) > 1 else ""
+                else:
+                    attr_text = " ".join(remaining_words)
+        else:
+            attr_text = ""
+        
+        attributes = self.parse_attributes(attr_text)
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        # Create input component with ID
+        input_comp = InputComponent(input_type=input_type, binding=binding, attributes=attributes)
+        if element_id:
+            # Store the element ID as a custom attribute
+            input_comp.element_id = element_id
+        
+        return input_comp
+    
+    def parse_textarea_component(self, line: str) -> TextareaComponent:
+        """Parse textarea component: textarea bind LoginForm.message."""
+        parts = line[9:].strip()  # Remove "textarea "
+        
+        attributes = self.parse_attributes(parts)
+        binding = None
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        return TextareaComponent(binding=binding, attributes=attributes)
+    
+    def parse_dropdown_component(self, line: str) -> DropdownComponent:
+        """Parse dropdown component: dropdown id country_field options ["Option1", "Option2"] bind Form.selection."""
+        parts = line[9:].strip()  # Remove "dropdown "
+        
+        # Extract ID if present
+        words = parts.split()
+        element_id = None
+        if words and words[0] == "id" and len(words) > 1:
+            element_id = words[1]
+            remaining_text = " ".join(words[2:])
+        else:
+            remaining_text = parts
+        
+        # Extract options if present
+        options = []
+        if 'options ' in remaining_text:
+            options_start = remaining_text.find('options ')
+            before_options = remaining_text[:options_start].strip()
+            options_part = remaining_text[options_start + 8:].strip()
+            
+            if options_part.startswith('[') and ']' in options_part:
+                end_bracket = options_part.find(']')
+                options_str = options_part[1:end_bracket]
+                attr_text = (before_options + " " + options_part[end_bracket + 1:]).strip()
+                
+                # Parse options array
+                if options_str.strip():
+                    option_parts = options_str.split(',')
+                    for opt in option_parts:
+                        opt = opt.strip()
+                        if opt.startswith('"') and opt.endswith('"'):
+                            options.append(Literal(value=opt[1:-1], type='string'))
+                        elif opt.startswith("'") and opt.endswith("'"):
+                            options.append(Literal(value=opt[1:-1], type='string'))
+                        else:
+                            options.append(Literal(value=opt, type='string'))
+            else:
+                attr_text = remaining_text
+        else:
+            attr_text = remaining_text
+        
+        attributes = self.parse_attributes(attr_text)
+        binding = None
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        dropdown = DropdownComponent(options=options, binding=binding, attributes=attributes)
+        if element_id:
+            dropdown.element_id = element_id
+        
+        return dropdown
+    
+    def parse_toggle_component(self, line: str) -> ToggleComponent:
+        """Parse toggle component: toggle bind Form.enabled."""
+        parts = line[7:].strip()  # Remove "toggle "
+        
+        attributes = self.parse_attributes(parts)
+        binding = None
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        return ToggleComponent(binding=binding, attributes=attributes)
+    
+    def parse_checkbox_component(self, line: str) -> CheckboxComponent:
+        """Parse checkbox component: checkbox id newsletter_field "Accept terms" bind Form.accepted."""
+        parts = line[9:].strip()  # Remove "checkbox "
+        
+        # Extract ID if present
+        words = parts.split()
+        element_id = None
+        if words and words[0] == "id" and len(words) > 1:
+            element_id = words[1]
+            remaining_text = " ".join(words[2:])
+        else:
+            remaining_text = parts
+        
+        # Extract text if present
+        text = None
+        attr_text = remaining_text
+        
+        if remaining_text.startswith('"') and '"' in remaining_text[1:]:
+            end_quote = remaining_text.find('"', 1)
+            text = remaining_text[1:end_quote]
+            attr_text = remaining_text[end_quote + 1:].strip()
+        elif remaining_text.startswith("'") and "'" in remaining_text[1:]:
+            end_quote = remaining_text.find("'", 1)
+            text = remaining_text[1:end_quote]
+            attr_text = remaining_text[end_quote + 1:].strip()
+        
+        attributes = self.parse_attributes(attr_text)
+        binding = None
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        checkbox = CheckboxComponent(text=text, binding=binding, attributes=attributes)
+        if element_id:
+            checkbox.element_id = element_id
+        
+        return checkbox
+    
+    def parse_radio_component(self, line: str) -> RadioComponent:
+        """Parse radio component: radio id role_admin "Option A" value "a" bind Form.choice."""
+        parts = line[6:].strip()  # Remove "radio "
+        
+        # Extract ID if present
+        words = parts.split()
+        element_id = None
+        if words and words[0] == "id" and len(words) > 1:
+            element_id = words[1]
+            remaining_text = " ".join(words[2:])
+        else:
+            remaining_text = parts
+        
+        # Extract text and value
+        text = None
+        value = None
+        attr_text = remaining_text
+        
+        # Extract text if present
+        if remaining_text.startswith('"') and '"' in remaining_text[1:]:
+            end_quote = remaining_text.find('"', 1)
+            text = remaining_text[1:end_quote]
+            remaining = remaining_text[end_quote + 1:].strip()
+            
+            # Check for value specification
+            if remaining.startswith('value '):
+                value_part = remaining[6:].strip()
+                if value_part.startswith('"') and '"' in value_part[1:]:
+                    end_value_quote = value_part.find('"', 1)
+                    value = value_part[1:end_value_quote]
+                    attr_text = value_part[end_value_quote + 1:].strip()
+                else:
+                    words = value_part.split()
+                    value = words[0] if words else ""
+                    attr_text = " ".join(words[1:]) if len(words) > 1 else ""
+            else:
+                attr_text = remaining
+        
+        attributes = self.parse_attributes(attr_text)
+        binding = None
+        
+        # Extract binding from attributes
+        for attr in attributes:
+            if isinstance(attr, BindingAttribute):
+                binding = attr.binding_target
+        
+        radio = RadioComponent(text=text, value=value, binding=binding, attributes=attributes)
+        if element_id:
+            radio.element_id = element_id
+        
+        return radio
+    
+    def parse_button_component(self, line: str) -> ButtonComponent:
+        """Parse button component: button "Login" run submit_login."""
+        parts = line[7:].strip()  # Remove "button "
+        
+        # Extract text
+        if parts.startswith('"') and '"' in parts[1:]:
+            end_quote = parts.find('"', 1)
+            text = parts[1:end_quote]
+            attr_text = parts[end_quote + 1:].strip()
+        elif parts.startswith("'") and "'" in parts[1:]:
+            end_quote = parts.find("'", 1)
+            text = parts[1:end_quote]
+            attr_text = parts[end_quote + 1:].strip()
+        else:
+            # No quotes, extract first word as text
+            words = parts.split()
+            text = words[0] if words else "Button"
+            attr_text = " ".join(words[1:]) if len(words) > 1 else ""
+        
+        attributes = self.parse_attributes(attr_text)
+        action = None
+        
+        # Extract action from attributes
+        for attr in attributes:
+            if isinstance(attr, ActionAttribute):
+                action = attr.action_name
+        
+        return ButtonComponent(text=text, action=action, attributes=attributes)
+    
+    def parse_attributes(self, attr_text: str) -> List[AttributeDefinition]:
+        """Parse component attributes like 'validate required, email' or 'bind LoginForm.email'."""
+        attributes = []
+        
+        if not attr_text.strip():
+            return attributes
+        
+        # Split by keywords: validate, bind, run
+        parts = re.split(r'(?:^|\s+)(validate|bind|run)\s+', attr_text, flags=re.IGNORECASE)
+        
+        i = 1  # Skip first empty part
+        while i < len(parts):
+            attr_type = parts[i].lower()
+            attr_value = parts[i + 1] if i + 1 < len(parts) else ""
+            
+            if attr_type == 'validate':
+                # Parse validation types: "required, email" or "required"
+                validations = [v.strip() for v in attr_value.split(',')]
+                for validation in validations:
+                    if validation:
+                        attributes.append(ValidationAttribute(validation_type=validation))
+            
+            elif attr_type == 'bind':
+                # Parse binding target: "LoginForm.email"
+                binding_target = attr_value.strip()
+                if binding_target:
+                    attributes.append(BindingAttribute(binding_target=binding_target))
+            
+            elif attr_type == 'run':
+                # Parse action name: "submit_login"
+                action_name = attr_value.strip()
+                if action_name:
+                    attributes.append(ActionAttribute(action_name=action_name))
+            
+            i += 2
+        
+        return attributes
 
 
 def parse(source: str) -> Program:

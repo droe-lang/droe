@@ -8,19 +8,20 @@
 
 1. [Overview](#overview)
 2. [Lexical Structure](#lexical-structure)
-3. [Data Types](#data-types)
-4. [Variables and Assignment](#variables-and-assignment)
-5. [Expressions](#expressions)
-6. [Control Flow](#control-flow)
-7. [Functions and Actions](#functions-and-actions)
-8. [Modules](#modules)
-9. [Data Structures](#data-structures)
-10. [String Operations](#string-operations)
-11. [Format Expressions](#format-expressions)
-12. [Include System](#include-system)
-13. [Comments](#comments)
-14. [Keywords](#keywords)
-15. [Compilation Targets](#compilation-targets)
+3. [Metadata Annotations](#metadata-annotations)
+4. [Data Types](#data-types)
+5. [Variables and Assignment](#variables-and-assignment)
+6. [Expressions](#expressions)
+7. [Control Flow](#control-flow)
+8. [Functions and Actions](#functions-and-actions)
+9. [Modules](#modules)
+10. [Data Structures](#data-structures)
+11. [String Operations](#string-operations)
+12. [Format Expressions](#format-expressions)
+13. [Include System](#include-system)
+14. [Comments](#comments)
+15. [Keywords](#keywords)
+16. [Compilation Targets](#compilation-targets)
 
 ---
 
@@ -35,6 +36,7 @@ Roelang is a domain-specific language designed for business logic and process au
 - **Multi-Target**: Compile to multiple languages and platforms
 - **Modular**: Support for modules and code reuse
 - **Modern**: Support for collections, string interpolation, and format expressions
+- **Metadata-Driven**: Built-in support for metadata annotations for compilation control and documentation
 
 ---
 
@@ -62,6 +64,126 @@ user-name   // contains hyphen
 
 ### Line Termination
 Statements are terminated by newlines. No semicolons required.
+
+---
+
+## Metadata Annotations
+
+Metadata annotations provide compile-time information about Roelang programs. They are specified at the beginning of a file using the `@key value` syntax.
+
+### Syntax
+
+```roe
+@key value
+@key "quoted value"
+@key 'single quoted value'
+```
+
+### Standard Metadata Keys
+
+#### @target
+Specifies the compilation target, overriding command-line options and project configuration.
+
+**Supported targets:**
+- `wasm` - WebAssembly (default)
+- `python` - Python
+- `java` - Java  
+- `javascript` or `node` - JavaScript/Node.js
+- `go` - Go
+- `kotlin` - Kotlin
+- `swift` - Swift
+- `bytecode` - Roelang bytecode
+
+```roe
+@target python
+@name user_authentication
+@description "User authentication and authorization module"
+
+display "This will compile to Python"
+```
+
+#### @name
+Specifies the module or component name. Useful for documentation and tooling.
+
+```roe
+@name "Shopping Cart"
+@name shopping_cart_module
+```
+
+#### @description  
+Provides a human-readable description of the module's purpose.
+
+```roe
+@description "Handles user profile management and validation"
+@description "A utility module for mathematical operations"
+```
+
+#### Custom Metadata
+You can define custom metadata keys for your specific use cases:
+
+```roe
+@version "1.2.0"
+@author "Development Team"
+@license "MIT"
+@category "utilities"
+```
+
+### Rules and Constraints
+
+1. **Placement**: Metadata annotations must appear at the top of the file before any code statements
+2. **Order**: Metadata can appear in any order
+3. **Uniqueness**: Each metadata key should appear only once per file
+4. **Values**: Values can be unquoted (single word) or quoted (for multi-word values)
+5. **Case Sensitivity**: Metadata keys are case-sensitive
+
+### Examples
+
+**Basic metadata:**
+```roe
+@target java
+@name PaymentProcessor
+@description "Processes payment transactions and validations"
+
+// Your code here
+display "Payment system initialized"
+```
+
+**Web application module:**
+```roe
+@target javascript  
+@name "User Profile Form"
+@description "Interactive form for user profile management"
+@version "2.1.0"
+
+// Your code here
+set user_name which is text to "John Doe"
+display user_name
+```
+
+**Backend service:**
+```roe
+@target go
+@name api_gateway
+@description "API gateway with authentication and rate limiting"
+@author "Backend Team"
+
+// Your code here
+display "API Gateway starting..."
+```
+
+### Programmatic Access
+
+Metadata can be accessed programmatically through the compiler API:
+
+```python
+from compiler.parser import parse
+from compiler.compiler import get_metadata_value
+
+ast = parse(source_code)
+target = get_metadata_value(ast, "target")
+name = get_metadata_value(ast, "name")
+description = get_metadata_value(ast, "description")
+```
 
 ---
 

@@ -1,0 +1,24 @@
+@target html
+
+module login_ui
+
+  data LoginForm
+    email is text
+    password is text
+  end data
+
+  layout login_screen
+    column
+      title "Welcome to Roe" validate required
+      input email bind LoginForm.email validate required, email
+      input type password bind LoginForm.password secure 
+      button "Login" run submit_login
+    end column
+  end layout
+
+  action submit_login with email which is text, password which is text gives text
+    display "Logging in as [email]..."
+    respond with "Login successful"
+  end action
+
+end module

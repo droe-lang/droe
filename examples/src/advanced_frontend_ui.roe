@@ -1,0 +1,45 @@
+@target html
+@name "Advanced Frontend Demo"
+
+module advanced_ui
+
+  data UserProfile  
+    name is text
+    email is text
+    age is number
+    country is text
+    newsletter is boolean
+    role is text
+  end data
+
+  layout main_screen
+    column
+      title "User Registration Form"
+      form user_form
+        input id name_field text bind UserProfile.name validate required
+        input id email_field email bind UserProfile.email validate required, email
+        input id age_field number bind UserProfile.age validate required
+        dropdown id country_field options ["USA", "Canada", "UK", "Australia"] bind UserProfile.country
+        checkbox id newsletter_field "Subscribe to newsletter" bind UserProfile.newsletter
+        radio id role_admin "Admin" value "admin" bind UserProfile.role
+        radio id role_user "User" value "user" bind UserProfile.role
+        row
+          button "Cancel" run cancel_form
+          button "Submit" run submit_form
+        end row
+      end form
+    end column
+  end layout
+
+  action submit_form gives text
+    display "Submitting user registration..."
+    display "Profile data received"
+    respond with "User registered successfully!"
+  end action
+
+  action cancel_form gives text  
+    display "Canceling form..."
+    respond with "Form canceled"
+  end action
+
+end module

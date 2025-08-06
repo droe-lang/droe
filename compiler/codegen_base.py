@@ -51,7 +51,7 @@ class BaseCodeGenerator(ABC):
     
     def get_output(self) -> str:
         """Get the generated code as a string."""
-        return '\\n'.join(self.output)
+        return '\n'.join(self.output)
     
     def clear_output(self):
         """Clear the output buffer."""

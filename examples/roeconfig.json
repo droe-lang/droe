@@ -3,5 +3,5 @@
   "build": "build",
   "dist": "dist",
   "main": "src/main.roe",
-  "target": "python"
+  "target": "html"
 }

@@ -210,6 +210,125 @@ class MetadataAnnotation(ASTNode):
 
 
 @dataclass
+class LayoutDefinition(ASTNode):
+    """Represents a layout definition (layout name ... end layout)."""
+    name: str
+    layout_type: str  # 'column', 'row', 'grid', 'stack', 'overlay'
+    children: List[ASTNode]
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+
+
+@dataclass
+class FormDefinition(ASTNode):
+    """Represents a form definition (form name ... end form)."""
+    name: str
+    children: List[ASTNode]
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+
+
+@dataclass
+class TitleComponent(ASTNode):
+    """Represents a title component."""
+    text: str
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    component_type: str = field(default="title", init=False)
+
+
+@dataclass
+class InputComponent(ASTNode):
+    """Represents an input component."""
+    input_type: str = "text"  # 'text', 'password', 'email', etc.
+    binding: Optional[str] = None  # Data binding target
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
+    component_type: str = field(default="input", init=False)
+
+
+@dataclass
+class TextareaComponent(ASTNode):
+    """Represents a textarea component."""
+    binding: Optional[str] = None
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    component_type: str = field(default="textarea", init=False)
+
+
+@dataclass
+class DropdownComponent(ASTNode):
+    """Represents a dropdown/select component."""
+    options: List[ASTNode] = field(default_factory=list)
+    binding: Optional[str] = None
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
+    component_type: str = field(default="dropdown", init=False)
+
+
+@dataclass
+class ToggleComponent(ASTNode):
+    """Represents a toggle/switch component."""
+    binding: Optional[str] = None
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    component_type: str = field(default="toggle", init=False)
+
+
+@dataclass
+class CheckboxComponent(ASTNode):
+    """Represents a checkbox component."""
+    text: Optional[str] = None
+    binding: Optional[str] = None
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
+    component_type: str = field(default="checkbox", init=False)
+
+
+@dataclass
+class RadioComponent(ASTNode):
+    """Represents a radio button component."""
+    text: Optional[str] = None
+    value: Optional[str] = None
+    binding: Optional[str] = None
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    element_id: Optional[str] = None  # Element ID for form handling
+    component_type: str = field(default="radio", init=False)
+
+
+@dataclass
+class ButtonComponent(ASTNode):
+    """Represents a button component."""
+    text: str
+    action: Optional[str] = None  # Action to run on click
+    attributes: List['AttributeDefinition'] = field(default_factory=list)
+    component_type: str = field(default="button", init=False)
+
+
+@dataclass
+class AttributeDefinition(ASTNode):
+    """Represents an attribute definition (validate required, bind LoginForm.email, etc.)."""
+    name: str
+    value: Optional[ASTNode] = None  # Can be a literal or expression
+
+
+@dataclass
+class ValidationAttribute(ASTNode):
+    """Represents a validation attribute."""
+    validation_type: str  # 'required', 'email', 'numeric', etc.
+    name: str = field(default="validate", init=False)
+
+
+@dataclass
+class BindingAttribute(ASTNode):
+    """Represents a data binding attribute."""
+    binding_target: str  # e.g., 'LoginForm.email'
+    name: str = field(default="bind", init=False)
+
+
+@dataclass
+class ActionAttribute(ASTNode):
+    """Represents an action attribute (run action_name)."""
+    action_name: str
+    name: str = field(default="run", init=False)
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]
