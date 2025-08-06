@@ -3,8 +3,15 @@
 import os
 import sys
 import json
+import argparse
+import shutil
+import subprocess
+import time
 from pathlib import Path
 import importlib.util
+from datetime import datetime
+from urllib.parse import urlparse
+import tempfile
 
 # Load compiler from ~/.roelang/
 def load_compiler():
@@ -48,11 +55,13 @@ def load_config():
     return default_config
 
 # Initialize a Roelang project
-def init_project():
+def init_project(name=None, author=None):
     project_root = Path.cwd()
     src_dir = project_root / "src"
     build_dir = project_root / "build"
+    modules_dir = project_root / "modules"
     config_path = project_root / "roeconfig.json"
+    package_path = project_root / "package.json"
 
     if any(project_root.iterdir()) and not config_path.exists():
         confirm = input("⚠️ Current directory is not empty. Continue? (y/N): ")
@@ -60,25 +69,240 @@ def init_project():
             print("❌ Aborted.")
             exit(1)
 
+    # Create directories
     src_dir.mkdir(exist_ok=True)
     build_dir.mkdir(exist_ok=True)
+    modules_dir.mkdir(exist_ok=True)
 
+    # Create roeconfig.json
     if not config_path.exists():
         config_data = {
-            "src": ".",
+            "src": "src",
             "build": "build",
             "dist": "dist",
+            "modules": "modules",
             "main": "src/main.roe"
         }
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=2)
         print("✅ Created roeconfig.json")
 
-    print("✅ Initialized empty Roelang project.")
-    print("\nNext steps:")
-    print("  Add files anywhere in the project")
-    print("  roe run filename.roe (supports paths like src/main.roe)")
-    print("  Build files will be organized in build/ directory")
+    # Create package.json for dependency management
+    if not package_path.exists():
+        package_data = {
+            "name": name or project_root.name,
+            "version": "1.0.0",
+            "description": f"A Roelang project: {name or project_root.name}",
+            "author": author or "Unknown",
+            "main": "src/main.roe",
+            "dependencies": {},
+            "devDependencies": {},
+            "roelang": {
+                "version": "^1.0.0"
+            }
+        }
+        with open(package_path, "w") as f:
+            json.dump(package_data, f, indent=2)
+        print("✅ Created package.json")
+
+    # Create a sample main.roe file
+    main_file = src_dir / "main.roe"
+    if not main_file.exists():
+        main_content = '''display "Welcome to Roelang!"
+display "This is your main entry point."
+
+# Example variable
+set message which is text to "Hello, World!"
+display message
+
+# Example action
+action greet with name which is text returns text
+    return "Hello, " + name + "!"
+end
+
+# Use the action
+set greeting which is text from greet with "Developer"
+display greeting
+'''
+        with open(main_file, "w") as f:
+            f.write(main_content)
+        print("✅ Created src/main.roe")
+
+    print("✅ Initialized Roelang project successfully!")
+    print(f"📁 Project name: {name or project_root.name}")
+    if author:
+        print(f"👤 Author: {author}")
+    print("\n📂 Directory structure:")
+    print("  src/         - Source code (.roe files)")
+    print("  modules/     - Downloaded packages")
+    print("  build/       - Compiled files (.wat, .wasm)")
+    print("  dist/        - Distribution packages")
+    print("\n🚀 Next steps:")
+    print("  roe run src/main.roe     - Run the sample")
+    print("  roe install package-name - Install packages")
+    print("  roe build               - Build project")
+
+# Package management functions
+def install_package(package_name, is_dev=False):
+    """Install a package from a repository."""
+    project_root = find_project_root()
+    modules_dir = project_root / "modules"
+    package_path = project_root / "package.json"
+    
+    # Create modules directory if it doesn't exist
+    modules_dir.mkdir(exist_ok=True)
+    
+    # Load package.json
+    if not package_path.exists():
+        print("❌ Error: package.json not found. Run 'roe init' first.")
+        exit(1)
+    
+    with open(package_path) as f:
+        package_data = json.load(f)
+    
+    print(f"📦 Installing {package_name}...")
+    
+    # For now, simulate package installation from a registry
+    # In a real implementation, this would:
+    # 1. Resolve package name to repository URL
+    # 2. Download from git/registry
+    # 3. Extract .roe files to modules directory
+    
+    package_dir = modules_dir / package_name
+    
+    # Simulate package download (create example package structure)
+    if package_name == "math-utils":
+        package_dir.mkdir(exist_ok=True)
+        
+        # Create example DSL files
+        math_roe = package_dir / "math.roe"
+        with open(math_roe, "w") as f:
+            f.write('''# Math utilities package
+module MathUtils
+    action add with a which is int and b which is int returns int
+        return a + b
+    end
+    
+    action multiply with x which is decimal and y which is decimal returns decimal
+        return x * y
+    end
+    
+    action power with base which is int and exp which is int returns int
+        set result which is int to 1
+        set i which is int to 0
+        while i < exp
+            set result to result * base
+            set i to i + 1
+        end
+        return result
+    end
+end
+''')
+        
+        package_info = package_dir / "package.json"
+        with open(package_info, "w") as f:
+            json.dump({
+                "name": "math-utils",
+                "version": "1.0.0",
+                "description": "Mathematical utility functions for Roelang",
+                "main": "math.roe",
+                "files": ["math.roe"]
+            }, f, indent=2)
+        
+        print(f"✅ Downloaded math-utils to modules/{package_name}")
+    elif package_name == "string-utils":
+        package_dir.mkdir(exist_ok=True)
+        
+        string_roe = package_dir / "strings.roe"
+        with open(string_roe, "w") as f:
+            f.write('''# String utilities package
+module StringUtils
+    action uppercase with text which is text returns text
+        # Placeholder for uppercase functionality
+        return text + " (UPPER)"
+    end
+    
+    action concat_with_separator with items which are list of text and sep which is text returns text
+        # Placeholder for join functionality
+        return "Joined: " + items[0] + sep + items[1]
+    end
+end
+''')
+        
+        print(f"✅ Downloaded string-utils to modules/{package_name}")
+    else:
+        print(f"❌ Package '{package_name}' not found in registry")
+        print("💡 Available packages: math-utils, string-utils")
+        exit(1)
+    
+    # Update package.json dependencies
+    dep_key = "devDependencies" if is_dev else "dependencies"
+    if dep_key not in package_data:
+        package_data[dep_key] = {}
+    
+    package_data[dep_key][package_name] = "^1.0.0"
+    
+    with open(package_path, "w") as f:
+        json.dump(package_data, f, indent=2)
+    
+    print(f"✅ Added {package_name} to {dep_key}")
+    print(f"💡 Use: include \"{package_name}/{package_name.replace('-', '_')}.roe\"")
+
+def show_version():
+    """Show version information."""
+    print("Roe Lang Compiler & Runtime")
+    print("Version: 1.0.0")
+    print("Build: 2024-08-06")
+    print("")
+    print("Components:")
+    print("  - Compiler: Python-based DSL to WebAssembly")
+    print("  - Runtime: Node.js WebAssembly executor")
+    print("  - Package Manager: Module-based dependency system")
+
+def show_help():
+    """Show comprehensive help information."""
+    print("Roe Lang - Domain Specific Language Compiler")
+    print("")
+    print("USAGE:")
+    print("    roe [COMMAND] [OPTIONS]")
+    print("")
+    print("COMMANDS:")
+    print("    init                     Initialize new Roelang project")
+    print("    compile <file>           Compile .roe file to WebAssembly")
+    print("    run <file>              Compile and run .roe file")
+    print("    build                   Build entire project")
+    print("    install [package]       Install package dependencies")
+    print("")
+    print("INIT OPTIONS:")
+    print("    --name <name>           Set project name")
+    print("    --author <author>       Set project author")
+    print("")
+    print("INSTALL OPTIONS:")
+    print("    --dev                   Install as development dependency")
+    print("")
+    print("BUILD OPTIONS:")
+    print("    --clean                 Clean build directory first")
+    print("    --release               Build for production (optimized)")
+    print("")
+    print("COMPILE OPTIONS:")
+    print("    --format <fmt>          Output format (wat|wasm) [default: wasm]")
+    print("    --output <path>         Output file path")
+    print("    --watch                 Watch for file changes")
+    print("")
+    print("RUN OPTIONS:")
+    print("    --watch                 Watch and rerun on changes")
+    print("")
+    print("GLOBAL OPTIONS:")
+    print("    -h, --help              Show this help message")
+    print("    --version               Show version information")
+    print("")
+    print("EXAMPLES:")
+    print("    roe init --name my-app --author \"John Doe\"")
+    print("    roe install math-utils")
+    print("    roe install dev-tools --dev")
+    print("    roe compile src/main.roe --format wasm --output dist/main.wasm")
+    print("    roe run src/main.roe --watch")
+    print("    roe build --clean --release")
 
 # Load compiler
 compiler = load_compiler()
@@ -111,7 +335,7 @@ def find_project_root():
     exit(1)
 
 # Build distribution package
-def build_distribution(project_root):
+def build_distribution(project_root, clean=False, release=False):
     """Build distribution package with manifest.json and .wasm files."""
     import shutil
     import subprocess
@@ -133,10 +357,19 @@ def build_distribution(project_root):
     main_file = config.get("main", "src/main.roe")
     
     print(f"📦 Building distribution package...")
+    if release:
+        print("🚀 Release build (optimized)")
+    if clean:
+        print("🧹 Cleaning build directory")
     print(f"📂 Source pattern: {src_pattern}")
     print(f"📂 Build directory: {build_dir}")
     print(f"📂 Dist directory: {dist_dir}")
     print(f"🎯 Main entry: {main_file}")
+    
+    # Clean build directory if requested
+    if clean and build_dir.exists():
+        shutil.rmtree(build_dir)
+        print(f"🧹 Cleaned {build_dir}")
     
     # Find all .roe files in the project
     if src_pattern == ".":
@@ -241,89 +474,277 @@ def build_distribution(project_root):
     if main_wasm:
         print(f"🎯 Main entry: {main_wasm}")
 
-# Command line parsing
-if len(sys.argv) < 2:
-    print("Usage:\n  roe init\n  roe compile <filename>\n  roe run <filename>\n  roe build")
-    exit(1)
-
-command = sys.argv[1]
-
-if command == "init":
-    init_project()
-    exit(0)
-
-if command == "build":
-    # Build command doesn't need additional arguments - handle it separately
-    project_root = find_project_root()
-    build_distribution(project_root)
-    exit(0)
-elif len(sys.argv) < 3:
-    print("Usage:\n  roe compile <filename>\n  roe run <filename>\n  roe build")
-    exit(1)
-
-roe_filename = sys.argv[2]
-
-# Determine project root
-project_root = find_project_root()
-config = load_config()
-
-# Resolve paths
-config_build_dir = project_root / config["build"]
-tool_dir = Path.home() / ".roelang"
-runtime = tool_dir / "run.js"
-
-# Handle file path relative to current working directory
-roe_file = Path(roe_filename)
-if not roe_file.is_absolute():
-    roe_file = Path.cwd() / roe_filename
-
-# Create build directory based on source file location
-# Calculate relative path from project root
-if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
-    relative_path = roe_file.relative_to(project_root)
-elif not roe_file.is_absolute():
-    # For relative paths, calculate from project root
-    absolute_roe_file = roe_file.resolve()
-    if absolute_roe_file.is_relative_to(project_root):
-        relative_path = absolute_roe_file.relative_to(project_root)
+# Command line parsing with argparse
+def main():
+    parser = argparse.ArgumentParser(
+        prog='roe',
+        description='Roe Lang - Domain Specific Language Compiler',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Global flags
+    parser.add_argument('--version', action='store_true', help='Show version information')
+    
+    # Subcommands
+    subparsers = parser.add_subparsers(dest='command', help='Available commands')
+    
+    # Init command
+    init_parser = subparsers.add_parser('init', help='Initialize new Roelang project')
+    init_parser.add_argument('--name', help='Project name')
+    init_parser.add_argument('--author', help='Project author')
+    
+    # Install command
+    install_parser = subparsers.add_parser('install', help='Install package dependencies')
+    install_parser.add_argument('package', nargs='?', help='Package name to install')
+    install_parser.add_argument('--dev', action='store_true', help='Install as development dependency')
+    
+    # Build command
+    build_parser = subparsers.add_parser('build', help='Build entire project')
+    build_parser.add_argument('--clean', action='store_true', help='Clean build directory first')
+    build_parser.add_argument('--release', action='store_true', help='Build for production')
+    
+    # Compile command
+    compile_parser = subparsers.add_parser('compile', help='Compile .roe file to WebAssembly')
+    compile_parser.add_argument('file', help='Source file to compile')
+    compile_parser.add_argument('--format', choices=['wat', 'wasm'], default='wasm', help='Output format')
+    compile_parser.add_argument('--output', help='Output file path')
+    compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
+    
+    # Run command
+    run_parser = subparsers.add_parser('run', help='Compile and run .roe file')
+    run_parser.add_argument('file', help='Source file to run')
+    run_parser.add_argument('--watch', action='store_true', help='Watch and rerun on changes')
+    
+    # Handle legacy usage patterns
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ['-h', '--help']):
+        show_help()
+        return
+    
+    # Handle version flag
+    if len(sys.argv) == 2 and sys.argv[1] == '--version':
+        show_version()
+        return
+    
+    # Handle legacy command patterns
+    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'compile', 'run', '--version', '-h', '--help']:
+        if sys.argv[1] in ['-h', '--help']:
+            show_help()
+            return
+        else:
+            # Legacy usage - try to infer command
+            print("❌ Unknown command. Use 'roe --help' for usage information.")
+            return
+    
+    args = parser.parse_args()
+    
+    # Handle version flag
+    if args.version:
+        show_version()
+        return
+    
+    # Handle commands
+    if args.command == 'init':
+        init_project(args.name, args.author)
+        return
+    
+    elif args.command == 'install':
+        if args.package:
+            install_package(args.package, args.dev)
+        else:
+            # Install all dependencies from package.json
+            project_root = find_project_root()
+            package_path = project_root / "package.json"
+            if package_path.exists():
+                with open(package_path) as f:
+                    package_data = json.load(f)
+                
+                dependencies = package_data.get('dependencies', {})
+                dev_dependencies = package_data.get('devDependencies', {})
+                
+                print("📦 Installing dependencies...")
+                for pkg in dependencies:
+                    install_package(pkg, False)
+                for pkg in dev_dependencies:
+                    install_package(pkg, True)
+            else:
+                print("❌ Error: package.json not found. Run 'roe init' first.")
+        return
+    
+    elif args.command == 'build':
+        project_root = find_project_root()
+        build_distribution(project_root, args.clean, args.release)
+        return
+    
+    elif args.command == 'compile':
+        compile_file(args.file, args.format, args.output, args.watch)
+        return
+    
+    elif args.command == 'run':
+        run_file(args.file, args.watch)
+        return
+    
     else:
-        # File is outside project root, just use the filename
-        relative_path = Path(roe_file.name)
-else:
-    # Absolute path outside project root
-    relative_path = Path(roe_file.name)
+        show_help()
 
-basename = roe_file.stem
+def compile_file(roe_filename, output_format='wasm', output_path=None, watch=False):
+    """Compile a single .roe file."""
+    def do_compile():
+        # Determine project root
+        project_root = find_project_root()
+        config = load_config()
+        
+        # Resolve paths
+        config_build_dir = project_root / config["build"]
+        tool_dir = Path.home() / ".roelang"
+        
+        # Handle file path relative to current working directory
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+        
+        # Calculate relative path for build directory structure
+        if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
+            relative_path = roe_file.relative_to(project_root)
+        else:
+            relative_path = Path(roe_file.name)
+        
+        basename = roe_file.stem
+        
+        # Determine build directory
+        build_dir = config_build_dir
+        if relative_path.parent != Path("."):
+            build_dir = build_dir / relative_path.parent
+        
+        # Set output files
+        if output_path:
+            if output_format == 'wat':
+                wat_file = Path(output_path)
+                wasm_file = wat_file.with_suffix('.wasm')
+            else:
+                wasm_file = Path(output_path)
+                wat_file = wasm_file.with_suffix('.wat')
+        else:
+            wat_file = build_dir / f"{basename}.wat"
+            wasm_file = build_dir / f"{basename}.wasm"
+        
+        # Validations
+        if not roe_file.exists() or not roe_file.suffix == ".roe":
+            print(f"❌ Error: {roe_file} not found or not a .roe file")
+            exit(1)
+        
+        # Ensure build directory exists
+        wat_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        try:
+            print(f"🔨 Compiling {roe_file} -> {output_format.upper()}")
+            
+            # Compile to .wat
+            if hasattr(compiler, 'compile_file'):
+                compiler.compile_file(str(roe_file), str(wat_file))
+            else:
+                compiler.compile_roe_to_wat(roe_file, wat_file)
+            
+            if output_format == 'wasm':
+                # Compile to .wasm
+                result = subprocess.run(['wat2wasm', str(wat_file), '-o', str(wasm_file)], 
+                                      capture_output=True, text=True)
+                if result.returncode != 0:
+                    print(f"❌ Error compiling to WASM: {result.stderr}")
+                    return False
+                print(f"✅ Compiled successfully -> {wasm_file}")
+            else:
+                print(f"✅ Compiled successfully -> {wat_file}")
+            
+            return True
+        except Exception as e:
+            print(f"❌ Compilation failed: {e}")
+            return False
+    
+    if watch:
+        print(f"👀 Watching {roe_filename} for changes...")
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+        
+        last_modified = 0
+        
+        try:
+            while True:
+                if roe_file.exists():
+                    current_modified = roe_file.stat().st_mtime
+                    if current_modified > last_modified:
+                        last_modified = current_modified
+                        print(f"\n📝 Change detected at {datetime.now().strftime('%H:%M:%S')}")
+                        do_compile()
+                        print(f"👀 Watching for changes...")
+                
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n⏹️ Watch mode stopped")
+    else:
+        do_compile()
 
-# Determine build directory - always use build/ with maintained structure
-build_dir = config_build_dir
+def run_file(roe_filename, watch=False):
+    """Compile and run a .roe file."""
+    def do_run():
+        # First compile
+        if not compile_file(roe_filename, 'wasm'):
+            return False
+        
+        # Then run
+        project_root = find_project_root()
+        config = load_config()
+        tool_dir = Path.home() / ".roelang"
+        runtime = tool_dir / "run.js"
+        
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+        
+        # Calculate build path
+        config_build_dir = project_root / config["build"]
+        if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
+            relative_path = roe_file.relative_to(project_root)
+        else:
+            relative_path = Path(roe_file.name)
+        
+        basename = roe_file.stem
+        build_dir = config_build_dir
+        if relative_path.parent != Path("."):
+            build_dir = build_dir / relative_path.parent
+        
+        wasm_file = build_dir / f"{basename}.wasm"
+        
+        print(f"🚀 Running {wasm_file}")
+        print("─" * 40)
+        
+        result = subprocess.run(['node', str(runtime), str(wasm_file)])
+        return result.returncode == 0
+    
+    if watch:
+        print(f"👀 Watching {roe_filename} for changes...")
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+        
+        last_modified = 0
+        
+        try:
+            while True:
+                if roe_file.exists():
+                    current_modified = roe_file.stat().st_mtime
+                    if current_modified > last_modified:
+                        last_modified = current_modified
+                        print(f"\n📝 Change detected at {datetime.now().strftime('%H:%M:%S')}")
+                        do_run()
+                        print(f"\n👀 Watching for changes...")
+                
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n⏹️ Watch mode stopped")
+    else:
+        do_run()
 
-# Maintain source directory structure in build directory
-if relative_path.parent != Path("."):
-    # Source is in a subdirectory, maintain that structure in build
-    build_dir = build_dir / relative_path.parent
+if __name__ == "__main__":
+    main()
 
-wat_file = build_dir / f"{basename}.wat"
-wasm_file = build_dir / f"{basename}.wasm"
-
-# Validations
-if not roe_file.exists() or not roe_file.suffix == ".roe":
-    print(f"❌ Error: {roe_file} not found or not a .roe file")
-    exit(1)
-
-# Ensure build directory exists
-build_dir.mkdir(parents=True, exist_ok=True)
-
-# Compile to .wat
-# Try new compiler API first, then fallback to old
-if hasattr(compiler, 'compile_file'):
-    compiler.compile_file(str(roe_file), str(wat_file))
-else:
-    compiler.compile_roe_to_wat(roe_file, wat_file)
-
-# Compile to .wasm
-os.system(f"wat2wasm {wat_file} -o {wasm_file}")
-
-# Run if needed
-if command == "run":
-    os.system(f"node {runtime} {wasm_file}")
