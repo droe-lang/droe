@@ -19,7 +19,7 @@ class CompilerTarget(ABC):
         self.description = description
     
     @abstractmethod
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         """Create a code generator for this target."""
         pass
     
@@ -40,7 +40,7 @@ class WASMTarget(CompilerTarget):
     def __init__(self):
         super().__init__("wasm", ".wasm", "WebAssembly binary format")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.wasm.codegen import WATCodeGenerator
         return WATCodeGenerator()
     
@@ -57,12 +57,12 @@ class PythonTarget(CompilerTarget):
     def __init__(self):
         super().__init__("python", ".py", "Python source code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.python.codegen import PythonCodeGenerator
         return PythonCodeGenerator()
     
     def get_runtime_files(self) -> List[str]:
-        return ["roelang_runtime.py"]
+        return []  # No runtime files needed - using inline code generation
     
     def get_dependencies(self) -> List[str]:
         return ["python3"]
@@ -74,12 +74,12 @@ class JavaTarget(CompilerTarget):
     def __init__(self):
         super().__init__("java", ".java", "Java source code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.java.codegen import JavaCodeGenerator
-        return JavaCodeGenerator()
+        return JavaCodeGenerator(source_file_path, is_main_file)
     
     def get_runtime_files(self) -> List[str]:
-        return ["RoelangRuntime.java", "RoelangProgram.java"]
+        return []  # No runtime files needed - using inline code generation
     
     def get_dependencies(self) -> List[str]:
         return ["javac", "java"]
@@ -91,7 +91,7 @@ class HTMLTarget(CompilerTarget):
     def __init__(self):
         super().__init__("html", ".html", "HTML with embedded JavaScript")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.html.codegen import HTMLCodeGenerator
         return HTMLCodeGenerator()
     
@@ -108,7 +108,7 @@ class KotlinTarget(CompilerTarget):
     def __init__(self):
         super().__init__("kotlin", ".kt", "Kotlin source code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.kotlin.codegen import KotlinCodeGenerator
         return KotlinCodeGenerator()
     
@@ -125,7 +125,7 @@ class SwiftTarget(CompilerTarget):
     def __init__(self):
         super().__init__("swift", ".swift", "Swift source code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.swift.codegen import SwiftCodeGenerator
         return SwiftCodeGenerator()
     
@@ -142,12 +142,12 @@ class GoTarget(CompilerTarget):
     def __init__(self):
         super().__init__("go", ".go", "Go source code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.go.codegen import GoCodeGenerator
         return GoCodeGenerator()
     
     def get_runtime_files(self) -> List[str]:
-        return ["roelang_runtime.go", "go.mod"]
+        return []  # No runtime files needed - using inline code generation
     
     def get_dependencies(self) -> List[str]:
         return ["go"]
@@ -159,15 +159,32 @@ class NodeTarget(CompilerTarget):
     def __init__(self):
         super().__init__("node", ".js", "Node.js JavaScript code")
     
-    def create_codegen(self) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
         from .targets.node.codegen import NodeCodeGenerator
         return NodeCodeGenerator()
     
     def get_runtime_files(self) -> List[str]:
-        return ["roelang-runtime.js", "package.json"]
+        return []  # No runtime files needed - using inline code generation
     
     def get_dependencies(self) -> List[str]:
         return ["node", "npm"]
+
+
+class BytecodeTarget(CompilerTarget):
+    """Bytecode compilation target for Roe VM."""
+    
+    def __init__(self):
+        super().__init__("bytecode", ".roebc", "Roe VM bytecode format")
+    
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+        from .targets.bytecode.codegen import BytecodeGenerator
+        return BytecodeGenerator()
+    
+    def get_runtime_files(self) -> List[str]:
+        return []  # VM is bundled separately
+    
+    def get_dependencies(self) -> List[str]:
+        return ["roevm"]  # Requires the Roe VM
 
 
 class TargetFactory:
@@ -182,7 +199,8 @@ class TargetFactory:
             "kotlin": KotlinTarget,
             "swift": SwiftTarget,
             "go": GoTarget,
-            "node": NodeTarget
+            "node": NodeTarget,
+            "bytecode": BytecodeTarget
         }
     
     def get_available_targets(self) -> List[str]:
@@ -217,14 +235,14 @@ class TargetFactory:
 target_factory = TargetFactory()
 
 
-def compile_to_target(program: Program, target_name: str) -> str:
+def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False) -> str:
     """Compile a program to a specific target."""
     target = target_factory.create_target(target_name)
-    codegen = target.create_codegen()
+    codegen = target.create_codegen(source_file_path, is_main_file)
     return codegen.generate(program)
 
 
-def get_target_codegen(target_name: str) -> BaseCodeGenerator:
+def get_target_codegen(target_name: str, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
     """Get a code generator for a specific target."""
     target = target_factory.create_target(target_name)
-    return target.create_codegen()
+    return target.create_codegen(source_file_path, is_main_file)

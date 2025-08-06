@@ -58,10 +58,7 @@ class PythonCodeGenerator(BaseCodeGenerator):
         
         # Add imports
         lines.extend(sorted(self.imports))
-        lines.append("")
-        
-        # Add runtime library
-        lines.extend(self._generate_runtime_library())
+        # No runtime import needed - using inline code generation
         lines.append("")
         
         # Add class definitions
@@ -86,76 +83,8 @@ class PythonCodeGenerator(BaseCodeGenerator):
         lines.append("if __name__ == '__main__':")
         lines.append("    main()")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
-    def _generate_runtime_library(self) -> List[str]:
-        """Generate runtime library functions."""
-        runtime = [
-            "# Roelang Runtime Library",
-            "",
-            "class RoelangRuntime:",
-            "    @staticmethod",
-            "    def display(value):",
-            "        if isinstance(value, bool):",
-            "            print('true' if value else 'false')",
-            "        elif isinstance(value, list):",
-            "            formatted = '[' + ', '.join(str(item) for item in value) + ']'",
-            "            print(formatted)",
-            "        else:",
-            "            print(value)",
-            "",
-            "    @staticmethod", 
-            "    def format_date(date_value, pattern):",
-            "        if isinstance(date_value, str):",
-            "            try:",
-            "                date_obj = datetime.fromisoformat(date_value)",
-            "            except:",
-            "                return date_value",
-            "        else:",
-            "            date_obj = date_value",
-            "",
-            "        if pattern == 'MM/dd/yyyy':",
-            "            return date_obj.strftime('%m/%d/%Y')",
-            "        elif pattern == 'dd/MM/yyyy':",
-            "            return date_obj.strftime('%d/%m/%Y')",
-            "        elif pattern == 'MMM dd, yyyy':",
-            "            return date_obj.strftime('%b %d, %Y')",
-            "        elif pattern == 'long':",
-            "            return date_obj.strftime('%A, %B %d, %Y')",
-            "        elif pattern == 'short':",
-            "            return date_obj.strftime('%m/%d/%y')",
-            "        elif pattern == 'iso':",
-            "            return date_obj.strftime('%Y-%m-%d')",
-            "        return str(date_obj)",
-            "",
-            "    @staticmethod",
-            "    def format_decimal(decimal_value, pattern):",
-            "        if pattern == '0.00':",
-            "            return f'{decimal_value:.2f}'",
-            "        elif pattern == '#,##0.00':",
-            "            return f'{decimal_value:,.2f}'",
-            "        elif pattern == '$0.00':",
-            "            return f'${decimal_value:.2f}'",
-            "        elif pattern == 'percent':",
-            "            return f'{decimal_value:.2f}%'",
-            "        return str(decimal_value)",
-            "",
-            "    @staticmethod",
-            "    def format_number(number_value, pattern):",
-            "        if pattern == '#,##0':",
-            "            return f'{number_value:,}'",
-            "        elif pattern == '0000':",
-            "            return f'{number_value:04d}'",
-            "        elif pattern == 'hex':",
-            "            return f'0x{number_value:X}'",
-            "        elif pattern == 'oct':",
-            "            return f'0o{number_value:o}'",
-            "        elif pattern == 'bin':",
-            "            return f'0b{number_value:b}'",
-            "        return str(number_value)",
-            ""
-        ]
-        return runtime
     
     def emit_statement(self, stmt: ASTNode):
         """Emit code for a statement."""
@@ -207,20 +136,29 @@ class PythonCodeGenerator(BaseCodeGenerator):
             expr_type = self.infer_type(expr.expression)
             
             if expr_type == VariableType.DATE:
-                return f"RoelangRuntime.format_date({expr_str}, {pattern})"
+                return self._inline_date_formatting(expr_str, expr.format_pattern)
             elif expr_type == VariableType.DECIMAL:
-                return f"RoelangRuntime.format_decimal({expr_str}, {pattern})"
+                return self._inline_decimal_formatting(expr_str, expr.format_pattern)
             elif self._is_numeric_type(expr_type):
-                return f"RoelangRuntime.format_number({expr_str}, {pattern})"
+                return self._inline_number_formatting(expr_str, expr.format_pattern)
             else:
                 return expr_str
         else:
             return f"# TODO: {type(expr).__name__}"
     
     def emit_display_statement(self, stmt: DisplayStatement):
-        """Emit display statement."""
+        """Emit display statement with native formatting."""
         expr_str = self.emit_expression(stmt.expression)
-        self.main_code.append(f"RoelangRuntime.display({expr_str})")
+        expr_type = self.infer_type(stmt.expression)
+        
+        # Handle boolean formatting inline
+        if expr_type == VariableType.BOOLEAN or expr_type == VariableType.FLAG or expr_type == VariableType.YESNO:
+            self.main_code.append(f"print('true' if {expr_str} else 'false')")
+        # Handle list formatting inline  
+        elif expr_type in [VariableType.LIST_OF, VariableType.GROUP_OF, VariableType.ARRAY]:
+            self.main_code.append(f"print('[' + ', '.join(str(item) for item in {expr_str}) + ']')")
+        else:
+            self.main_code.append(f"print({expr_str})")
     
     def emit_assignment(self, stmt: Assignment):
         """Emit assignment statement."""
@@ -245,7 +183,7 @@ class PythonCodeGenerator(BaseCodeGenerator):
                 # Process nested statements (this is simplified)
                 if isinstance(then_stmt, DisplayStatement):
                     expr_str = self.emit_expression(then_stmt.expression)
-                    self.main_code.append(f"    RoelangRuntime.display({expr_str})")
+                    self.main_code.append(f"    print({expr_str})")
         else:
             self.main_code.append("    pass")
         
@@ -255,7 +193,7 @@ class PythonCodeGenerator(BaseCodeGenerator):
             for else_stmt in stmt.else_body:
                 if isinstance(else_stmt, DisplayStatement):
                     expr_str = self.emit_expression(else_stmt.expression)
-                    self.main_code.append(f"    RoelangRuntime.display({expr_str})")
+                    self.main_code.append(f"    print({expr_str})")
     
     def emit_while_loop(self, stmt: WhileLoop):
         """Emit while loop."""
@@ -319,3 +257,45 @@ class PythonCodeGenerator(BaseCodeGenerator):
         
         interpolated = "".join(parts)
         return f'f"{interpolated}"'
+    
+    def _inline_date_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline date formatting code."""
+        if pattern == "MM/dd/yyyy":
+            return f"datetime.fromisoformat({expr_str}).strftime('%m/%d/%Y') if isinstance({expr_str}, str) else {expr_str}.strftime('%m/%d/%Y')"
+        elif pattern == "dd/MM/yyyy":
+            return f"datetime.fromisoformat({expr_str}).strftime('%d/%m/%Y') if isinstance({expr_str}, str) else {expr_str}.strftime('%d/%m/%Y')"
+        elif pattern == "MMM dd, yyyy":
+            return f"datetime.fromisoformat({expr_str}).strftime('%b %d, %Y') if isinstance({expr_str}, str) else {expr_str}.strftime('%b %d, %Y')"
+        elif pattern == "long":
+            return f"datetime.fromisoformat({expr_str}).strftime('%A, %B %d, %Y') if isinstance({expr_str}, str) else {expr_str}.strftime('%A, %B %d, %Y')"
+        elif pattern == "short":
+            return f"datetime.fromisoformat({expr_str}).strftime('%m/%d/%y') if isinstance({expr_str}, str) else {expr_str}.strftime('%m/%d/%y')"
+        elif pattern == "iso":
+            return f"datetime.fromisoformat({expr_str}).strftime('%Y-%m-%d') if isinstance({expr_str}, str) else {expr_str}.strftime('%Y-%m-%d')"
+        return expr_str
+    
+    def _inline_decimal_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline decimal formatting code."""
+        if pattern == "0.00":
+            return f"f'{{{expr_str}:.2f}}'"
+        elif pattern == "#,##0.00":
+            return f"f'{{{expr_str}:,.2f}}'"
+        elif pattern == "$0.00":
+            return f"f'${{{expr_str}:.2f}}'"
+        elif pattern == "percent":
+            return f"f'{{{expr_str}:.2f}}%'"
+        return f"str({expr_str})"
+    
+    def _inline_number_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline number formatting code."""
+        if pattern == "#,##0":
+            return f"f'{{{expr_str}:,}}'"
+        elif pattern == "0000":
+            return f"f'{{{expr_str}:04d}}'"
+        elif pattern == "hex":
+            return f"f'0x{{{expr_str}:X}}'"
+        elif pattern == "oct":
+            return f"f'0o{{{expr_str}:o}}'"
+        elif pattern == "bin":
+            return f"f'0b{{{expr_str}:b}}'"
+        return f"str({expr_str})"

@@ -54,9 +54,7 @@ class NodeCodeGenerator(BaseCodeGenerator):
         if self.requires:
             lines.append("")
         
-        # Add runtime library
-        lines.extend(self._generate_runtime_library())
-        lines.append("")
+        # No separate runtime library needed - using inline code generation
         
         # Add class definitions
         for class_def in self.class_definitions:
@@ -79,130 +77,8 @@ class NodeCodeGenerator(BaseCodeGenerator):
         lines.append("  main();")
         lines.append("}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
-    def _generate_runtime_library(self) -> List[str]:
-        """Generate runtime library functions."""
-        runtime = [
-            "// Roelang Runtime Library for Node.js",
-            "",
-            "class RoelangRuntime {",
-            "  static display(value) {",
-            "    if (typeof value === 'boolean') {",
-            "      console.log(value ? 'true' : 'false');",
-            "    } else if (Array.isArray(value)) {",
-            "      console.log(`[${value.join(', ')}]`);",
-            "    } else {",
-            "      console.log(value);",
-            "    }",
-            "  }",
-            "",
-            "  static formatDate(dateValue, pattern) {",
-            "    let date;",
-            "    if (typeof dateValue === 'string') {",
-            "      date = new Date(dateValue);",
-            "    } else {",
-            "      date = dateValue;",
-            "    }",
-            "",
-            "    switch (pattern) {",
-            "      case 'MM/dd/yyyy':",
-            "        const month = (date.getMonth() + 1).toString().padStart(2, '0');",
-            "        const day = date.getDate().toString().padStart(2, '0');",
-            "        const year = date.getFullYear();",
-            "        return `${month}/${day}/${year}`;",
-            "      case 'dd/MM/yyyy':",
-            "        const month2 = (date.getMonth() + 1).toString().padStart(2, '0');",
-            "        const day2 = date.getDate().toString().padStart(2, '0');",
-            "        const year2 = date.getFullYear();",
-            "        return `${day2}/${month2}/${year2}`;",
-            "      case 'MMM dd, yyyy':",
-            "        return date.toLocaleDateString('en-US', {",
-            "          year: 'numeric',",
-            "          month: 'short',",
-            "          day: 'numeric'",
-            "        });",
-            "      case 'long':",
-            "        return date.toLocaleDateString('en-US', {",
-            "          weekday: 'long',",
-            "          year: 'numeric',",
-            "          month: 'long',",
-            "          day: 'numeric'",
-            "        });",
-            "      case 'short':",
-            "        return date.toLocaleDateString('en-US', {",
-            "          year: '2-digit',",
-            "          month: '2-digit',",
-            "          day: '2-digit'",
-            "        });",
-            "      case 'iso':",
-            "        return date.toISOString().split('T')[0];",
-            "      default:",
-            "        return dateValue.toString();",
-            "    }",
-            "  }",
-            "",
-            "  static formatDecimal(decimalValue, pattern) {",
-            "    const num = parseFloat(decimalValue);",
-            "    switch (pattern) {",
-            "      case '0.00':",
-            "        return num.toFixed(2);",
-            "      case '#,##0.00':",
-            "        return num.toLocaleString('en-US', {",
-            "          minimumFractionDigits: 2,",
-            "          maximumFractionDigits: 2",
-            "        });",
-            "      case '$0.00':",
-            "        return `$${num.toFixed(2)}`;",
-            "      case 'percent':",
-            "        return `${num.toFixed(2)}%`;",
-            "      default:",
-            "        return num.toString();",
-            "    }",
-            "  }",
-            "",
-            "  static formatNumber(numberValue, pattern) {",
-            "    const num = parseInt(numberValue);",
-            "    switch (pattern) {",
-            "      case '#,##0':",
-            "        return num.toLocaleString('en-US');",
-            "      case '0000':",
-            "        return num.toString().padStart(4, '0');",
-            "      case 'hex':",
-            "        return `0x${num.toString(16).toUpperCase()}`;",
-            "      case 'oct':",
-            "        return `0o${num.toString(8)}`;",
-            "      case 'bin':",
-            "        return `0b${num.toString(2)}`;",
-            "      default:",
-            "        return num.toString();",
-            "    }",
-            "  }",
-            "",
-            "  // Math utility functions",
-            "  static mathPower(base, exponent) {",
-            "    return Math.pow(base, exponent);",
-            "  }",
-            "",
-            "  static mathSqrt(value) {",
-            "    return Math.sqrt(value);",
-            "  }",
-            "",
-            "  static mathAbs(value) {",
-            "    return Math.abs(value);",
-            "  }",
-            "",
-            "  static mathMin(a, b) {",
-            "    return Math.min(a, b);",
-            "  }",
-            "",
-            "  static mathMax(a, b) {",
-            "    return Math.max(a, b);",
-            "  }",
-            "}",
-            ""
-        ]
-        return runtime
     
     def emit_statement(self, stmt: ASTNode):
         """Emit code for a statement."""
@@ -262,20 +138,29 @@ class NodeCodeGenerator(BaseCodeGenerator):
             expr_type = self.infer_type(expr.expression)
             
             if expr_type == VariableType.DATE:
-                return f"RoelangRuntime.formatDate({expr_str}, {pattern})"
+                return self._inline_date_formatting(expr_str, expr.format_pattern)
             elif expr_type == VariableType.DECIMAL:
-                return f"RoelangRuntime.formatDecimal({expr_str}, {pattern})"
+                return self._inline_decimal_formatting(expr_str, expr.format_pattern)
             elif self._is_numeric_type(expr_type):
-                return f"RoelangRuntime.formatNumber({expr_str}, {pattern})"
+                return self._inline_number_formatting(expr_str, expr.format_pattern)
             else:
                 return expr_str
         else:
             return f"/* TODO: {type(expr).__name__} */"
     
     def emit_display_statement(self, stmt: DisplayStatement):
-        """Emit display statement."""
+        """Emit display statement with native formatting."""
         expr_str = self.emit_expression(stmt.expression)
-        self.main_code.append(f"RoelangRuntime.display({expr_str});")
+        expr_type = self.infer_type(stmt.expression)
+        
+        # Handle boolean formatting inline
+        if expr_type == VariableType.BOOLEAN or expr_type == VariableType.FLAG or expr_type == VariableType.YESNO:
+            self.main_code.append(f"console.log({expr_str} ? 'true' : 'false');")
+        # Handle array formatting inline  
+        elif expr_type in [VariableType.LIST_OF, VariableType.GROUP_OF, VariableType.ARRAY]:
+            self.main_code.append(f"console.log(`[${{{expr_str}.join(', ')}}]`);")
+        else:
+            self.main_code.append(f"console.log({expr_str});")
     
     def emit_assignment(self, stmt: Assignment):
         """Emit assignment statement."""
@@ -372,3 +257,45 @@ class NodeCodeGenerator(BaseCodeGenerator):
         
         interpolated = "".join(parts)
         return f"`{interpolated}`"
+    
+    def _inline_date_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline date formatting code."""
+        if pattern == "MM/dd/yyyy":
+            return f'(() => {{ const d = new Date({expr_str}); return `${{(d.getMonth() + 1).toString().padStart(2, "0")}}/${{d.getDate().toString().padStart(2, "0")}}/${{d.getFullYear()}}`; }})()'
+        elif pattern == "dd/MM/yyyy":
+            return f'(() => {{ const d = new Date({expr_str}); return `${{d.getDate().toString().padStart(2, "0")}}/${{(d.getMonth() + 1).toString().padStart(2, "0")}}/${{d.getFullYear()}}`; }})()'
+        elif pattern == "MMM dd, yyyy":
+            return f'{expr_str} instanceof Date ? {expr_str}.toLocaleDateString("en-US", {{year: "numeric", month: "short", day: "numeric"}}) : new Date({expr_str}).toLocaleDateString("en-US", {{year: "numeric", month: "short", day: "numeric"}})'
+        elif pattern == "long":
+            return f'{expr_str} instanceof Date ? {expr_str}.toLocaleDateString("en-US", {{weekday: "long", year: "numeric", month: "long", day: "numeric"}}) : new Date({expr_str}).toLocaleDateString("en-US", {{weekday: "long", year: "numeric", month: "long", day: "numeric"}})'
+        elif pattern == "short":
+            return f'{expr_str} instanceof Date ? {expr_str}.toLocaleDateString("en-US", {{year: "2-digit", month: "2-digit", day: "2-digit"}}) : new Date({expr_str}).toLocaleDateString("en-US", {{year: "2-digit", month: "2-digit", day: "2-digit"}})'
+        elif pattern == "iso":
+            return f'{expr_str} instanceof Date ? {expr_str}.toISOString().split("T")[0] : new Date({expr_str}).toISOString().split("T")[0]'
+        return expr_str
+    
+    def _inline_decimal_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline decimal formatting code."""
+        if pattern == "0.00":
+            return f'parseFloat({expr_str}).toFixed(2)'
+        elif pattern == "#,##0.00":
+            return f'parseFloat({expr_str}).toLocaleString("en-US", {{minimumFractionDigits: 2, maximumFractionDigits: 2}})'
+        elif pattern == "$0.00":
+            return f'`${{parseFloat({expr_str}).toFixed(2)}}`'
+        elif pattern == "percent":
+            return f'`${{parseFloat({expr_str}).toFixed(2)}}%`'
+        return f'parseFloat({expr_str}).toString()'
+    
+    def _inline_number_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline number formatting code."""
+        if pattern == "#,##0":
+            return f'parseInt({expr_str}).toLocaleString("en-US")'
+        elif pattern == "0000":
+            return f'parseInt({expr_str}).toString().padStart(4, "0")'
+        elif pattern == "hex":
+            return f'`0x${{parseInt({expr_str}).toString(16).toUpperCase()}}`'
+        elif pattern == "oct":
+            return f'`0o${{parseInt({expr_str}).toString(8)}}`'
+        elif pattern == "bin":
+            return f'`0b${{parseInt({expr_str}).toString(2)}}`'
+        return f'parseInt({expr_str}).toString()'

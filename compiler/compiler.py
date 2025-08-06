@@ -7,6 +7,7 @@ from .parser import parse, ParseError
 from .target_factory import target_factory, compile_to_target
 from .codegen_base import CodeGenError
 from .module_resolver import ModuleResolver, ModuleResolutionError
+from .type_checker import TypeChecker, TypeCheckError
 
 
 class CompilerError(Exception):
@@ -38,13 +39,19 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
             resolver = ModuleResolver()
             ast = resolver.resolve_includes(ast, file_path)
         
+        # Perform strong type checking
+        type_checker = TypeChecker()
+        type_checker.check_program(ast)
+        
         # Generate code from AST using specified target
-        generated_code = compile_to_target(ast, target)
+        generated_code = compile_to_target(ast, target, file_path)
         
         return generated_code
         
     except ParseError as e:
         raise CompilerError(f"Parse error: {str(e)}")
+    except TypeCheckError as e:
+        raise CompilerError(f"Type checking error: {str(e)}")
     except ModuleResolutionError as e:
         raise CompilerError(f"Module resolution error: {str(e)}")
     except CodeGenError as e:

@@ -1,0 +1,12 @@
+display "Welcome to Roe VM!"
+display "This program runs on the Rust-based virtual machine"
+
+set message which is text to "Fast bytecode execution"
+display message
+
+set x which is int to 42
+set y which is int to 8
+set result which is int to x + y
+display "42 + 8 = " + result
+
+display "Bytecode compilation complete!"

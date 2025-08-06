@@ -38,16 +38,21 @@ def load_compiler():
     return compiler
 
 # Load config from roeconfig.json if available
-def load_config():
-    default_config = {"src": "src", "build": "build"}
-    config_path = Path.cwd() / "roeconfig.json"
+def load_config(project_root=None):
+    default_config = {"src": "src", "build": "build", "target": "wasm"}
+    if project_root is None:
+        config_path = Path.cwd() / "roeconfig.json"
+    else:
+        config_path = project_root / "roeconfig.json"
+    
     if config_path.exists():
         try:
             with open(config_path) as f:
                 config = json.load(f)
                 return {
                     "src": config.get("src", "src"),
-                    "build": config.get("build", "build")
+                    "build": config.get("build", "build"),
+                    "target": config.get("target", "wasm")
                 }
         except Exception as e:
             print(f"❌ Error reading roeconfig.json: {e}")
@@ -81,7 +86,8 @@ def init_project(name=None, author=None):
             "build": "build",
             "dist": "dist",
             "modules": "modules",
-            "main": "src/main.roe"
+            "main": "src/main.roe",
+            "target": "wasm"
         }
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=2)
@@ -300,6 +306,7 @@ def show_help():
     print("    roe init --name my-app --author \"John Doe\"")
     print("    roe install math-utils")
     print("    roe install dev-tools --dev")
+    print("    roe compile src/main.roe --target java")
     print("    roe compile src/main.roe --format wasm --output dist/main.wasm")
     print("    roe run src/main.roe --watch")
     print("    roe build --clean --release")
@@ -504,9 +511,10 @@ def main():
     build_parser.add_argument('--release', action='store_true', help='Build for production')
     
     # Compile command
-    compile_parser = subparsers.add_parser('compile', help='Compile .roe file to WebAssembly')
+    compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
-    compile_parser.add_argument('--format', choices=['wat', 'wasm'], default='wasm', help='Output format')
+    compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode'], help='Compilation target (overrides roeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
@@ -576,7 +584,10 @@ def main():
         return
     
     elif args.command == 'compile':
-        compile_file(args.file, args.format, args.output, args.watch)
+        # Handle format vs target arguments
+        output_format = args.format or 'wasm'
+        target_override = args.target
+        compile_file(args.file, output_format, args.output, args.watch, target_override)
         return
     
     elif args.command == 'run':
@@ -586,12 +597,12 @@ def main():
     else:
         show_help()
 
-def compile_file(roe_filename, output_format='wasm', output_path=None, watch=False):
+def compile_file(roe_filename, output_format='wasm', output_path=None, watch=False, target_override=None):
     """Compile a single .roe file."""
     def do_compile():
         # Determine project root
         project_root = find_project_root()
-        config = load_config()
+        config = load_config(project_root)
         
         # Resolve paths
         config_build_dir = project_root / config["build"]
@@ -636,26 +647,83 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
         wat_file.parent.mkdir(parents=True, exist_ok=True)
         
         try:
-            print(f"🔨 Compiling {roe_file} -> {output_format.upper()}")
+            # Determine target language
+            # Priority: CLI target override > legacy format > config target > default wasm
+            target = target_override or config.get("target", "wasm")
             
-            # Compile to .wat
-            if hasattr(compiler, 'compile_file'):
-                compiler.compile_file(str(roe_file), str(wat_file))
-            else:
-                compiler.compile_roe_to_wat(roe_file, wat_file)
+            # If output_format is specified and not 'wasm', it's likely wat - keep backward compatibility
+            if not target_override and output_format == 'wat':
+                target = 'wasm'  # WAT is part of WASM target
             
-            if output_format == 'wasm':
-                # Compile to .wasm
-                result = subprocess.run(['wat2wasm', str(wat_file), '-o', str(wasm_file)], 
-                                      capture_output=True, text=True)
-                if result.returncode != 0:
-                    print(f"❌ Error compiling to WASM: {result.stderr}")
+            print(f"🔨 Compiling {roe_file} -> {target.upper()}")
+            
+            # Use new multi-target compiler if available
+            if hasattr(compiler, 'compile_file') and hasattr(compiler, 'CompilerError'):
+                try:
+                    # Calculate output path for build directory if not specified
+                    if output_path is None:
+                        # Determine the appropriate file extension for the target
+                        target_extensions = {
+                            'wasm': '.wat',
+                            'python': '.py', 
+                            'java': '.java',
+                            'go': '.go',
+                            'node': '.js',
+                            'html': '.html',
+                            'kotlin': '.kt',
+                            'swift': '.swift',
+                            'bytecode': '.roebc'
+                        }
+                        extension = target_extensions.get(target, '.txt')
+                        computed_output_path = build_dir / f"{basename}{extension}"
+                    else:
+                        computed_output_path = Path(output_path)
+                    
+                    # Ensure build directory exists
+                    computed_output_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    output_file = compiler.compile_file(str(roe_file), output_path=str(computed_output_path), target=target)
+                    print(f"✅ Compiled successfully -> {output_file}")
+                    
+                    # Runtime files are no longer needed - using inline code generation
+                    print("ℹ️  Runtime dependency eliminated - using native language features")
+                    
+                    # Handle backward compatibility for wasm format
+                    if target == 'wasm' and output_format == 'wasm':
+                        # For WASM target, also generate .wasm file using wat2wasm
+                        if output_file.endswith('.wat'):
+                            wasm_output = output_file.replace('.wat', '.wasm')
+                            result = subprocess.run(['wat2wasm', output_file, '-o', wasm_output], 
+                                                  capture_output=True, text=True)
+                            if result.returncode != 0:
+                                print(f"❌ Error compiling to WASM: {result.stderr}")
+                                return False
+                            print(f"✅ Also generated -> {wasm_output}")
+                    
+                    return True
+                except Exception as e:
+                    print(f"❌ Compilation failed: {e}")
                     return False
-                print(f"✅ Compiled successfully -> {wasm_file}")
             else:
-                print(f"✅ Compiled successfully -> {wat_file}")
-            
-            return True
+                # Fallback to old WAT-based compilation
+                print("⚠️  Using legacy WAT-only compiler")
+                if hasattr(compiler, 'compile_file'):
+                    compiler.compile_file(str(roe_file), str(wat_file))
+                else:
+                    compiler.compile_roe_to_wat(roe_file, wat_file)
+                
+                if output_format == 'wasm':
+                    # Compile to .wasm
+                    result = subprocess.run(['wat2wasm', str(wat_file), '-o', str(wasm_file)], 
+                                          capture_output=True, text=True)
+                    if result.returncode != 0:
+                        print(f"❌ Error compiling to WASM: {result.stderr}")
+                        return False
+                    print(f"✅ Compiled successfully -> {wasm_file}")
+                else:
+                    print(f"✅ Compiled successfully -> {wat_file}")
+                
+                return True
         except Exception as e:
             print(f"❌ Compilation failed: {e}")
             return False
@@ -687,39 +755,21 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
 def run_file(roe_filename, watch=False):
     """Compile and run a .roe file."""
     def do_run():
+        # Determine target from config or default to bytecode for better performance
+        project_root = find_project_root()
+        config = load_config(project_root)
+        target = config.get("target", "bytecode")  # Default to bytecode for speed
+        
         # First compile
-        if not compile_file(roe_filename, 'wasm'):
+        success = compile_file(roe_filename, output_format=None, target_override=target)
+        if not success:
             return False
         
-        # Then run
-        project_root = find_project_root()
-        config = load_config()
-        tool_dir = Path.home() / ".roelang"
-        runtime = tool_dir / "run.js"
-        
-        roe_file = Path(roe_filename)
-        if not roe_file.is_absolute():
-            roe_file = Path.cwd() / roe_filename
-        
-        # Calculate build path
-        config_build_dir = project_root / config["build"]
-        if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
-            relative_path = roe_file.relative_to(project_root)
+        # Then run based on target
+        if target == "bytecode":
+            return run_bytecode_file(roe_filename)
         else:
-            relative_path = Path(roe_file.name)
-        
-        basename = roe_file.stem
-        build_dir = config_build_dir
-        if relative_path.parent != Path("."):
-            build_dir = build_dir / relative_path.parent
-        
-        wasm_file = build_dir / f"{basename}.wasm"
-        
-        print(f"🚀 Running {wasm_file}")
-        print("─" * 40)
-        
-        result = subprocess.run(['node', str(runtime), str(wasm_file)])
-        return result.returncode == 0
+            return run_wasm_file(roe_filename)
     
     if watch:
         print(f"👀 Watching {roe_filename} for changes...")
@@ -744,6 +794,73 @@ def run_file(roe_filename, watch=False):
             print("\n⏹️ Watch mode stopped")
     else:
         do_run()
+
+def run_bytecode_file(roe_filename):
+    """Run a bytecode file using the Rust VM."""
+    project_root = find_project_root()
+    config = load_config(project_root)
+    tool_dir = Path.home() / ".roelang"
+    vm_binary = tool_dir / "roevm"
+    
+    roe_file = Path(roe_filename)
+    if not roe_file.is_absolute():
+        roe_file = Path.cwd() / roe_filename
+    
+    # Calculate build path
+    config_build_dir = project_root / config["build"]
+    if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
+        relative_path = roe_file.relative_to(project_root)
+    else:
+        relative_path = Path(roe_file.name)
+    
+    basename = roe_file.stem
+    build_dir = config_build_dir
+    if relative_path.parent != Path("."):
+        build_dir = build_dir / relative_path.parent
+    
+    bytecode_file = build_dir / f"{basename}.roebc"
+    
+    if not vm_binary.exists():
+        print(f"❌ Error: Roe VM not found at {vm_binary}")
+        print("💡 You may need to build the VM: cargo build --release --manifest-path roevm/Cargo.toml")
+        return False
+    
+    print(f"🚀 Running {bytecode_file} with Roe VM")
+    print("─" * 40)
+    
+    result = subprocess.run([str(vm_binary), 'run', str(bytecode_file)])
+    return result.returncode == 0
+
+def run_wasm_file(roe_filename):
+    """Run a WASM file using Node.js (legacy)."""
+    project_root = find_project_root()
+    config = load_config(project_root)
+    tool_dir = Path.home() / ".roelang"
+    runtime = tool_dir / "run.js"
+    
+    roe_file = Path(roe_filename)
+    if not roe_file.is_absolute():
+        roe_file = Path.cwd() / roe_filename
+    
+    # Calculate build path
+    config_build_dir = project_root / config["build"]
+    if roe_file.is_absolute() and roe_file.is_relative_to(project_root):
+        relative_path = roe_file.relative_to(project_root)
+    else:
+        relative_path = Path(roe_file.name)
+    
+    basename = roe_file.stem
+    build_dir = config_build_dir
+    if relative_path.parent != Path("."):
+        build_dir = build_dir / relative_path.parent
+    
+    wasm_file = build_dir / f"{basename}.wasm"
+    
+    print(f"🚀 Running {wasm_file}")
+    print("─" * 40)
+    
+    result = subprocess.run(['node', str(runtime), str(wasm_file)])
+    return result.returncode == 0
 
 if __name__ == "__main__":
     main()

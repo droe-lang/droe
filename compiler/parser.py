@@ -217,7 +217,9 @@ class Parser:
         
         # Parse the expression
         expr = self.parse_expression(content)
-        return DisplayStatement(expression=expr)
+        stmt = DisplayStatement(expression=expr)
+        stmt.line_number = self.current_line + 1
+        return stmt
     
     def parse_if(self, line: str) -> IfStatement:
         """Parse an if/when-then statement."""
@@ -234,7 +236,9 @@ class Parser:
             then_stmt = self.parse_statement(then_str)
             then_body = [then_stmt] if then_stmt else []
             
-            return IfStatement(condition=condition, then_body=then_body)
+            stmt = IfStatement(condition=condition, then_body=then_body)
+            stmt.line_number = self.current_line + 1
+            return stmt
             
         # Check for multi-line format: "when condition then"
         multi_line_match = re.match(r'(?:if|when)\s+(.+?)\s+then\s*$', line, re.IGNORECASE)
@@ -286,7 +290,9 @@ class Parser:
             if self.current_line >= len(self.lines):
                 raise ParseError(f"Missing 'end when' or 'end if' for if statement")
             
-            return IfStatement(condition=condition, then_body=then_body, else_body=else_body)
+            stmt = IfStatement(condition=condition, then_body=then_body, else_body=else_body)
+            stmt.line_number = self.current_line + 1
+            return stmt
         
         # Neither format matched
         raise ParseError(f"Invalid if/when statement: {line}")
@@ -324,6 +330,7 @@ class Parser:
             
             # Create assignment with data instance
             assignment = Assignment(variable=variable, value=data_instance)
+            assignment.line_number = self.current_line + 1
             assignment.declared_var_type = data_type  # Store the data type (keep original case)
             return assignment
         
@@ -339,6 +346,7 @@ class Parser:
             
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
+            assignment.line_number = self.current_line + 1
             assignment.declared_var_type = declared_type  # Store the declared type for variables
             return assignment
         
@@ -356,6 +364,7 @@ class Parser:
             
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
+            assignment.line_number = self.current_line + 1
             assignment.declared_type = element_type  # Store the element type
             assignment.collection_type = collection_type  # Store the collection type
             return assignment
@@ -372,6 +381,7 @@ class Parser:
             
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
+            assignment.line_number = self.current_line + 1
             assignment.declared_type = declared_type  # Store the declared type for arrays
             return assignment
         
@@ -387,20 +397,13 @@ class Parser:
             
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
+            assignment.line_number = self.current_line + 1
             assignment.declared_var_type = declared_type  # Store the declared type for variables
             return assignment
         
-        # Fallback to regular assignment
-        match = re.match(r'set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+to\s+(.+)', line, re.IGNORECASE)
-        if not match:
-            raise ParseError(f"Invalid assignment statement: {line}")
-        
-        variable = match.group(1)
-        value_str = match.group(2)
-        
-        # Parse the value expression
-        value = self.parse_expression(value_str)
-        return Assignment(variable=variable, value=value)
+        # No fallback - Roelang requires explicit type declarations
+        var_name = line.split()[1] if len(line.split()) > 1 else 'variable'
+        raise ParseError(f"Line {self.current_line + 1}: Missing type declaration in assignment. Use 'set {var_name} which is <type> to <value>' for strong typing.")
     
     def parse_while_loop(self) -> WhileLoop:
         """Parse a while loop (multi-line)."""
@@ -869,16 +872,22 @@ class Parser:
         return TaskInvocation(task_name=task_name)
     
     def parse_action_definition(self) -> ActionDefinition:
-        """Parse an action definition (action name ... end action)."""
-        # Current line should be "action name"
+        """Parse an action definition - now requires explicit return type for strong typing."""
+        # Current line should be "action name gives return_type"
         line = self.lines[self.current_line]
         
-        # Extract action name
-        match = re.match(r'action\s+([a-zA-Z_][a-zA-Z0-9_]*)', line, re.IGNORECASE)
+        # Strong typing: All actions must declare return type
+        if ' gives ' not in line:
+            action_name = line.split()[1] if len(line.split()) > 1 else 'name'
+            raise ParseError(f"Line {self.current_line + 1}: Action must declare return type: {line}. Use 'action {action_name} gives <type>'")
+        
+        # Extract action name and return type
+        match = re.match(r'action\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+gives\s+(\w+)', line, re.IGNORECASE)
         if not match:
-            raise ParseError(f"Invalid action statement: {line}")
+            raise ParseError(f"Invalid action statement - must specify return type: {line}")
         
         action_name = match.group(1)
+        return_type = match.group(2).lower()
         
         # Parse body until "end action" or "end"
         body = []
@@ -900,7 +909,8 @@ class Parser:
         if self.current_line >= len(self.lines):
             raise ParseError(f"Missing 'end action' or 'end' for action '{action_name}'")
         
-        return ActionDefinition(name=action_name, body=body)
+        # Convert to parameterized action with return type for consistency
+        return ActionDefinitionWithParams(name=action_name, parameters=[], return_type=return_type, body=body)
     
     def parse_return_statement(self, line: str) -> ReturnStatement:
         """Parse return statements with natural language."""
@@ -1044,6 +1054,10 @@ class Parser:
             gives_match = re.search(r'\s+gives\s+(\w+)', line, re.IGNORECASE)
             if gives_match:
                 return_type = gives_match.group(1).lower()
+        
+        # Strong typing: All actions must declare return type
+        if return_type is None:
+            raise ParseError(f"Line {self.current_line + 1}: Action must declare return type: {line}. Add 'gives <type>' to action signature")
         
         # Parse body until "end action" or "end"
         body = []

@@ -7,7 +7,7 @@ from typing import Any, List, Optional, Union
 @dataclass
 class ASTNode:
     """Base class for all AST nodes."""
-    pass
+    line_number: Optional[int] = field(default=None, init=False)
 
 
 @dataclass

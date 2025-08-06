@@ -68,9 +68,7 @@ class GoCodeGenerator(BaseCodeGenerator):
             lines.append(")")
             lines.append("")
         
-        # Add runtime library
-        lines.extend(self._generate_runtime_library())
-        lines.append("")
+        # No separate runtime library needed - using inline code generation
         
         # Add type definitions
         for type_def in self.type_definitions:
@@ -88,93 +86,8 @@ class GoCodeGenerator(BaseCodeGenerator):
             lines.append(f"\\t{line}")
         lines.append("}")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
-    def _generate_runtime_library(self) -> List[str]:
-        """Generate runtime library functions."""
-        runtime = [
-            "// Roelang Runtime Library",
-            "",
-            "// Display prints a value with appropriate formatting",
-            "func Display(value interface{}) {",
-            "\\tswitch v := value.(type) {",
-            "\\tcase bool:",
-            "\\t\\tif v {",
-            '\\t\\t\\tfmt.Println("true")',
-            "\\t\\t} else {",
-            '\\t\\t\\tfmt.Println("false")',
-            "\\t\\t}",
-            "\\tcase []interface{}:",
-            '\\t\\tfmt.Print("[")',
-            "\\t\\tfor i, item := range v {",
-            "\\t\\t\\tif i > 0 {",
-            '\\t\\t\\t\\tfmt.Print(", ")',
-            "\\t\\t\\t}",
-            "\\t\\t\\tfmt.Print(item)",
-            "\\t\\t}",
-            '\\t\\tfmt.Println("]")',
-            "\\tdefault:",
-            "\\t\\tfmt.Println(v)",
-            "\\t}",
-            "}",
-            "",
-            "// FormatDate formats a date string according to pattern",
-            "func FormatDate(dateStr, pattern string) string {",
-            '\\tt, err := time.Parse("2006-01-02", dateStr)',
-            "\\tif err != nil {",
-            "\\t\\treturn dateStr",
-            "\\t}",
-            "",
-            "\\tswitch pattern {",
-            '\\tcase "MM/dd/yyyy":',
-            '\\t\\treturn t.Format("01/02/2006")',
-            '\\tcase "dd/MM/yyyy":',
-            '\\t\\treturn t.Format("02/01/2006")',
-            '\\tcase "MMM dd, yyyy":',
-            '\\t\\treturn t.Format("Jan 02, 2006")',
-            '\\tcase "long":',
-            '\\t\\treturn t.Format("Monday, January 02, 2006")',
-            '\\tcase "short":',
-            '\\t\\treturn t.Format("01/02/06")',
-            '\\tcase "iso":',
-            '\\t\\treturn t.Format("2006-01-02")',
-            "\\tdefault:",
-            "\\t\\treturn dateStr",
-            "\\t}",
-            "}",
-            "",
-            "// FormatDecimal formats a decimal value according to pattern",
-            "func FormatDecimal(value float64, pattern string) string {",
-            "\\tswitch pattern {",
-            '\\tcase "0.00":',
-            '\\t\\treturn fmt.Sprintf("%.2f", value)',
-            '\\tcase "$0.00":',
-            '\\t\\treturn fmt.Sprintf("$%.2f", value)',
-            '\\tcase "percent":',
-            '\\t\\treturn fmt.Sprintf("%.2f%%", value)',
-            "\\tdefault:",
-            '\\t\\treturn fmt.Sprintf("%.2f", value)',
-            "\\t}",
-            "}",
-            "",
-            "// FormatNumber formats an integer according to pattern",
-            "func FormatNumber(value int, pattern string) string {",
-            "\\tswitch pattern {",
-            '\\tcase "0000":',
-            '\\t\\treturn fmt.Sprintf("%04d", value)',
-            '\\tcase "hex":',
-            '\\t\\treturn fmt.Sprintf("0x%X", value)',
-            '\\tcase "oct":',
-            '\\t\\treturn fmt.Sprintf("0o%o", value)',
-            '\\tcase "bin":',
-            '\\t\\treturn fmt.Sprintf("0b%b", value)',
-            "\\tdefault:",
-            '\\t\\treturn fmt.Sprintf("%d", value)',
-            "\\t}",
-            "}",
-            ""
-        ]
-        return runtime
     
     def _get_go_type(self, var_type: VariableType) -> str:
         """Get Go type for Roelang type."""
@@ -250,20 +163,29 @@ class GoCodeGenerator(BaseCodeGenerator):
             expr_type = self.infer_type(expr.expression)
             
             if expr_type == VariableType.DATE:
-                return f"FormatDate({expr_str}, {pattern})"
+                return self._inline_date_formatting(expr_str, expr.format_pattern)
             elif expr_type == VariableType.DECIMAL:
-                return f"FormatDecimal({expr_str}, {pattern})"
+                return self._inline_decimal_formatting(expr_str, expr.format_pattern)
             elif self._is_numeric_type(expr_type):
-                return f"FormatNumber({expr_str}, {pattern})"
+                return self._inline_number_formatting(expr_str, expr.format_pattern)
             else:
                 return expr_str
         else:
             return f"/* TODO: {type(expr).__name__} */"
     
     def emit_display_statement(self, stmt: DisplayStatement):
-        """Emit display statement."""
+        """Emit display statement with native formatting."""
         expr_str = self.emit_expression(stmt.expression)
-        self.main_code.append(f"Display({expr_str})")
+        expr_type = self.infer_type(stmt.expression)
+        
+        # Handle boolean formatting inline
+        if expr_type == VariableType.BOOLEAN or expr_type == VariableType.FLAG or expr_type == VariableType.YESNO:
+            self.main_code.append(f'if {expr_str} {{ fmt.Println("true") }} else {{ fmt.Println("false") }}')
+        # Handle slice formatting inline  
+        elif expr_type in [VariableType.LIST_OF, VariableType.GROUP_OF, VariableType.ARRAY]:
+            self.main_code.append(f'fmt.Print("["); for i, item := range {expr_str} {{ if i > 0 {{ fmt.Print(", ") }}; fmt.Print(item) }}; fmt.Println("]")')
+        else:
+            self.main_code.append(f"fmt.Println({expr_str})")
     
     def emit_assignment(self, stmt: Assignment):
         """Emit assignment statement."""
@@ -368,3 +290,41 @@ class GoCodeGenerator(BaseCodeGenerator):
             return f'fmt.Sprintf("{format_string}", {args_str})'
         else:
             return f'"{format_string}"'
+    
+    def _inline_date_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline date formatting code."""
+        if pattern == "MM/dd/yyyy":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("01/02/2006") }}()'
+        elif pattern == "dd/MM/yyyy":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("02/01/2006") }}()'
+        elif pattern == "MMM dd, yyyy":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("Jan 02, 2006") }}()'
+        elif pattern == "long":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("Monday, January 02, 2006") }}()'
+        elif pattern == "short":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("01/02/06") }}()'
+        elif pattern == "iso":
+            return f'func() string {{ t, _ := time.Parse("2006-01-02", {expr_str}); return t.Format("2006-01-02") }}()'
+        return expr_str
+    
+    def _inline_decimal_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline decimal formatting code."""
+        if pattern == "0.00":
+            return f'fmt.Sprintf("%.2f", {expr_str})'
+        elif pattern == "$0.00":
+            return f'fmt.Sprintf("$%.2f", {expr_str})'
+        elif pattern == "percent":
+            return f'fmt.Sprintf("%.2f%%", {expr_str})'
+        return f'fmt.Sprintf("%.2f", {expr_str})'
+    
+    def _inline_number_formatting(self, expr_str: str, pattern: str) -> str:
+        """Generate inline number formatting code."""
+        if pattern == "0000":
+            return f'fmt.Sprintf("%04d", {expr_str})'
+        elif pattern == "hex":
+            return f'fmt.Sprintf("0x%X", {expr_str})'
+        elif pattern == "oct":
+            return f'fmt.Sprintf("0o%o", {expr_str})'
+        elif pattern == "bin":
+            return f'fmt.Sprintf("0b%b", {expr_str})'
+        return f'fmt.Sprintf("%d", {expr_str})'

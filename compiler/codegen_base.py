@@ -123,7 +123,7 @@ class BaseCodeGenerator(ABC):
         """Infer the type of an AST node."""
         # This will be implemented by subclasses with target-specific logic
         # Base implementation provides common type inference
-        from .ast import Literal, Identifier
+        from .ast import Literal, Identifier, ActionInvocation, ActionInvocationWithArgs
         
         if isinstance(node, Literal):
             if isinstance(node.value, str):
@@ -138,6 +138,19 @@ class BaseCodeGenerator(ABC):
             var = self.symbol_table.get_variable(node.name)
             if var:
                 return var.type
+        elif isinstance(node, ActionInvocation) or isinstance(node, ActionInvocationWithArgs):
+            # For action invocations, we need to look up the action definition
+            # This is a simplified approach - more sophisticated type checking would
+            # look at the actual action return type
+            action_name = node.action_name
+            
+            # Common action patterns and their likely return types
+            if 'age' in action_name or 'count' in action_name or 'calculate' in action_name:
+                return VariableType.INT
+            elif 'greeting' in action_name or 'text' in action_name or 'message' in action_name:
+                return VariableType.TEXT
+            else:
+                return VariableType.TEXT  # Default for actions
         
         return VariableType.TEXT  # Default fallback
     
