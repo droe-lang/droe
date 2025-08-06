@@ -254,6 +254,38 @@ end
     print(f"✅ Added {package_name} to {dep_key}")
     print(f"💡 Use: include \"{package_name}/{package_name.replace('-', '_')}.roe\"")
 
+def clean_build(clean_all=False):
+    """Clean build directory and optionally dist directory."""
+    project_root = find_project_root()
+    config = load_config(project_root)
+    
+    build_dir = project_root / config.get("build", "build")
+    dist_dir = project_root / config.get("dist", "dist")
+    
+    cleaned_dirs = []
+    
+    # Clean build directory
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+        cleaned_dirs.append(str(build_dir.name))
+        print(f"🧹 Cleaned {build_dir}")
+    else:
+        print(f"ℹ️  Build directory {build_dir} doesn't exist")
+    
+    # Clean dist directory if --all flag is used
+    if clean_all:
+        if dist_dir.exists():
+            shutil.rmtree(dist_dir)
+            cleaned_dirs.append(str(dist_dir.name))
+            print(f"🧹 Cleaned {dist_dir}")
+        else:
+            print(f"ℹ️  Dist directory {dist_dir} doesn't exist")
+    
+    if cleaned_dirs:
+        print(f"✅ Cleaned {len(cleaned_dirs)} director{'y' if len(cleaned_dirs) == 1 else 'ies'}: {', '.join(cleaned_dirs)}")
+    else:
+        print("ℹ️  Nothing to clean")
+
 def show_version():
     """Show version information."""
     print("Roe Lang Compiler & Runtime")
@@ -273,10 +305,11 @@ def show_help():
     print("    roe [COMMAND] [OPTIONS]")
     print("")
     print("COMMANDS:")
-    print("    init                     Initialize new Roelang project")
-    print("    compile <file>           Compile .roe file to WebAssembly")
+    print("    init                    Initialize new Roelang project")
+    print("    compile <file>          Compile .roe file to target language")
     print("    run <file>              Compile and run .roe file")
     print("    build                   Build entire project")
+    print("    clean                   Clean build directory")
     print("    install [package]       Install package dependencies")
     print("")
     print("INIT OPTIONS:")
@@ -289,6 +322,9 @@ def show_help():
     print("BUILD OPTIONS:")
     print("    --clean                 Clean build directory first")
     print("    --release               Build for production (optimized)")
+    print("")
+    print("CLEAN OPTIONS:")
+    print("    --all                   Also clean dist directory")
     print("")
     print("COMPILE OPTIONS:")
     print("    --format <fmt>          Output format (wat|wasm) [default: wasm]")
@@ -310,6 +346,8 @@ def show_help():
     print("    roe compile src/main.roe --format wasm --output dist/main.wasm")
     print("    roe run src/main.roe --watch")
     print("    roe build --clean --release")
+    print("    roe clean")
+    print("    roe clean --all")
 
 # Load compiler
 compiler = load_compiler()
@@ -510,6 +548,10 @@ def main():
     build_parser.add_argument('--clean', action='store_true', help='Clean build directory first')
     build_parser.add_argument('--release', action='store_true', help='Build for production')
     
+    # Clean command
+    clean_parser = subparsers.add_parser('clean', help='Clean build directory')
+    clean_parser.add_argument('--all', action='store_true', help='Also clean dist directory')
+    
     # Compile command
     compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
@@ -534,7 +576,7 @@ def main():
         return
     
     # Handle legacy command patterns
-    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'compile', 'run', '--version', '-h', '--help']:
+    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'clean', 'compile', 'run', '--version', '-h', '--help']:
         if sys.argv[1] in ['-h', '--help']:
             show_help()
             return
@@ -581,6 +623,10 @@ def main():
     elif args.command == 'build':
         project_root = find_project_root()
         build_distribution(project_root, args.clean, args.release)
+        return
+    
+    elif args.command == 'clean':
+        clean_build(args.all)
         return
     
     elif args.command == 'compile':
@@ -647,9 +693,20 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
         wat_file.parent.mkdir(parents=True, exist_ok=True)
         
         try:
-            # Determine target language
-            # Priority: CLI target override > legacy format > config target > default wasm
-            target = target_override or config.get("target", "wasm")
+            # Read source to check for @target metadata
+            with open(roe_file, 'r') as f:
+                source_content = f.read()
+            
+            # Determine target language with correct priority:
+            # 1. CLI target override (--target)
+            # 2. DSL metadata (@target) 
+            # 3. Project config target
+            # 4. Default wasm
+            if target_override:
+                target = target_override
+            else:
+                config_target = config.get("target", "wasm")
+                target = compiler.get_target_from_source(source_content, config_target)
             
             # If output_format is specified and not 'wasm', it's likely wat - keep backward compatibility
             if not target_override and output_format == 'wat':
@@ -755,13 +812,24 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
 def run_file(roe_filename, watch=False):
     """Compile and run a .roe file."""
     def do_run():
-        # Determine target from config or default to bytecode for better performance
+        # Determine project root and config
         project_root = find_project_root()
         config = load_config(project_root)
-        target = config.get("target", "bytecode")  # Default to bytecode for speed
         
-        # First compile
-        success = compile_file(roe_filename, output_format=None, target_override=target)
+        # Read source to determine the actual target (respecting @target metadata)
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+            
+        with open(roe_file, 'r') as f:
+            source_content = f.read()
+        
+        # Use proper target resolution: @target metadata > config > bytecode default
+        config_target = config.get("target", "bytecode")  # Default to bytecode for speed
+        target = compiler.get_target_from_source(source_content, config_target)
+        
+        # First compile (pass None as target_override to let compile_file do target resolution)
+        success = compile_file(roe_filename, output_format=None, target_override=None)
         if not success:
             return False
         

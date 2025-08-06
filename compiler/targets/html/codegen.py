@@ -11,8 +11,9 @@ from ...ast import (
     DataInstance, FieldAssignment, FormatExpression,
     LayoutDefinition, FormDefinition, TitleComponent,
     InputComponent, TextareaComponent, DropdownComponent, ToggleComponent,
-    CheckboxComponent, RadioComponent, ButtonComponent, AttributeDefinition,
-    ValidationAttribute, BindingAttribute, ActionAttribute
+    CheckboxComponent, RadioComponent, ButtonComponent, 
+    ImageComponent, VideoComponent, AudioComponent, AssetInclude,
+    AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -30,6 +31,8 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.component_counter = 0
         self.validation_rules: Set[str] = set()
         self.bindings: Dict[str, str] = {}  # component_id -> binding_target
+        self.asset_includes: List[AssetInclude] = []  # Track included assets
+        self.use_external_css = True  # Flag to use external CSS
         
     def generate(self, program: Program) -> str:
         """Generate complete HTML application from AST."""
@@ -42,25 +45,33 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.validation_rules.clear()
         self.bindings.clear()
         
-        # First pass: collect data models, actions, layouts
+        # First pass: collect data models, actions, layouts, and assets
         for stmt in program.statements:
-            if isinstance(stmt, DataDefinition):
+            if isinstance(stmt, AssetInclude):
+                self.asset_includes.append(stmt)
+            elif isinstance(stmt, DataDefinition):
                 self.data_models[stmt.name] = stmt
             elif isinstance(stmt, ActionDefinitionWithParams):
                 self.actions[stmt.name] = stmt
             elif isinstance(stmt, LayoutDefinition):
                 self.layouts[stmt.name] = stmt
+                # Recursively collect forms from layout children
+                self._collect_forms_from_children(stmt.children)
             elif isinstance(stmt, FormDefinition):
                 self.forms[stmt.name] = stmt
             elif isinstance(stmt, ModuleDefinition):
                 # Process module contents
                 for module_stmt in stmt.body:
-                    if isinstance(module_stmt, DataDefinition):
+                    if isinstance(module_stmt, AssetInclude):
+                        self.asset_includes.append(module_stmt)
+                    elif isinstance(module_stmt, DataDefinition):
                         self.data_models[module_stmt.name] = module_stmt
                     elif isinstance(module_stmt, ActionDefinitionWithParams):
                         self.actions[module_stmt.name] = module_stmt
                     elif isinstance(module_stmt, LayoutDefinition):
                         self.layouts[module_stmt.name] = module_stmt
+                        # Recursively collect forms from layout children
+                        self._collect_forms_from_children(module_stmt.children)
                     elif isinstance(module_stmt, FormDefinition):
                         self.forms[module_stmt.name] = module_stmt
         
@@ -68,6 +79,15 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         html_content = self.generate_html_document(program)
         
         return html_content
+    
+    def _collect_forms_from_children(self, children):
+        """Recursively collect forms from layout children."""
+        for child in children:
+            if isinstance(child, FormDefinition):
+                self.forms[child.name] = child
+            elif isinstance(child, LayoutDefinition):
+                # Recursively process nested layouts
+                self._collect_forms_from_children(child.children)
     
     def generate_html_document(self, program: Program) -> str:
         """Generate complete HTML document."""
@@ -78,11 +98,44 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.emit("<meta charset=\"UTF-8\">")
         self.emit("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">")
         self.emit("<title>Roelang Web App</title>")
-        self.emit("<style>")
-        self.indent_level += 1
-        self.generate_css()
-        self.indent_level -= 1
-        self.emit("</style>")
+        
+        # Include external CSS files
+        css_includes = [asset for asset in self.asset_includes if asset.asset_type == 'css']
+        if css_includes or self.use_external_css:
+            # Always include global.css if using external CSS
+            if self.use_external_css:
+                self.emit('<link rel="stylesheet" href="assets/global.css">')
+            
+            # Include any additional CSS files
+            for asset in css_includes:
+                self.emit(f'<link rel="stylesheet" href="{asset.asset_path}">')
+        
+        else:
+            # Inline CSS for standalone HTML
+            self.emit("<style>")
+            self.indent_level += 1
+            self.generate_css()
+            self.indent_level -= 1
+            self.emit("</style>")
+        
+        # Always include main.js for HTML target
+        self.emit('<script src="assets/main.js"></script>')
+        
+        # Include external fonts
+        font_includes = [asset for asset in self.asset_includes if asset.asset_type == 'font']
+        if font_includes:
+            self.emit("<style>")
+            self.indent_level += 1
+            for asset in font_includes:
+                font_name = asset.asset_path.split('/')[-1].split('.')[0]
+                self.emit(f"@font-face {{")
+                self.indent_level += 1
+                self.emit(f'font-family: "{font_name}";')
+                self.emit(f'src: url("{asset.asset_path}");')
+                self.indent_level -= 1
+                self.emit("}")
+            self.indent_level -= 1
+            self.emit("</style>")
         self.indent_level -= 1
         self.emit("</head>")
         
@@ -103,7 +156,12 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                     elif isinstance(module_stmt, FormDefinition):
                         self.generate_form(module_stmt)
         
-        # Generate JavaScript
+        # Include external JavaScript files
+        js_includes = [asset for asset in self.asset_includes if asset.asset_type == 'js']
+        for asset in js_includes:
+            self.emit(f'<script src="{asset.asset_path}"></script>')
+        
+        # Generate inline JavaScript
         self.emit("<script>")
         self.indent_level += 1
         self.generate_javascript(program)
@@ -275,9 +333,20 @@ class HTMLCodeGenerator(BaseCodeGenerator):
     def generate_layout(self, layout: LayoutDefinition):
         """Generate HTML for a layout definition."""
         layout_id = f"layout-{layout.name}"
-        css_class = f"layout-{layout.layout_type}"
         
-        self.emit(f'<div id="{layout_id}" class="{css_class}">')
+        # Build CSS classes
+        classes = [f"layout-{layout.layout_type}"]
+        if hasattr(layout, 'css_classes') and layout.css_classes:
+            classes.extend(layout.css_classes)
+        
+        # Build attributes
+        attrs = [f'id="{layout_id}"', f'class="{" ".join(classes)}"']
+        
+        # Add style if present
+        if hasattr(layout, 'style') and layout.style:
+            attrs.append(f'style="{self.escape_html(layout.style)}"')
+        
+        self.emit(f'<div {" ".join(attrs)}>')
         self.indent_level += 1
         
         for child in layout.children:
@@ -327,11 +396,18 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             self.generate_radio(component)
         elif isinstance(component, ButtonComponent):
             self.generate_button(component)
-        # Add other component types as needed
+        elif isinstance(component, ImageComponent):
+            self.generate_image(component)
+        elif isinstance(component, VideoComponent):
+            self.generate_video(component)
+        elif isinstance(component, AudioComponent):
+            self.generate_audio(component)
     
     def generate_title(self, title: TitleComponent):
         """Generate HTML for title component."""
-        self.emit(f'<h2 class="title">{self.escape_html(title.text)}</h2>')
+        classes = ['title'] + (title.css_classes if hasattr(title, 'css_classes') and title.css_classes else [])
+        class_attr = f'class="{" ".join(classes)}"'
+        self.emit(f'<h2 {class_attr}>{self.escape_html(title.text)}</h2>')
     
     def generate_input(self, input_comp: InputComponent):
         """Generate HTML for input component."""
@@ -483,43 +559,152 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         ]
         
         if button.action:
-            # Check if this is a form submit button that needs data
-            if 'submit' in button.action.lower():
+            # Check if this button is inside a form and should submit form data
+            # Look for actions that require form data (have parameters) OR 
+            # actions with common form-related names like save, submit, update
+            action_needs_form_data = False
+            form_action_keywords = ['save', 'submit', 'update', 'create', 'register', 'login']
+            
+            if button.action in self.actions:
+                action_def = self.actions[button.action]
+                if hasattr(action_def, 'parameters') and action_def.parameters:
+                    action_needs_form_data = True
+            
+            # Also check if action name suggests form submission
+            if any(keyword in button.action.lower() for keyword in form_action_keywords):
+                action_needs_form_data = True
+            
+            if action_needs_form_data:
+                # This is a form submit button that needs data
                 # Find the form this button belongs to
-                # Look for the form that contains this button
                 form_names = list(self.forms.keys())
-                form_id = f"form-{form_names[0]}" if form_names else "form-user_form"
-                button_attrs.append(f'onclick="handleFormSubmit(\'{button.action}\', \'{form_id}\')"')
+                if form_names:
+                    form_name = form_names[0]  # Use the first form found
+                    handler_name = f"submit_{form_name}"
+                    button_attrs.append(f'onclick="{handler_name}(\'{button.action}\')"')
+                else:
+                    # Fallback to regular action
+                    button_attrs.append(f'onclick="{button.action}()"')
             else:
+                # Regular action button
                 button_attrs.append(f'onclick="{button.action}()"')
         
         self.emit(f'<button {" ".join(button_attrs)}>{self.escape_html(button.text)}</button>')
     
+    def generate_image(self, image: ImageComponent):
+        """Generate HTML for image component."""
+        self.component_counter += 1
+        image_id = f"image-{self.component_counter}"
+        
+        img_attrs = [
+            f'id="{image_id}"',
+            f'src="{self.escape_html(image.src)}"'
+        ]
+        
+        if image.alt:
+            img_attrs.append(f'alt="{self.escape_html(image.alt)}"')
+        else:
+            img_attrs.append('alt=""')
+        
+        # Add CSS classes
+        classes = image.css_classes if image.css_classes else []
+        if classes:
+            img_attrs.append(f'class="{" ".join(classes)}"')
+        
+        self.emit(f'<img {" ".join(img_attrs)}>')
+    
+    def generate_video(self, video: VideoComponent):
+        """Generate HTML for video component."""
+        self.component_counter += 1
+        video_id = f"video-{self.component_counter}"
+        
+        video_attrs = [
+            f'id="{video_id}"',
+            f'src="{self.escape_html(video.src)}"'
+        ]
+        
+        if video.controls:
+            video_attrs.append('controls')
+        if video.autoplay:
+            video_attrs.append('autoplay')
+        if video.loop:
+            video_attrs.append('loop')
+        if video.muted:
+            video_attrs.append('muted')
+        
+        # Add CSS classes
+        classes = video.css_classes if video.css_classes else []
+        if classes:
+            video_attrs.append(f'class="{" ".join(classes)}"')
+        
+        self.emit(f'<video {" ".join(video_attrs)}>')
+        self.emit('  Your browser does not support the video tag.')
+        self.emit('</video>')
+    
+    def generate_audio(self, audio: AudioComponent):
+        """Generate HTML for audio component."""
+        self.component_counter += 1
+        audio_id = f"audio-{self.component_counter}"
+        
+        audio_attrs = [
+            f'id="{audio_id}"',
+            f'src="{self.escape_html(audio.src)}"'
+        ]
+        
+        if audio.controls:
+            audio_attrs.append('controls')
+        if audio.autoplay:
+            audio_attrs.append('autoplay')
+        if audio.loop:
+            audio_attrs.append('loop')
+        
+        # Add CSS classes
+        classes = audio.css_classes if audio.css_classes else []
+        if classes:
+            audio_attrs.append(f'class="{" ".join(classes)}"')
+        
+        self.emit(f'<audio {" ".join(audio_attrs)}>')
+        self.emit('  Your browser does not support the audio element.')
+        self.emit('</audio>')
+    
     def generate_javascript(self, program: Program):
         """Generate JavaScript for data binding and validation."""
-        # Generate data models
+        self.emit("// Roelang Application Code")
+        self.emit("")
+        
+        # Generate data models with state persistence
         self.emit("// Data Models")
         for name, data_def in self.data_models.items():
             self.generate_data_model_js(name, data_def)
         
         self.emit("")
         
-        # Generate validation functions
-        self.emit("// Validation")
-        self.generate_validation_js()
+        # Generate initialization object
+        self.emit("// Initialize Roelang")
+        self.emit("window.RoelangInit = {")
+        self.indent_level += 1
+        
+        # Generate bindings initialization
+        self.emit("initializeBindings: function() {")
+        self.indent_level += 1
+        
+        # Create model instances with storage support
+        for name, data_def in self.data_models.items():
+            storage_type = data_def.storage_type if hasattr(data_def, 'storage_type') else None
+            storage_arg = f"'{storage_type}'" if storage_type else "null"
+            self.emit(f"Roelang.DataBinding.createModel('{name}', {name}, {storage_arg});")
         
         self.emit("")
         
-        # Generate data binding
-        self.emit("// Data Binding")
-        self.generate_binding_js()
+        # Set up data bindings
+        for component_id, binding_target in self.bindings.items():
+            self.emit(f"Roelang.DataBinding.bind('{component_id}', '{binding_target}');")
         
-        self.emit("")
+        self.indent_level -= 1
+        self.emit("}")
         
-        # Generate form handling
-        self.emit("// Form Handling")
-        self.generate_form_handling_js()
-        
+        self.indent_level -= 1
+        self.emit("};")
         self.emit("")
         
         # Generate action functions
@@ -527,42 +712,120 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         for name, action in self.actions.items():
             self.generate_action_js(name, action)
         
-        # Generate initialization
+        # Generate form submission handlers
         self.emit("")
-        self.emit("// Initialize")
-        self.emit("document.addEventListener('DOMContentLoaded', function() {")
-        self.indent_level += 1
-        self.emit("initializeDataBinding();")
-        self.emit("initializeValidation();")
-        self.indent_level -= 1
-        self.emit("});")
+        self.emit("// Form Handlers")
+        self.generate_form_handlers()
+    
+    def generate_form_handlers(self):
+        """Generate form submission handlers."""
+        for form_name, form_def in self.forms.items():
+            form_id = f"form-{form_name}"
+            
+            # Build validation rules for this form
+            self.emit(f"// Handler for {form_name}")
+            self.emit(f"window.submit_{form_name} = function(actionName) {{")
+            self.indent_level += 1
+            
+            # Generate validation rules object
+            self.emit("const validationRules = {")
+            self.indent_level += 1
+            
+            # Collect validation rules from components
+            for component_id, binding_target in self.bindings.items():
+                # Add basic validation rules
+                self.emit(f"'{component_id}': [")
+                self.indent_level += 1
+                self.emit("{ type: 'required', message: 'This field is required' },")
+                if 'email' in component_id.lower():
+                    self.emit("{ type: 'email', message: 'Please enter a valid email' }")
+                self.indent_level -= 1
+                self.emit("],")
+            
+            self.indent_level -= 1
+            self.emit("};")
+            self.emit("")
+            
+            # Collect form data
+            self.emit("const formData = {};")
+            self.emit("let isValid = true;")
+            self.emit("")
+            
+            # Generate form data collection based on bindings
+            for element_id, binding_target in self.bindings.items():
+                if '.' in binding_target:
+                    model_name, field_name = binding_target.split('.', 1)
+                    if model_name in self.data_models:
+                        data_def = self.data_models[model_name]
+                        field = next((f for f in data_def.fields if f.name == field_name), None)
+                        
+                        if field:
+                            safe_element_var = element_id.replace('-', '_')
+                            self.emit(f"const {safe_element_var}Element = document.getElementById('{element_id}');")
+                            self.emit(f"if ({safe_element_var}Element) {{")
+                            self.indent_level += 1
+                            
+                            # Generate data collection based on field type
+                            if field.type.lower() == 'boolean':
+                                self.emit(f"formData.{field_name} = {safe_element_var}Element.checked;")
+                            elif field.type.lower() in ['number', 'int']:
+                                self.emit(f"formData.{field_name} = parseInt({safe_element_var}Element.value) || 0;")
+                            else:
+                                self.emit(f"formData.{field_name} = {safe_element_var}Element.value || '';")
+                            
+                            self.indent_level -= 1
+                            self.emit("}")
+                            self.emit("")
+            
+            # Display form data for verification
+            self.emit("// Display form data for verification")
+            self.emit("const displayElement = document.querySelector('.form-result-display');")
+            self.emit("if (displayElement) {")
+            self.indent_level += 1
+            self.emit("let displayText = 'Form Data: ';")
+            self.emit("for (const [key, value] of Object.entries(formData)) {")
+            self.indent_level += 1
+            self.emit("displayText += `${key}: \"${value}\", `;")
+            self.indent_level -= 1
+            self.emit("}")
+            self.emit("const titleElement = displayElement.querySelector('.title');")
+            self.emit("if (titleElement) {")
+            self.indent_level += 1
+            self.emit("titleElement.textContent = displayText.slice(0, -2); // Remove trailing comma")
+            self.emit("titleElement.className = 'title text-success';")
+            self.indent_level -= 1
+            self.emit("}")
+            self.indent_level -= 1
+            self.emit("}")
+            self.emit("")
+            
+            # Call the action
+            self.emit("// Call the action")
+            self.emit("if (typeof window[actionName] === 'function') {")
+            self.indent_level += 1
+            self.emit("return window[actionName](formData);")
+            self.indent_level -= 1
+            self.emit("} else {")
+            self.indent_level += 1
+            self.emit("console.error('Action not found:', actionName);")
+            self.emit("return null;")
+            self.indent_level -= 1
+            self.emit("}")
+            self.indent_level -= 1
+            self.emit("}")
+            self.emit("")
     
     def generate_data_model_js(self, name: str, data_def: DataDefinition):
         """Generate JavaScript data model class."""
         self.emit(f"class {name} {{")
         self.indent_level += 1
         
-        # Constructor
+        # Constructor with default values
         self.emit("constructor() {")
         self.indent_level += 1
         for field in data_def.fields:
             default_value = self.get_default_value_js(field.type)
             self.emit(f"this.{field.name} = {default_value};")
-        self.indent_level -= 1
-        self.emit("}")
-        self.emit("")
-        
-        # Validation method
-        self.emit("validate() {")
-        self.indent_level += 1
-        self.emit("const errors = {};")
-        
-        for field in data_def.fields:
-            field_validation = self.get_field_validation_js(field.name, field.type)
-            if field_validation:
-                self.emit(field_validation)
-        
-        self.emit("return Object.keys(errors).length === 0 ? null : errors;")
         self.indent_level -= 1
         self.emit("}")
         
@@ -622,10 +885,12 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         
         for component_id, binding_target in self.bindings.items():
             self.emit(f"// Bind {component_id} to {binding_target}")
-            self.emit(f"const {component_id}_element = document.getElementById('{component_id}');")
-            self.emit(f"if ({component_id}_element) {{")
+            # Create safe JavaScript variable name by replacing hyphens with underscores
+            safe_var_name = component_id.replace('-', '_')
+            self.emit(f"const {safe_var_name}_element = document.getElementById('{component_id}');")
+            self.emit(f"if ({safe_var_name}_element) {{")
             self.indent_level += 1
-            self.emit(f"{component_id}_element.addEventListener('input', function() {{")
+            self.emit(f"{safe_var_name}_element.addEventListener('input', function() {{")
             self.indent_level += 1
             self.emit(f"// Update data model: {binding_target}")
             self.emit(f"clearError('{component_id}');")
@@ -669,21 +934,22 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                         field = next((f for f in data_def.fields if f.name == field_name), None)
                         
                         if field:
-                            self.emit(f"const {element_id}Element = document.getElementById('{element_id}');")
-                            self.emit(f"if ({element_id}Element) {{")
+                            safe_element_var = element_id.replace('-', '_')
+                            self.emit(f"const {safe_element_var}Element = document.getElementById('{element_id}');")
+                            self.emit(f"if ({safe_element_var}Element) {{")
                             self.indent_level += 1
                             
                             # Generate data collection based on field type
                             if field.type.lower() == 'boolean':
-                                self.emit(f"formData.{field_name} = {element_id}Element.checked;")
+                                self.emit(f"formData.{field_name} = {safe_element_var}Element.checked;")
                             elif field.type.lower() in ['number', 'int']:
-                                self.emit(f"formData.{field_name} = parseInt({element_id}Element.value) || 0;")
+                                self.emit(f"formData.{field_name} = parseInt({safe_element_var}Element.value) || 0;")
                             else:
-                                self.emit(f"formData.{field_name} = {element_id}Element.value;")
+                                self.emit(f"formData.{field_name} = {safe_element_var}Element.value;")
                             
                             # Generate validation for this field
                             self.emit(f"// Validate {field_name}")
-                            self.emit(f"if (!validate{field_name.title()}({element_id}Element)) {{")
+                            self.emit(f"if (!validate{field_name.title()}({safe_element_var}Element)) {{")
                             self.indent_level += 1
                             self.emit("isValid = false;")
                             self.indent_level -= 1
@@ -753,21 +1019,22 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                     field = next((f for f in data_def.fields if f.name == field_name), None)
                     
                     if field:
-                        self.emit(f"const {element_id}Element = document.getElementById('{element_id}');")
-                        self.emit(f"if ({element_id}Element) {{")
+                        safe_element_var = element_id.replace('-', '_')
+                        self.emit(f"const {safe_element_var}Element = document.getElementById('{element_id}');")
+                        self.emit(f"if ({safe_element_var}Element) {{")
                         self.indent_level += 1
                         
                         # Generate data collection based on field type
                         if field.type.lower() == 'boolean':
-                            self.emit(f"formData.{field_name} = {element_id}Element.checked;")
+                            self.emit(f"formData.{field_name} = {safe_element_var}Element.checked;")
                         elif field.type.lower() in ['number', 'int']:
-                            self.emit(f"formData.{field_name} = parseInt({element_id}Element.value) || 0;")
+                            self.emit(f"formData.{field_name} = parseInt({safe_element_var}Element.value) || 0;")
                         else:
-                            self.emit(f"formData.{field_name} = {element_id}Element.value || '';")
+                            self.emit(f"formData.{field_name} = {safe_element_var}Element.value || '';")
                         
                         # Generate validation for this field
                         self.emit(f"// Validate {field_name}")
-                        self.emit(f"if (!validate{field_name.title()}({element_id}Element)) {{")
+                        self.emit(f"if (!validate{field_name.title()}({safe_element_var}Element)) {{")
                         self.indent_level += 1
                         self.emit("isValid = false;")
                         self.indent_level -= 1
@@ -787,6 +1054,29 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         
         self.emit("console.log('Form data collected:', formData);")
         self.emit("")
+        
+        # Add form data display for verification
+        self.emit("// Display form data for verification")
+        self.emit("const displayElement = document.querySelector('.form-result-display');")
+        self.emit("if (displayElement) {")
+        self.indent_level += 1
+        self.emit("let displayText = 'Form Data: ';")
+        self.emit("for (const [key, value] of Object.entries(formData)) {")
+        self.indent_level += 1
+        self.emit("displayText += `${key}: \"${value}\", `;")
+        self.indent_level -= 1
+        self.emit("}")
+        self.emit("const titleElement = displayElement.querySelector('.title');")
+        self.emit("if (titleElement) {")
+        self.indent_level += 1
+        self.emit("titleElement.textContent = displayText.slice(0, -2); // Remove trailing comma")
+        self.emit("titleElement.className = 'title text-success';")
+        self.indent_level -= 1
+        self.emit("}")
+        self.indent_level -= 1
+        self.emit("}")
+        self.emit("")
+        
         self.emit("// Call the appropriate action")
         self.emit("if (typeof window[actionName] === 'function') {")
         self.indent_level += 1
@@ -878,6 +1168,13 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                    .replace('\n', '\\n')
                    .replace('\r', '\\r')
                    .replace('\t', '\\t'))
+    
+    def get_css_classes(self, component: ASTNode, default_classes: List[str] = None) -> str:
+        """Get CSS class attribute for a component."""
+        classes = default_classes if default_classes else []
+        if hasattr(component, 'css_classes') and component.css_classes:
+            classes.extend(component.css_classes)
+        return " ".join(classes) if classes else ""
     
     def emit_statement(self, stmt: ASTNode):
         """Emit code for a statement - required by BaseCodeGenerator."""

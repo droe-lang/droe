@@ -1,0 +1,199 @@
+@target html
+@name "Component Showcase"
+@description "Comprehensive example showcasing all Roelang frontend components"
+
+data MediaContent
+  title is text
+  description is text
+  url is text
+  category is text
+end data
+
+data UserSettings
+  username is text
+  email is text  
+  password is text
+  phone is text
+  theme is text
+  notifications is boolean
+  volume is number
+  language is text
+end data
+
+module showcase
+
+  layout main_layout
+    column class "container mt-4"
+      title "Roelang Frontend Component Showcase" class "text-center mb-4"
+      
+      column class "form-container mb-4"
+        title "Layout Components" class "mb-3"
+        
+        row class "mb-3"
+          button "Button 1" class "button"
+          button "Button 2" class "button secondary"
+          button "Button 3" class "button success"
+        end row
+        
+        grid class "grid-cols-3 mb-3"
+          column class "p-2 shadow rounded"
+            title "Card 1"
+            image "assets/images/placeholder1.jpg" alt "Placeholder 1" class "img-fluid rounded"
+          end column
+          column class "p-2 shadow rounded"
+            title "Card 2"
+            image "assets/images/placeholder2.jpg" alt "Placeholder 2" class "img-fluid rounded"
+          end column
+          column class "p-2 shadow rounded"
+            title "Card 3"
+            image "assets/images/placeholder3.jpg" alt "Placeholder 3" class "img-fluid rounded"
+          end column
+        end grid
+        
+        column class "position-relative" style "height: 200px;"
+          image "assets/images/background.jpg" alt "Background" class "w-full h-full"
+          title "Stack Content Example" class "text-center"
+        end column
+      end column
+      
+      column class "form-container mb-4"
+        title "Form Components" class "mb-3"
+        
+        form settings_form
+          row class "mb-3"
+            column
+              title "Text Inputs" class "h4"
+              input id username_field text bind UserSettings.username validate required class "mb-2"
+              input id email_field email bind UserSettings.email validate required, email class "mb-2"
+              input id password_field password bind UserSettings.password validate required class "mb-2"
+              input id phone_field tel bind UserSettings.phone placeholder "Phone number" class "mb-2"
+            end column
+          end row
+          
+          row class "mb-3"
+            column
+              title "Textarea" class "h4"
+              textarea id notes_field bind MediaContent.description class "mb-2" rows "4"
+            end column
+          end row
+          
+          row class "mb-3"
+            column
+              title "Dropdown Select" class "h4"
+              dropdown id language_field options ["English", "Spanish", "French", "German", "Japanese"] bind UserSettings.language class "mb-2"
+            end column
+          end row
+          
+          row class "mb-3"
+            column
+              title "Toggle & Checkboxes" class "h4"
+              toggle id notifications_toggle bind UserSettings.notifications class "mb-2"
+              checkbox id terms_checkbox "I accept the terms and conditions" validate required class "mb-2"
+              checkbox id newsletter_checkbox "Subscribe to newsletter" class "mb-2"
+            end column
+            
+            column
+              title "Radio Buttons" class "h4"
+              radio id theme_light "Light Theme" value "light" bind UserSettings.theme class "mb-2"
+              radio id theme_dark "Dark Theme" value "dark" bind UserSettings.theme class "mb-2"
+              radio id theme_auto "Auto Theme" value "auto" bind UserSettings.theme class "mb-2"
+            end column
+          end row
+          
+          row class "justify-content-end"
+            button "Reset" run reset_form class "button secondary mr-2"
+            button "Save Settings" run save_settings class "button success"
+          end row
+          
+          column class "mt-4 p-3 bg-light border rounded"
+            title "Form Submission Data (for verification):" class "h5 mb-2"
+            column class "text-muted form-result-display"
+              title "Click 'Save Settings' to see form data here..."
+            end column
+          end column
+        end form
+      end column
+      
+      column class "form-container mb-4"
+        title "Media Components" class "mb-3"
+        
+        row class "mb-3"
+          column
+            title "Images" class "h4"
+            row class "gap-3"
+              image "assets/images/sample1.jpg" alt "Sample Image 1" class "img-thumbnail"
+              image "assets/images/sample2.jpg" alt "Sample Image 2" class "img-circle" style "width: 150px; height: 150px;"
+              image "assets/images/sample3.jpg" alt "Sample Image 3" class "img-fluid rounded shadow"
+            end row
+          end column
+        end row
+        
+        row class "mb-3"
+          column
+            title "Video Player" class "h4"
+            video "assets/videos/sample.mp4" controls muted class "w-full rounded shadow"
+          end column
+        end row
+        
+        row class "mb-3"
+          column
+            title "Audio Player" class "h4"
+            audio "assets/audio/sample.mp3" controls class "w-full"
+          end column
+        end row
+      end column
+      
+      column class "form-container mb-4"
+        title "Advanced Layout Example" class "mb-3"
+        
+        grid class "grid-cols-2 gap-4"
+          column
+            title "Media Gallery" class "h4 mb-3"
+            grid class "grid-cols-2 gap-2"
+              image "assets/images/gallery1.jpg" alt "Gallery 1" class "img-fluid rounded"
+              image "assets/images/gallery2.jpg" alt "Gallery 2" class "img-fluid rounded"
+              image "assets/images/gallery3.jpg" alt "Gallery 3" class "img-fluid rounded"
+              image "assets/images/gallery4.jpg" alt "Gallery 4" class "img-fluid rounded"
+            end grid
+          end column
+          
+          column
+            title "Quick Settings" class "h4 mb-3"
+            form quick_settings_form
+              dropdown id volume_field options ["0%", "25%", "50%", "75%", "100%"] bind UserSettings.volume class "mb-2"
+              toggle id autoplay_toggle class "mb-2"
+              checkbox id hd_quality "HD Quality" class "mb-2"
+              row class "gap-2"
+                button "Apply" run apply_settings class "button sm"
+                button "Cancel" run cancel_settings class "button secondary sm"
+              end row
+            end form
+          end column
+        end grid
+      end column
+      
+    end column
+  end layout
+
+  action save_settings gives text
+    display "Saving user settings..."
+    display "Form data will be passed automatically via JavaScript"
+    respond with "Settings saved successfully!"
+  end action
+
+  action reset_form gives text
+    display "Resetting form..."
+    respond with "Form reset"
+  end action
+
+  action apply_settings gives text
+    display "Applying quick settings..."
+    respond with "Settings applied"
+  end action
+
+  action cancel_settings gives text
+    display "Canceling settings..."
+    respond with "Settings canceled"
+  end action
+
+end module

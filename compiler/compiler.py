@@ -33,6 +33,25 @@ def get_metadata_value(ast, key: str) -> Optional[str]:
     return None
 
 
+def get_target_from_source(source: str, default_target: str = "wasm") -> str:
+    """
+    Determine the target from DSL source metadata.
+    
+    Args:
+        source: Roe DSL source code
+        default_target: Default target if no metadata found
+        
+    Returns:
+        Target string (metadata target or default)
+    """
+    try:
+        ast = parse(source)
+        metadata_target = get_metadata_value(ast, "target")
+        return metadata_target if metadata_target else default_target
+    except:
+        return default_target
+
+
 def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") -> str:
     """
     Compile Roe DSL source code to specified target format.
@@ -52,11 +71,8 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
         # Parse source to AST
         ast = parse(source)
         
-        # Check for target metadata override
-        metadata_target = get_metadata_value(ast, "target")
-        if metadata_target:
-            target = metadata_target
-            print(f"ℹ️  Using target from metadata: {target}")
+        # Note: Target resolution is now handled by the CLI to ensure proper priority
+        # DSL @target metadata should be resolved before calling this function
         
         # Resolve includes if file path is provided
         if file_path:

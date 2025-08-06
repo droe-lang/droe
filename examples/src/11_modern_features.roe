@@ -52,7 +52,7 @@ display ""
 display "3. String Operations:"
 set first_name which is text to "John"
 set last_name which is text to "Doe"
-set full_name to first_name + " " + last_name
+set full_name which is text to first_name + " " + last_name
 display "Full name: [full_name]"
 
 display ""
@@ -67,7 +67,7 @@ display ""
 display "5. Mixed Expressions:"
 display "Status: [username] ([user_age] years) - Balance: $[balance]"
 
-set welcome_message to "Welcome back, " + username + "! Your balance is $" + balance
+set welcome_message which is text to "Welcome back, " + username + "! Your balance is $" + balance
 display welcome_message
 
 display ""
