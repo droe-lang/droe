@@ -203,7 +203,15 @@ class FormatExpression(ASTNode):
 
 
 @dataclass
+class MetadataAnnotation(ASTNode):
+    """Represents a metadata annotation like @target web or @name user_form."""
+    key: str  # The annotation key (target, name, description)
+    value: str  # The annotation value
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]
+    metadata: List[MetadataAnnotation] = field(default_factory=list)  # Metadata annotations
     included_modules: List['IncludeStatement'] = None  # Track included modules

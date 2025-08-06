@@ -15,6 +15,24 @@ class CompilerError(Exception):
     pass
 
 
+def get_metadata_value(ast, key: str) -> Optional[str]:
+    """
+    Get the value of a metadata annotation from the AST.
+    
+    Args:
+        ast: Parsed AST Program node
+        key: Metadata key to search for (e.g., "target", "name", "description")
+        
+    Returns:
+        String value if found, None otherwise
+    """
+    if hasattr(ast, 'metadata') and ast.metadata:
+        for annotation in ast.metadata:
+            if annotation.key == key:
+                return annotation.value
+    return None
+
+
 def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") -> str:
     """
     Compile Roe DSL source code to specified target format.
@@ -33,6 +51,12 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
     try:
         # Parse source to AST
         ast = parse(source)
+        
+        # Check for target metadata override
+        metadata_target = get_metadata_value(ast, "target")
+        if metadata_target:
+            target = metadata_target
+            print(f"ℹ️  Using target from metadata: {target}")
         
         # Resolve includes if file path is provided
         if file_path:

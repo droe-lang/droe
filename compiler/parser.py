@@ -9,7 +9,8 @@ from .ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams, 
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, IncludeStatement, FormatExpression
+    DataInstance, FieldAssignment, IncludeStatement, FormatExpression,
+    MetadataAnnotation
 )
 
 
@@ -94,11 +95,20 @@ class Parser:
     
     def parse(self) -> Program:
         """Parse the entire program."""
+        metadata = []
         statements = []
         
         while self.current_line < len(self.lines):
             line = self.lines[self.current_line].strip()
             if not line:  # Skip empty lines
+                self.current_line += 1
+                continue
+            
+            # Check for metadata annotation
+            if line.startswith('@'):
+                meta = self.parse_metadata(line)
+                if meta:
+                    metadata.append(meta)
                 self.current_line += 1
                 continue
                 
@@ -107,7 +117,43 @@ class Parser:
                 statements.append(stmt)
             self.current_line += 1
         
-        return Program(statements=statements)
+        return Program(statements=statements, metadata=metadata)
+    
+    def parse_metadata(self, line: str) -> Optional[MetadataAnnotation]:
+        """Parse a metadata annotation like @target web or @name user_form."""
+        line = line.strip()
+        
+        if not line.startswith('@'):
+            return None
+        
+        # Remove the @ prefix
+        content = line[1:].strip()
+        
+        # Handle quoted values: @name "user profile form"
+        if ' "' in content and content.endswith('"'):
+            key_part, quoted_value = content.split(' "', 1)
+            key = key_part.strip()
+            value = quoted_value[:-1]  # Remove closing quote
+        # Handle single quoted values: @name 'user profile form'
+        elif " '" in content and content.endswith("'"):
+            key_part, quoted_value = content.split(" '", 1)
+            key = key_part.strip()
+            value = quoted_value[:-1]  # Remove closing quote
+        # Handle unquoted values: @target web
+        elif ' ' in content:
+            key, value = content.split(' ', 1)
+            key = key.strip()
+            value = value.strip()
+        else:
+            # Single word annotation like @web (treat as key with empty value)
+            key = content
+            value = ""
+        
+        # Validate key format
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', key):
+            raise ParseError(f"Invalid metadata key format: @{key}")
+        
+        return MetadataAnnotation(key=key, value=value)
     
     def parse_statement(self, line: str) -> Optional[ASTNode]:
         """Parse a single statement."""

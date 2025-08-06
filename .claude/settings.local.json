@@ -35,7 +35,8 @@
       "Bash(npx:*)",
       "Bash(grep:*)",
       "Bash(../../roe run:*)",
-      "Bash(../../roe compile:*)"
+      "Bash(../../roe compile:*)",
+      "Bash(PYTHONPATH=.:*)"
     ],
     "deny": []
   }
