@@ -365,7 +365,7 @@ class Parser:
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
             assignment.line_number = self.current_line + 1
-            assignment.declared_type = element_type  # Store the element type
+            assignment.declared_var_type = f"{collection_type}_{element_type}"  # Store the full collection type
             assignment.collection_type = collection_type  # Store the collection type
             return assignment
         
@@ -382,7 +382,7 @@ class Parser:
             # Add type information to the assignment
             assignment = Assignment(variable=variable, value=value)
             assignment.line_number = self.current_line + 1
-            assignment.declared_type = declared_type  # Store the declared type for arrays
+            assignment.declared_var_type = f"group_of_{declared_type}"  # Store the full collection type
             return assignment
         
         # Try the typed variable version  

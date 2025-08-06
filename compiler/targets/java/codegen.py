@@ -64,12 +64,54 @@ class JavaCodeGenerator(BaseCodeGenerator):
             VariableType.YESNO: "boolean",
             VariableType.BOOLEAN: "boolean",
             VariableType.DATE: "String",  # Store as ISO string, could use LocalDate
-            VariableType.LIST_OF: "java.util.List<Object>",
-            VariableType.GROUP_OF: "java.util.List<Object>",
-            VariableType.ARRAY: "java.util.List<Object>",
+            VariableType.LIST_OF: "List<Object>",
+            VariableType.GROUP_OF: "List<Object>",
+            VariableType.ARRAY: "List<Object>",
             VariableType.FILE: "String",
         }
-        return type_map.get(var_type, "Object")
+        
+        java_type = type_map.get(var_type, "Object")
+        
+        # Add java.util.* import for List types
+        if java_type.startswith("List<"):
+            self.imports.add("java.util.*")
+        
+        return java_type
+    
+    def _get_java_type_from_declared(self, declared_type: str) -> str:
+        """Get Java type from declared compound type like 'list_of_int'."""
+        # Handle compound collection types
+        if declared_type.startswith('list_of_'):
+            element_type = declared_type[8:]  # Remove 'list_of_' prefix
+            java_element_type = self._get_java_element_type(element_type)
+            # Add java.util.* import and use short form
+            self.imports.add("java.util.*")
+            return f"List<{java_element_type}>"
+        elif declared_type.startswith('group_of_'):
+            element_type = declared_type[9:]  # Remove 'group_of_' prefix  
+            java_element_type = self._get_java_element_type(element_type)
+            # Add java.util.* import and use short form
+            self.imports.add("java.util.*")
+            return f"List<{java_element_type}>"
+        else:
+            # Fall back to regular type mapping
+            internal_type = self.map_user_type_to_internal(declared_type)
+            return self._get_java_type(internal_type)
+    
+    def _get_java_element_type(self, element_type: str) -> str:
+        """Get Java wrapper type for collection elements."""
+        element_map = {
+            'int': 'Integer',
+            'decimal': 'Double', 
+            'text': 'String',
+            'flag': 'Boolean',
+            'yesno': 'Boolean',
+            'boolean': 'Boolean',
+            'date': 'String',
+            'number': 'Integer',
+            'string': 'String',
+        }
+        return element_map.get(element_type, 'Object')
     
     def generate(self, program: Program) -> str:
         """Generate Java code from AST."""
@@ -389,9 +431,16 @@ class JavaCodeGenerator(BaseCodeGenerator):
         """Emit assignment statement (to constructor)."""
         value_str = self.emit_expression(stmt.value)
         
-        # Infer type and add as field if not already declared
-        inferred_type = self.infer_type(stmt.value)
-        java_type = self._get_java_type(inferred_type)
+        # Use declared type if available, otherwise infer from value
+        if hasattr(stmt, 'declared_var_type') and stmt.declared_var_type:
+            # Use the declared compound type for proper Java generic typing
+            java_type = self._get_java_type_from_declared(stmt.declared_var_type)
+            declared_internal_type = self.map_user_type_to_internal(stmt.declared_var_type)
+        else:
+            # Fall back to type inference
+            inferred_type = self.infer_type(stmt.value)
+            java_type = self._get_java_type(inferred_type)
+            declared_internal_type = inferred_type
         
         # Check if this is the first assignment to this variable
         field_exists = any(f"private {java_type} {stmt.variable};" in field for field in self.fields)
@@ -402,7 +451,7 @@ class JavaCodeGenerator(BaseCodeGenerator):
         self.constructor_code.append(f"this.{stmt.variable} = {value_str};")
         
         # Track in symbol table
-        self.symbol_table.declare_variable(stmt.variable, inferred_type)
+        self.symbol_table.declare_variable(stmt.variable, declared_internal_type)
     
     def emit_if_statement(self, stmt: IfStatement):
         """Emit if statement (to constructor)."""

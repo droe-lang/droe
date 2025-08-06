@@ -418,6 +418,11 @@ class WATCodeGenerator(BaseCodeGenerator):
             'boolean': VariableType.BOOLEAN,
             'booleans': VariableType.BOOLEAN,  # Legacy
             
+            # Collection types
+            'list': VariableType.LIST_OF,
+            'group': VariableType.GROUP_OF,
+            'array': VariableType.ARRAY,  # Legacy
+            
             # Other types
             'date': VariableType.DATE,
             'file': VariableType.FILE
@@ -427,8 +432,15 @@ class WATCodeGenerator(BaseCodeGenerator):
         if declared_type:
             expected_internal_type = type_mapping.get(declared_type)
             if not expected_internal_type:
-                valid_types = ", ".join(sorted(type_mapping.keys()))
-                raise CodeGenError(f"Unknown declared type: {declared_type}. Valid types: {valid_types}")
+                # Handle compound collection types like "list_of_int", "group_of_text"
+                if declared_type.startswith('list_of_'):
+                    expected_internal_type = VariableType.LIST_OF
+                elif declared_type.startswith('group_of_'):
+                    expected_internal_type = VariableType.GROUP_OF
+                else:
+                    valid_types = ", ".join(sorted(type_mapping.keys()))
+                    print(f"DEBUG: validate_and_get_array_type error for declared_type: {declared_type}")
+                    raise CodeGenError(f"Unknown declared type FROM VALIDATE_ARRAY: {declared_type}. Valid types: {valid_types}")
             
             actual_internal_type = type_mapping.get(actual_type, VariableType.INT)
             
@@ -472,13 +484,19 @@ class WATCodeGenerator(BaseCodeGenerator):
         }
         result = mapping.get(user_type.lower())
         if not result:
+            # Handle compound collection types like "list_of_int", "group_of_text"
+            if user_type.startswith('list_of_'):
+                return VariableType.LIST_OF
+            elif user_type.startswith('group_of_'):
+                return VariableType.GROUP_OF
             # Check if this is a custom data type (starts with uppercase)
-            if user_type[0].isupper() or user_type in self.data_definitions:
+            elif user_type[0].isupper() or user_type in self.data_definitions:
                 # Custom data type - treat as string for now
                 return VariableType.STRING
             else:
                 valid_types = ", ".join(sorted(mapping.keys()))
-                raise CodeGenError(f"Unknown type: '{user_type}'. Valid types: {valid_types}")
+                print(f"DEBUG: map_user_type_to_internal error for user_type: {user_type}")
+                raise CodeGenError(f"Unknown type FROM MAP_USER_TYPE: '{user_type}'. Valid types: {valid_types}")
         return result
     
     def internal_type_to_user(self, var_type: VariableType) -> str:

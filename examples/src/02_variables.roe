@@ -32,7 +32,7 @@ display "Birthday formatted: "
 display formatted_birthday
 
 display "4. String concatenation:"
-set greeting to "Hello " + message + "!"
+set greeting which is text to "Hello " + message + "!"
 display greeting
 
 display "5. Collections:"
@@ -46,8 +46,8 @@ display important_dates
 display "6. Arithmetic with variables:"
 set x which is int to 10
 set y which is int to 5
-set sum to x + y
-set product to x * y
+set sum which is number to x + y
+set product which is number to x * y
 display sum
 display product
 

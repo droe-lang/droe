@@ -114,6 +114,12 @@ class BaseCodeGenerator(ABC):
             'array': VariableType.ARRAY,
         }
         
+        # Handle compound collection types like "list_of_int", "group_of_text"
+        if user_type.startswith('list_of_'):
+            return VariableType.LIST_OF
+        elif user_type.startswith('group_of_'):
+            return VariableType.GROUP_OF
+        
         if user_type not in type_mapping:
             raise CodeGenError(f"Unknown type: {user_type}")
         

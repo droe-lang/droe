@@ -15,8 +15,8 @@ when false is not true then show "false != true"
 when the condition is true then show "Boolean literal works"
 
 show "3. Variable comparisons:"
-set age to 25
-set limit to 18
+set age which is int to 25
+set limit which is int to 18
 
 when age is greater than limit then show "You are an adult"
 when age equals 25 then show "Age is exactly 25"
