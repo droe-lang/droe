@@ -33,7 +33,9 @@
       "Bash(npx tailwindcss:*)",
       "Bash(npm run build:*)",
       "Bash(npx:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(../../roe run:*)",
+      "Bash(../../roe compile:*)"
     ],
     "deny": []
   }

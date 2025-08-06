@@ -1,7 +1,7 @@
 """WebAssembly Text (WAT) code generator for Roe DSL AST."""
 
 from typing import List, Dict, Any
-from .ast import (
+from ...ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
     Assignment, ArrayLiteral, WhileLoop, ForEachLoop, ArithmeticOp,
@@ -10,23 +10,18 @@ from .ast import (
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
     DataInstance, FieldAssignment, FormatExpression
 )
-from .symbols import SymbolTable, VariableType
+from ...symbols import SymbolTable, VariableType
+from ...codegen_base import BaseCodeGenerator, CodeGenError
+from ...libs.core.string_utils import StringUtils
+from ...libs.core.math_utils import MathUtils
+from ...libs.core.formatting import FormattingUtils
 
 
-class CodeGenError(Exception):
-    """Raised when code generation fails."""
-    pass
-
-
-class WATCodeGenerator:
+class WATCodeGenerator(BaseCodeGenerator):
     """Generates WebAssembly Text format from AST."""
     
     def __init__(self):
-        self.indent_level = 0
-        self.output = []
-        self.string_constants = {}  # Map string -> index
-        self.next_string_index = 0
-        self.symbol_table = SymbolTable()
+        super().__init__()
         self.loop_depth = 0  # Track nested loops for break/continue
         self.needs_itoa = False  # Track if we need the integer-to-string function
         self.memory_offset = 1024  # Start arrays after string constants
@@ -37,6 +32,16 @@ class WATCodeGenerator:
         self.module_definitions = {}  # Map module name -> ModuleDefinition
         self.data_definitions = {}  # Map data name -> DataDefinition
         self.data_instances = {}  # Map variable name -> DataInstance for created instances
+        
+        # Initialize core libraries
+        self.string_utils = StringUtils()
+        self.math_utils = MathUtils()
+        self.formatting_utils = FormattingUtils()
+        
+        # Enable all core libraries by default
+        self.enable_core_lib('string_utils')
+        self.enable_core_lib('math_utils')
+        self.enable_core_lib('formatting')
         
     def generate(self, ast: Program) -> str:
         """Generate WAT code from AST."""
@@ -140,12 +145,21 @@ class WATCodeGenerator:
         self.indent_level -= 1
         self.emit(")")
         
-        return '\n'.join(self.output)
+        return self.get_output()
     
-    def emit(self, code: str):
-        """Emit a line of code with proper indentation."""
-        indent = "  " * self.indent_level
-        self.output.append(f"{indent}{code}")
+    def _import_core_libraries(self):
+        """Import core library functions based on enabled libraries."""
+        if self.is_core_lib_enabled('string_utils'):
+            for import_decl in self.string_utils.get_wasm_imports():
+                self.emit(import_decl)
+        
+        if self.is_core_lib_enabled('math_utils'):
+            for import_decl in self.math_utils.get_wasm_imports():
+                self.emit(import_decl)
+        
+        if self.is_core_lib_enabled('formatting'):
+            for import_decl in self.formatting_utils.get_wasm_imports():
+                self.emit(import_decl)
     
     def visit(self, node: ASTNode):
         """Visit an AST node to collect string constants."""
@@ -1853,14 +1867,7 @@ class WATCodeGenerator:
             self.emit('call $print')
 
 
-# Legacy file - functionality moved to targets/wasm/codegen.py
-# This file is kept for backwards compatibility but will be deprecated
-from .targets.wasm.codegen import WATCodeGenerator
-
 def generate_wat(ast: Program) -> str:
-    """Generate WAT code from AST - DEPRECATED: Use WATCodeGenerator directly."""
-    import warnings
-    warnings.warn("generate_wat function is deprecated. Use WATCodeGenerator from targets.wasm.codegen directly.", 
-                  DeprecationWarning, stacklevel=2)
+    """Generate WAT code from AST."""
     generator = WATCodeGenerator()
     return generator.generate(ast)

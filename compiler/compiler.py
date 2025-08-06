@@ -4,7 +4,8 @@ import sys
 import os
 from typing import Optional
 from .parser import parse, ParseError
-from .codegen_wat import generate_wat, CodeGenError
+from .targets.wasm.codegen import WATCodeGenerator
+from .codegen_base import CodeGenError
 from .module_resolver import ModuleResolver, ModuleResolutionError
 
 
@@ -36,8 +37,9 @@ def compile(source: str, file_path: Optional[str] = None) -> str:
             resolver = ModuleResolver()
             ast = resolver.resolve_includes(ast, file_path)
         
-        # Generate WAT from AST
-        wat = generate_wat(ast)
+        # Generate WAT from AST using WASM target
+        codegen = WATCodeGenerator()
+        wat = codegen.generate(ast)
         
         return wat
         
