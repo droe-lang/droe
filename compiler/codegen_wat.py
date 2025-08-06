@@ -8,7 +8,7 @@ from .ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment
+    DataInstance, FieldAssignment, FormatExpression
 )
 from .symbols import SymbolTable, VariableType
 
@@ -52,6 +52,17 @@ class WATCodeGenerator:
         self.emit('(import "env" "print" (func $print (param i32 i32)))')
         self.emit('(import "env" "print_i32" (func $print_i32 (param i32)))')
         self.emit('(import "env" "print_string_from_offset" (func $print_string_from_offset (param i32)))')
+        self.emit('(import "env" "print_no_newline" (func $print_no_newline (param i32 i32)))')
+        self.emit('(import "env" "print_newline" (func $print_newline))')
+        self.emit('(import "env" "print_i32_no_newline" (func $print_i32_no_newline (param i32)))')
+        self.emit('(import "env" "print_string_from_offset_no_newline" (func $print_string_from_offset_no_newline (param i32)))')
+        self.emit('(import "env" "print_decimal" (func $print_decimal (param i32)))')
+        self.emit('(import "env" "print_decimal_no_newline" (func $print_decimal_no_newline (param i32)))')
+        self.emit('(import "env" "print_date" (func $print_date (param i32)))')
+        self.emit('(import "env" "print_date_no_newline" (func $print_date_no_newline (param i32)))')
+        self.emit('(import "env" "format_date" (func $format_date (param i32 i32) (result i32)))')
+        self.emit('(import "env" "format_decimal" (func $format_decimal (param i32 i32) (result i32)))')
+        self.emit('(import "env" "format_number" (func $format_number (param i32 i32) (result i32)))')
         
         # Memory for string storage
         self.emit('(memory 1)')
@@ -75,6 +86,8 @@ class WATCodeGenerator:
                 for module_stmt in stmt.body:
                     if isinstance(module_stmt, ActionDefinitionWithParams):
                         self.parameterized_action_definitions[f"{stmt.name}.{module_stmt.name}"] = module_stmt
+                    elif isinstance(module_stmt, ActionDefinition):
+                        self.action_definitions[f"{stmt.name}.{module_stmt.name}"] = module_stmt
                     elif isinstance(module_stmt, DataDefinition):
                         self.data_definitions[f"{stmt.name}.{module_stmt.name}"] = module_stmt
             elif isinstance(stmt, DataDefinition):
@@ -336,6 +349,9 @@ class WATCodeGenerator:
             return VariableType.NUMBER
         elif isinstance(node, BinaryOp):
             return VariableType.BOOLEAN
+        elif isinstance(node, FormatExpression):
+            # Format expressions always return text/string
+            return VariableType.TEXT
         
         # Default fallback
         return VariableType.STRING
@@ -515,6 +531,10 @@ class WATCodeGenerator:
         if self._is_text_type(declared_type) and self._is_text_type(inferred_type):
             return True
         
+        # Allow string-to-date conversion (dates can be assigned from strings)
+        if declared_type == VariableType.DATE and self._is_text_type(inferred_type):
+            return True
+        
         # Collection types are compatible with each other
         if self._is_collection_type(declared_type) and self._is_collection_type(inferred_type):
             return True
@@ -611,15 +631,9 @@ class WATCodeGenerator:
                 self.emit(f'i32.const {offset}')
                 self.emit('call $print_string_from_offset')
             else:
-                # Fallback to showing the expression literally
-                fallback_str = f"[String concatenation: {stmt.expression.left} + {stmt.expression.right}]"
-                if fallback_str not in self.string_constants:
-                    self.string_constants[fallback_str] = self.next_string_index
-                    self.next_string_index += 1
-                
-                string_index = self.string_constants[fallback_str]
-                offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
-                self.emit(f'i32.const {offset}')
+                # Handle runtime string concatenation
+                self.emit_string_concatenation(stmt.expression.left, stmt.expression.right)
+                # String concatenation leaves result offset on stack
                 self.emit('call $print_string_from_offset')
         
         elif isinstance(stmt.expression, Identifier):
@@ -639,7 +653,9 @@ class WATCodeGenerator:
                 self.emit_action_invocation(stmt.expression.name)
                 
                 # Display based on return type
-                if action_return_type == VariableType.NUMBER:
+                if action_return_type == VariableType.DECIMAL:
+                    self.emit('call $print_decimal')
+                elif action_return_type == VariableType.NUMBER:
                     self.emit('call $print_i32')
                 elif action_return_type == VariableType.STRING:
                     # For string actions returning literals, we need both offset and length
@@ -650,7 +666,7 @@ class WATCodeGenerator:
                             string_value = action_stmt.expression.value
                             string_length = len(string_value)
                             self.emit(f'i32.const {string_length}')
-                            self.emit('call $print')
+                            self.emit('call $print_no_newline')
                             break
                     else:
                         # Fallback if we can't determine length
@@ -671,21 +687,8 @@ class WATCodeGenerator:
                     
                     # Check if this is a decimal type that needs formatting
                     if var.type == VariableType.DECIMAL:
-                        # For decimals, we need to format the scaled integer back to decimal
-                        # For now, create a formatted string constant
-                        # This is a simplified approach - in a real implementation, 
-                        # we'd have a decimal formatting runtime function
-                        decimal_str = "150.50"  # Hardcoded for the test case
-                        if decimal_str not in self.string_constants:
-                            self.string_constants[decimal_str] = self.next_string_index
-                            self.next_string_index += 1
-                        
-                        # Pop the numeric value and emit string instead
-                        self.output.pop()  # Remove the local.get instruction
-                        string_index = self.string_constants[decimal_str]
-                        offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
-                        self.emit(f'i32.const {offset}')
-                        self.emit('call $print_string_from_offset')
+                        # Use decimal formatting function
+                        self.emit('call $print_decimal')
                     else:
                         self.emit('call $print_i32')
                 elif self._is_text_type(var.type):
@@ -720,21 +723,20 @@ class WATCodeGenerator:
                     # If true (1)
                     self.emit(f'i32.const {true_offset}')
                     self.emit(f'i32.const {len(true_str)}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
                     self.indent_level -= 1
                     self.emit('else')
                     self.indent_level += 1
                     # If false (0)
                     self.emit(f'i32.const {false_offset}')
                     self.emit(f'i32.const {len(false_str)}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
                     self.indent_level -= 1
                     self.emit('end')
                 elif var.type == VariableType.DATE:
-                    # For date variables, display as Unix timestamp for now
-                    # In a full implementation, this would format the date
+                    # For date variables, use date formatting
                     self.emit(f'local.get {var.wasm_index}')
-                    self.emit('call $print_i32')
+                    self.emit('call $print_date')
                 elif var.type == VariableType.FILE:
                     # For file variables, display the file path
                     self.emit(f'local.get {var.wasm_index}')  # Get file path offset
@@ -767,7 +769,7 @@ class WATCodeGenerator:
                         bracket_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < bracket_index)
                         self.emit(f'i32.const {bracket_offset}')
                         self.emit(f'i32.const {len(bracket_str)}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
                         
                         # Display each element with comma separation
                         for i in range(array_length):
@@ -782,7 +784,7 @@ class WATCodeGenerator:
                                 comma_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < comma_index)
                                 self.emit(f'i32.const {comma_offset}')
                                 self.emit(f'i32.const {len(comma_str)}')
-                                self.emit('call $print')
+                                self.emit('call $print_no_newline')
                             
                             # Display the element
                             elem_offset = array_offset + 4 + (i * 4)  # Skip length header
@@ -790,11 +792,11 @@ class WATCodeGenerator:
                             self.emit('i32.load')
                             
                             if self._is_numeric_type(element_type):
-                                self.emit('call $print_i32')
+                                self.emit('call $print_i32_no_newline')
                             elif self._is_text_type(element_type):
-                                self.emit('call $print_string_from_offset')
+                                self.emit('call $print_string_from_offset_no_newline')
                             else:
-                                self.emit('call $print_i32')  # Default fallback
+                                self.emit('call $print_i32_no_newline')  # Default fallback
                         
                         # Display closing bracket
                         close_bracket_str = "]"
@@ -806,7 +808,9 @@ class WATCodeGenerator:
                         close_bracket_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < close_bracket_index)
                         self.emit(f'i32.const {close_bracket_offset}')
                         self.emit(f'i32.const {len(close_bracket_str)}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
+                        # Add newline after array display
+                        self.emit('call $print_newline')
                     else:
                         # Fallback - should not happen with proper array assignment
                         empty_array_str = "[]"
@@ -820,7 +824,7 @@ class WATCodeGenerator:
                         
                         self.emit(f'i32.const {offset}')
                         self.emit(f'i32.const {string_length}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
                 else:
                     # For other types, use placeholder
                     placeholder = f"<{var.type.value}:{stmt.expression.name}>"
@@ -834,7 +838,59 @@ class WATCodeGenerator:
                     
                     self.emit(f'i32.const {offset}')
                     self.emit(f'i32.const {string_length}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
+        
+        elif isinstance(stmt.expression, ActionInvocationWithArgs):
+            # Handle action invocations with display
+            action_name = f"{stmt.expression.module_name}.{stmt.expression.action_name}" if stmt.expression.module_name else stmt.expression.action_name
+            
+            # Check if it's a simple action or parameterized action
+            if action_name in self.action_definitions and not stmt.expression.arguments:
+                # Simple action without parameters
+                self.emit_action_invocation(action_name)
+                
+                # Try to infer return type from the action body
+                action = self.action_definitions[action_name]
+                action_return_type = None
+                for action_stmt in action.body:
+                    if isinstance(action_stmt, ReturnStatement):
+                        action_return_type = self.infer_type(action_stmt.expression)
+                        break
+                
+                if action_return_type == VariableType.DECIMAL:
+                    self.emit('call $print_decimal')
+                elif self._is_numeric_type(action_return_type):
+                    self.emit('call $print_i32')
+                elif self._is_text_type(action_return_type):
+                    self.emit('call $print_string_from_offset')
+                else:
+                    # Default display
+                    self.emit('call $print_i32')
+            else:
+                # Parameterized action
+                self.emit_parameterized_action_invocation(action_name, stmt.expression.arguments)
+                
+                # Determine the return type and display accordingly
+                if action_name in self.parameterized_action_definitions:
+                    action = self.parameterized_action_definitions[action_name]
+                    if action.return_type:
+                        return_type = self.map_user_type_to_internal(action.return_type)
+                        if self._is_numeric_type(return_type):
+                            self.emit('call $print_i32')
+                        elif self._is_text_type(return_type):
+                            self.emit('call $print_string_from_offset')
+                        else:
+                            # Default display for other types
+                            self.emit('call $print_i32')
+                    else:
+                        # No return type, shouldn't display anything
+                        pass
+        
+        elif isinstance(stmt.expression, FormatExpression):
+            # Handle format expressions in display
+            self.emit_expression(stmt.expression)
+            # The format expression returns a string offset, so we need to display it as a string
+            self.emit('call $print_string_from_offset')
         
         else:
             # TODO: Support other expression types
@@ -990,6 +1046,10 @@ class WATCodeGenerator:
             else:
                 self.emit('i32.const 0')
         
+        elif isinstance(expr, FormatExpression):
+            # Handle format expressions
+            self.emit_format_expression(expr)
+        
         else:
             raise CodeGenError(f"Cannot emit expression of type: {type(expr).__name__}")
     
@@ -1089,6 +1149,38 @@ class WATCodeGenerator:
             self.emit_expression(stmt.value)
             self.emit(f'local.set {var.wasm_index}')
     
+    def emit_format_expression(self, expr: FormatExpression):
+        """Emit code for format expressions."""
+        self.emit(';; format expression')
+        
+        # Get the type of the expression to format
+        expr_type = self.infer_type(expr.expression)
+        
+        # Emit the expression value
+        self.emit_expression(expr.expression)
+        
+        # Store the format pattern as a string constant
+        pattern = expr.format_pattern
+        if pattern not in self.string_constants:
+            self.string_constants[pattern] = self.next_string_index
+            self.next_string_index += 1
+        
+        pattern_index = self.string_constants[pattern]
+        pattern_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < pattern_index)
+        
+        # Emit the pattern offset
+        self.emit(f'i32.const {pattern_offset}')
+        
+        # Call the appropriate format function based on type
+        if expr_type == VariableType.DATE:
+            self.emit('call $format_date')
+        elif expr_type == VariableType.DECIMAL:
+            self.emit('call $format_decimal')
+        elif self._is_numeric_type(expr_type):
+            self.emit('call $format_number')
+        else:
+            raise CodeGenError(f"Cannot format type: {expr_type}")
+    
     def emit_while_loop(self, stmt: WhileLoop):
         """Emit code for while loop."""
         self.emit(';; while loop')
@@ -1168,7 +1260,14 @@ class WATCodeGenerator:
         
         # Look up the task definition
         if stmt.task_name not in self.task_definitions:
-            raise CodeGenError(f"Undefined task: {stmt.task_name}")
+            # Check if it's an action instead
+            if stmt.task_name in self.action_definitions:
+                # For actions, we invoke them but discard the return value
+                self.emit_action_invocation(stmt.task_name)
+                self.emit('drop')  # Discard the return value
+                return
+            else:
+                raise CodeGenError(f"Undefined task or action: {stmt.task_name}")
         
         task = self.task_definitions[stmt.task_name]
         
@@ -1341,11 +1440,57 @@ class WATCodeGenerator:
                     
                     self.emit(f'i32.const {offset}')
                     self.emit(f'i32.const {string_length}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
             
             elif isinstance(part, PropertyAccess):
                 # Display property access (object.property)
                 self.emit_property_access_display(part)
+            
+            elif isinstance(part, ActionInvocationWithArgs):
+                # Handle action invocations in interpolation (run action_name)
+                action_name = f"{part.module_name}.{part.action_name}" if part.module_name else part.action_name
+                
+                # Check if it's a simple action or parameterized action
+                if action_name in self.action_definitions and not part.arguments:
+                    # Simple action without parameters
+                    self.emit_action_invocation(action_name)
+                    
+                    # Determine return type to display correctly
+                    action = self.action_definitions[action_name]
+                    action_return_type = None
+                    for action_stmt in action.body:
+                        if isinstance(action_stmt, ReturnStatement):
+                            action_return_type = self.infer_type(action_stmt.expression)
+                            break
+                    
+                    if action_return_type == VariableType.DECIMAL:
+                        self.emit('call $print_decimal_no_newline')
+                    elif self._is_numeric_type(action_return_type):
+                        self.emit('call $print_i32_no_newline')
+                    elif self._is_text_type(action_return_type):
+                        self.emit('call $print_string_from_offset_no_newline')
+                    else:
+                        # Default to string display
+                        self.emit('call $print_string_from_offset_no_newline')
+                else:
+                    # Parameterized action
+                    self.emit_parameterized_action_invocation(action_name, part.arguments)
+                    
+                    # Determine the return type and display accordingly
+                    if action_name in self.parameterized_action_definitions:
+                        action = self.parameterized_action_definitions[action_name]
+                        if action.return_type:
+                            return_type = self.map_user_type_to_internal(action.return_type)
+                            if self._is_numeric_type(return_type):
+                                self.emit('call $print_i32')
+                            elif self._is_text_type(return_type):
+                                self.emit('call $print_string_from_offset')
+                            else:
+                                # Default display for other types
+                                self.emit('call $print_i32')
+                        else:
+                            # No return type, shouldn't display anything
+                            pass
             
             elif isinstance(part, Identifier):
                 # Display variable part
@@ -1358,25 +1503,13 @@ class WATCodeGenerator:
                     
                     # Check if this is a decimal type that needs formatting
                     if var.type == VariableType.DECIMAL:
-                        # For decimals in string interpolation, format as decimal string
-                        decimal_str = "150.50"  # Hardcoded for the test case
-                        if decimal_str not in self.string_constants:
-                            self.string_constants[decimal_str] = self.next_string_index
-                            self.next_string_index += 1
-                        
-                        # Pop the numeric value and emit string instead
-                        self.output.pop()  # Remove the local.get instruction
-                        string_index = self.string_constants[decimal_str]
-                        offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < string_index)
-                        string_length = len(decimal_str)
-                        self.emit(f'i32.const {offset}')
-                        self.emit(f'i32.const {string_length}')
-                        self.emit('call $print')
+                        # Use decimal formatting function for string interpolation
+                        self.emit('call $print_decimal_no_newline')
                     else:
-                        self.emit('call $print_i32')
+                        self.emit('call $print_i32_no_newline')
                 elif self._is_text_type(var.type):
                     self.emit(f'local.get {var.wasm_index}')
-                    self.emit('call $print_string_from_offset')
+                    self.emit('call $print_string_from_offset_no_newline')
                 elif self._is_boolean_type(var.type):
                     # For boolean variables in interpolation, display "true" or "false"
                     true_str = "true"
@@ -1399,15 +1532,19 @@ class WATCodeGenerator:
                     self.indent_level += 1
                     self.emit(f'i32.const {true_offset}')
                     self.emit(f'i32.const {len(true_str)}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
                     self.indent_level -= 1
                     self.emit('else')
                     self.indent_level += 1
                     self.emit(f'i32.const {false_offset}')
                     self.emit(f'i32.const {len(false_str)}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
                     self.indent_level -= 1
                     self.emit('end')
+                elif var.type == VariableType.DATE:
+                    # For date variables in string interpolation, use date formatting
+                    self.emit(f'local.get {var.wasm_index}')
+                    self.emit('call $print_date_no_newline')
                 elif self._is_collection_type(var.type):
                     # Handle array display in string interpolation
                     if part.name in self.array_metadata:
@@ -1423,7 +1560,7 @@ class WATCodeGenerator:
                         bracket_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < bracket_index)
                         self.emit(f'i32.const {bracket_offset}')
                         self.emit(f'i32.const {len(bracket_str)}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
                         
                         # Display each element with comma separation
                         for i in range(array_length):
@@ -1438,7 +1575,7 @@ class WATCodeGenerator:
                                 comma_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < comma_index)
                                 self.emit(f'i32.const {comma_offset}')
                                 self.emit(f'i32.const {len(comma_str)}')
-                                self.emit('call $print')
+                                self.emit('call $print_no_newline')
                             
                             # Display the element
                             elem_offset = array_offset + 4 + (i * 4)  # Skip length header
@@ -1446,11 +1583,11 @@ class WATCodeGenerator:
                             self.emit('i32.load')
                             
                             if self._is_numeric_type(element_type):
-                                self.emit('call $print_i32')
+                                self.emit('call $print_i32_no_newline')
                             elif self._is_text_type(element_type):
-                                self.emit('call $print_string_from_offset')
+                                self.emit('call $print_string_from_offset_no_newline')
                             else:
-                                self.emit('call $print_i32')  # Default fallback
+                                self.emit('call $print_i32_no_newline')  # Default fallback
                         
                         # Display closing bracket
                         close_bracket_str = "]"
@@ -1462,7 +1599,9 @@ class WATCodeGenerator:
                         close_bracket_offset = sum(len(s) + 1 for s, i in self.string_constants.items() if i < close_bracket_index)
                         self.emit(f'i32.const {close_bracket_offset}')
                         self.emit(f'i32.const {len(close_bracket_str)}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
+                        # Add newline after array display
+                        self.emit('call $print_newline')
                     else:
                         # Fallback - display empty array
                         empty_array_str = "[]"
@@ -1476,7 +1615,7 @@ class WATCodeGenerator:
                         
                         self.emit(f'i32.const {offset}')
                         self.emit(f'i32.const {string_length}')
-                        self.emit('call $print')
+                        self.emit('call $print_no_newline')
                 else:
                     # For other types, emit placeholder
                     placeholder = f"{part.name}"
@@ -1489,7 +1628,10 @@ class WATCodeGenerator:
                     
                     self.emit(f'i32.const {offset}')
                     self.emit(f'i32.const {len(placeholder)}')
-                    self.emit('call $print')
+                    self.emit('call $print_no_newline')
+        
+        # Print final newline after all interpolation parts
+        self.emit('call $print_newline')
     
     def emit_string_concatenation(self, left_expr: ASTNode, right_expr: ASTNode):
         """Emit code for string concatenation."""
@@ -1515,20 +1657,7 @@ class WATCodeGenerator:
     def try_resolve_string_concatenation(self, left_expr: ASTNode, right_expr: ASTNode) -> str:
         """Try to resolve string concatenation at compile time."""
         
-        # Handle the pattern: first_name + (" " + last_name)
-        if (isinstance(left_expr, Identifier) and left_expr.name == 'first_name' and
-            isinstance(right_expr, ArithmeticOp) and right_expr.operator == '+' and
-            isinstance(right_expr.left, Literal) and right_expr.left.value == ' ' and
-            isinstance(right_expr.right, Identifier) and right_expr.right.name == 'last_name'):
-            return "John Doe"
-        
-        # Handle the pattern: (first_name + " ") + last_name
-        if (isinstance(left_expr, ArithmeticOp) and left_expr.operator == '+' and
-            isinstance(left_expr.left, Identifier) and left_expr.left.name == 'first_name' and
-            isinstance(left_expr.right, Literal) and left_expr.right.value == ' ' and
-            isinstance(right_expr, Identifier) and right_expr.name == 'last_name'):
-            self.emit(';; CONCAT: Matched pattern (first_name + " ") + last_name')
-            return "John Doe"
+        # Can't resolve variable-based patterns at compile time
         
         # Handle general patterns - try to resolve both sides recursively
         left_resolved = self.try_resolve_expression_to_string(left_expr)
@@ -1547,35 +1676,15 @@ class WATCodeGenerator:
         """Try to resolve any expression to a string value at compile time."""
         if isinstance(expr, Literal):
             return str(expr.value)
-        elif isinstance(expr, Identifier):
-            var = self.symbol_table.get_variable(expr.name)
-            if var:
-                # Hardcoded values for test cases
-                if expr.name == 'name':
-                    return 'Alice'
-                elif expr.name == 'age':
-                    return '25'
-                elif expr.name == 'username':
-                    return 'Alice'
-                elif expr.name == 'user_age':
-                    return '25'
-                elif expr.name == 'account_active':
-                    return 'true'
-                elif expr.name == 'balance':
-                    return '150.50'
-                elif expr.name == 'first_name':
-                    return 'John'
-                elif expr.name == 'last_name':
-                    return 'Doe'
-            return None
         elif isinstance(expr, ArithmeticOp) and expr.operator == '+':
-            # Recursively resolve concatenation
+            # Recursively resolve concatenation for literals only
             left_resolved = self.try_resolve_expression_to_string(expr.left)
             right_resolved = self.try_resolve_expression_to_string(expr.right)
             if left_resolved is not None and right_resolved is not None:
                 return left_resolved + right_resolved
             return None
         else:
+            # Can't resolve variables or other expressions at compile time
             return None
     
     def try_resolve_string_interpolation(self, interpolation: StringInterpolation) -> str:
@@ -1588,43 +1697,13 @@ class WATCodeGenerator:
             elif isinstance(part, Identifier):
                 var = self.symbol_table.get_variable(part.name)
                 if var:
-                    # Hardcoded values for test cases
-                    if part.name == 'name':
-                        result_parts.append('Alice')
-                    elif part.name == 'age':
-                        result_parts.append('25')
-                    elif part.name == 'username':
-                        result_parts.append('Alice')
-                    elif part.name == 'user_age':
-                        result_parts.append('25')
-                    elif part.name == 'account_active':
-                        result_parts.append('true')
-                    elif part.name == 'balance':
-                        result_parts.append('150.50')
-                    elif part.name == 'favorite_numbers':
-                        result_parts.append('[7, 13, 42]')
-                    elif part.name == 'programming_languages':
-                        result_parts.append('[Python, JavaScript, Roelang]')
-                    elif part.name == 'full_name':
-                        result_parts.append('John Doe')
-                    elif part.name == 'is_adult':
-                        result_parts.append('true')
-                    else:
-                        # Unknown variable, can't resolve
-                        return None
+                    # Can't resolve variables at compile time
+                    return None
                 else:
                     return None
             elif isinstance(part, PropertyAccess):
-                # Handle property access like user.name
-                if isinstance(part.object, Identifier):
-                    if part.object.name == 'user' and part.property == 'name':
-                        result_parts.append('Bob')
-                    elif part.object.name == 'user' and part.property == 'email':
-                        result_parts.append('bob@example.com')
-                    else:
-                        return None
-                else:
-                    return None
+                # Can't resolve property access at compile time
+                return None
             else:
                 # Unknown part type, can't resolve
                 return None
@@ -1633,24 +1712,12 @@ class WATCodeGenerator:
     
     def try_resolve_array_display(self, array_name: str) -> str:
         """Try to resolve array display at compile time."""
-        # Hardcoded array values for test cases
-        if array_name == 'favorite_numbers':
-            return '[7, 13, 42]'
-        elif array_name == 'programming_languages':
-            return '[Python, JavaScript, Roelang]'
-        else:
-            return None
+        # Can't resolve arrays at compile time
+        return None
     
     def try_build_concatenated_string(self, left_expr: ASTNode, right_expr: ASTNode) -> str:
         """Try to build a concatenated string from expressions at compile time."""
-        # Handle the specific pattern: (first_name + " ") + last_name
-        if (isinstance(left_expr, ArithmeticOp) and left_expr.operator == '+' and
-            isinstance(left_expr.left, Identifier) and left_expr.left.name == 'first_name' and
-            isinstance(left_expr.right, Literal) and left_expr.right.value == ' ' and
-            isinstance(right_expr, Identifier) and right_expr.name == 'last_name'):
-            return "John Doe"  # Hardcoded result for the test case
-        
-        # Handle other patterns as needed
+        # Can't resolve variable-based concatenations at compile time
         return None
     
     def emit_data_instance_assignment(self, stmt: Assignment, var):
@@ -1762,7 +1829,7 @@ class WATCodeGenerator:
                             
                             self.emit(f'i32.const {offset}')
                             self.emit(f'i32.const {string_length}')
-                            self.emit('call $print')
+                            self.emit('call $print_no_newline')
                         elif field_assignment.value.type == 'number':
                             self.emit(f'i32.const {int(field_assignment.value.value)}')
                             self.emit('call $print_i32')

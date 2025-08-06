@@ -21,14 +21,14 @@ module greetings
 end module
 
 display "Testing simple actions:"
-display greetings.get_greeting
-display greetings.get_farewell
+display run greetings.get_greeting
+display run greetings.get_farewell
 
 display "Testing parameterized actions:"
-set personal_greeting which is text from run greetings.greet_person with "Alice"
+set personal_greeting which is text from greetings.greet_person with "Alice"
 display personal_greeting
 
-set age which is int from run greetings.calculate_age with 1990
+set age which is int from greetings.calculate_age with 1990
 display "You are [age] years old"
 
 display "String interpolation with actions:"

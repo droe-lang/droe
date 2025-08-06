@@ -1,0 +1,150 @@
+// 13. Format Expressions Demo
+// This example demonstrates the powerful format expression feature
+// that allows you to format dates, decimals, and numbers in various ways
+
+display "=== Format Expressions Demo ==="
+display ""
+
+// ===========================
+// Date Formatting
+// ===========================
+display "Date Formatting Examples:"
+display "------------------------"
+
+set event_date which is date to "2024-12-25"
+set birthday which is date to "1990-06-15"
+
+display "Christmas 2024:"
+display format event_date as "MM/dd/yyyy"
+display format event_date as "dd/MM/yyyy"
+display format event_date as "MMM dd, yyyy"
+display format event_date as "long"
+display ""
+
+display "Birthday:"
+display format birthday as "MM/dd/yyyy"
+display format birthday as "long"
+display ""
+
+// ===========================
+// Decimal Formatting
+// ===========================
+display "Decimal Formatting Examples:"
+display "---------------------------"
+
+set price which is decimal to 1234.56
+set discount which is decimal to 99.99
+set tax_rate which is decimal to 8.25
+
+display "Product price:"
+display format price as "0.00"
+display format price as "#,##0.00"
+display format price as "$0.00"
+display ""
+
+display "Discount:"
+display format discount as "$0.00"
+display ""
+
+display "Tax rate:"
+set tax_display which is text to format tax_rate as "0.00"
+display tax_display
+display ""
+
+// ===========================
+// Number Formatting
+// ===========================
+display "Number Formatting Examples:"
+display "--------------------------"
+
+set quantity which is int to 12345
+set code which is int to 255
+set id which is int to 42
+
+display "Large number:"
+display format quantity as "#,##0"
+display ""
+
+display "Hex color code:"
+display format code as "hex"
+display ""
+
+display "Padded ID:"
+display format id as "0000"
+display ""
+
+// ===========================
+// Practical Example: Invoice
+// ===========================
+display "Practical Example - Invoice:"
+display "============================"
+
+set invoice_date which is date to "2024-08-06"
+set invoice_number which is int to 1234
+set subtotal which is decimal to 899.99
+set tax_amount which is decimal to 74.25
+set total which is decimal to 974.24
+
+display "Invoice #"
+display format invoice_number as "0000"
+display ""
+
+display "Date:"
+display format invoice_date as "MMM dd, yyyy"
+display ""
+
+display "Subtotal:"
+display format subtotal as "$0.00"
+
+display "Tax:"
+display format tax_amount as "$0.00"
+
+display "Total:"
+display format total as "$0.00"
+display ""
+
+// ===========================
+// Using Format in Assignments
+// ===========================
+display "Format in Variable Assignment:"
+display "-----------------------------"
+
+set formatted_date which is text to format event_date as "long"
+set formatted_price which is text to format price as "#,##0.00"
+set formatted_hex which is text to format code as "hex"
+
+display "Christmas is on:"
+display formatted_date
+display ""
+
+display "Product price with commas: $"
+display formatted_price
+display ""
+
+display "Color code in hex:"
+display formatted_hex
+display ""
+
+// ===========================
+// Format Pattern Reference
+// ===========================
+display "Format Pattern Reference:"
+display "------------------------"
+display "Dates:"
+display "  MM/dd/yyyy - US format (12/25/2024)"
+display "  dd/MM/yyyy - European format (25/12/2024)"
+display "  MMM dd, yyyy - Short month (Dec 25, 2024)"
+display "  long - Full format (Wednesday, December 25, 2024)"
+display ""
+display "Decimals:"
+display "  0.00 - Basic decimal (1234.56)"
+display "  #,##0.00 - With commas (1,234.56)"
+display "  $0.00 - Currency ($1234.56)"
+display ""
+display "Numbers:"
+display "  #,##0 - With commas (12,345)"
+display "  0000 - Zero padded (0042)"
+display "  hex - Hexadecimal (0xFF)"
+display ""
+
+display "=== Format expressions make your data beautiful! ==="

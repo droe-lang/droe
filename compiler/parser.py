@@ -9,7 +9,7 @@ from .ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams, 
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, IncludeStatement
+    DataInstance, FieldAssignment, IncludeStatement, FormatExpression
 )
 
 
@@ -522,6 +522,10 @@ class Parser:
         """Parse an expression."""
         expr_str = expr_str.strip()
         
+        # Format expression: format variable as "pattern"
+        if expr_str.startswith('format ') and ' as ' in expr_str:
+            return self.parse_format_expression(expr_str)
+        
         # Boolean literals (check these early to avoid "is" operator confusion)
         if expr_str.lower() == 'true' or expr_str.lower() == 'the condition is true':
             return Literal(value=True, type='boolean')
@@ -627,6 +631,72 @@ class Parser:
                 arguments=arguments
             )
         
+        # Function call without arguments (run module.action)
+        run_match_no_args = re.match(r'run\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s*$', expr_str, re.IGNORECASE)
+        if run_match_no_args:
+            function_name = run_match_no_args.group(1)
+            
+            # Parse module.action format
+            if '.' in function_name:
+                module_name, action_name = function_name.split('.', 1)
+            else:
+                module_name = None
+                action_name = function_name
+            
+            return ActionInvocationWithArgs(
+                module_name=module_name, 
+                action_name=action_name, 
+                arguments=[]
+            )
+        
+        # Action call with arguments without run (for 'from' syntax: module.action with arg1, arg2)
+        action_with_args_match = re.match(r'([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s+with\s+(.+)', expr_str, re.IGNORECASE)
+        if action_with_args_match:
+            function_name = action_with_args_match.group(1)
+            args_str = action_with_args_match.group(2)
+            
+            # Parse module.action format
+            if '.' in function_name:
+                module_name, action_name = function_name.split('.', 1)
+            else:
+                module_name = None
+                action_name = function_name
+            
+            # Parse arguments
+            arguments = []
+            if args_str.strip():
+                # Simple comma splitting (doesn't handle nested commas properly, but sufficient for now)
+                arg_parts = args_str.split(',')
+                for arg_part in arg_parts:
+                    arg_part = arg_part.strip()
+                    if arg_part:
+                        arguments.append(self.parse_expression(arg_part))
+            
+            return ActionInvocationWithArgs(
+                module_name=module_name, 
+                action_name=action_name, 
+                arguments=arguments
+            )
+        
+        # Action call without arguments (for 'from' syntax: module.action or simple_action)
+        action_no_args_match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\s*$', expr_str, re.IGNORECASE)
+        if action_no_args_match:
+            function_name = action_no_args_match.group(1)
+            
+            # Only treat as action if it contains a dot (module.action) or if we're in a from context
+            # For simple identifiers, we'll let it fall through to be treated as variables
+            if '.' in function_name:
+                # Parse module.action format
+                module_name, action_name = function_name.split('.', 1)
+                
+                return ActionInvocationWithArgs(
+                    module_name=module_name, 
+                    action_name=action_name, 
+                    arguments=[]
+                )
+            # For simple identifiers without dots, let them be parsed as Identifier below
+            # The code generator will determine if it's an action or variable
+        
         # Property access (e.g., user.age)
         if '.' in expr_str:
             parts = expr_str.split('.', 1)
@@ -693,19 +763,14 @@ class Parser:
             if end_bracket == -1:
                 raise ParseError(f"Unclosed interpolation bracket in string: {string_content}")
             
-            # Extract variable name
-            var_name = string_content[start_bracket + 1:end_bracket].strip()
-            if not var_name:
+            # Extract expression inside brackets
+            expr_str = string_content[start_bracket + 1:end_bracket].strip()
+            if not expr_str:
                 raise ParseError(f"Empty interpolation bracket in string: {string_content}")
             
-            # Check if this is property access (object.property)
-            if '.' in var_name:
-                obj_name, prop_name = var_name.split('.', 1)
-                obj_identifier = Identifier(name=obj_name.strip())
-                parts.append(PropertyAccess(object=obj_identifier, property=prop_name.strip()))
-            else:
-                # Add variable as identifier
-                parts.append(Identifier(name=var_name))
+            # Parse the expression (could be variable, property access, or run expression)
+            expr = self.parse_expression(expr_str)
+            parts.append(expr)
             
             # Move past the closing bracket
             current_pos = end_bracket + 1
@@ -1006,6 +1071,28 @@ class Parser:
             return_type=return_type, 
             body=body
         )
+    
+    def parse_format_expression(self, expr_str: str) -> FormatExpression:
+        """Parse a format expression: format variable as "pattern"."""
+        # Split on " as " to get expression and pattern
+        parts = expr_str.split(' as ', 1)
+        if len(parts) != 2:
+            raise ParseError(f"Invalid format expression: {expr_str}")
+        
+        # Extract the expression part (remove "format " prefix)
+        expr_part = parts[0][7:].strip()  # Remove "format " prefix
+        pattern_part = parts[1].strip()
+        
+        # Parse the expression to format
+        expression = self.parse_expression(expr_part)
+        
+        # Extract format pattern (should be a quoted string)
+        if not (pattern_part.startswith('"') and pattern_part.endswith('"')):
+            raise ParseError(f"Format pattern must be a quoted string: {pattern_part}")
+        
+        pattern = pattern_part[1:-1]  # Remove quotes
+        
+        return FormatExpression(expression=expression, format_pattern=pattern)
 
 
 def parse(source: str) -> Program:

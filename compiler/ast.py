@@ -196,6 +196,13 @@ class IncludeStatement(ASTNode):
 
 
 @dataclass
+class FormatExpression(ASTNode):
+    """Represents a format expression (format variable as "pattern")."""
+    expression: ASTNode  # The expression to format
+    format_pattern: str  # The format pattern string
+
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]

@@ -7,31 +7,55 @@ set price which is decimal to 99.50
 set message which is text to "Hello"
 set active which is flag to true
 set ready which is yesno to false
+set today which is date to "2024-08-06"
+set birthday which is date to "1990-01-15"
 
 display count
 display price  
 display message
 display active
 display ready
+display today
+display birthday
 
 display "2. String interpolation:"
 display "Count: [count], Message: [message]"
 display "Price: $[price], Active: [active]"
+display "Today is [today], Birthday: [birthday]"
 
-display "3. String concatenation:"
+display "3. Date formatting with variables:"
+set formatted_today which is text to format today as "MMM dd, yyyy"
+set formatted_birthday which is text to format birthday as "long"
+display "Today formatted: " 
+display formatted_today
+display "Birthday formatted: "
+display formatted_birthday
+
+display "4. String concatenation:"
 set greeting to "Hello " + message + "!"
 display greeting
 
-display "4. Collections:"
+display "5. Collections:"
 set numbers which are list of int to [1, 2, 3, 4, 5]
 set names which are group of text to ["Alice", "Bob", "Charlie"]
+set important_dates which are list of date to ["2024-01-01", "2024-12-25", "2024-07-04"]
 display numbers
 display names
+display important_dates
 
-display "5. Arithmetic with variables:"
+display "6. Arithmetic with variables:"
 set x which is int to 10
 set y which is int to 5
 set sum to x + y
 set product to x * y
 display sum
 display product
+
+display "7. All variable types summary:"
+display "- int: whole numbers (42)"
+display "- decimal: numbers with fractions (99.50)"
+display "- text: strings of characters (\"Hello\")"
+display "- flag/yesno: boolean values (true/false)"
+display "- date: calendar dates (\"2024-08-06\")"
+display "- list of: ordered collections"
+display "- group of: unordered collections"
