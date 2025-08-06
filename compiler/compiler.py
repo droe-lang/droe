@@ -4,7 +4,7 @@ import sys
 import os
 from typing import Optional
 from .parser import parse, ParseError
-from .targets.wasm.codegen import WATCodeGenerator
+from .target_factory import target_factory, compile_to_target
 from .codegen_base import CodeGenError
 from .module_resolver import ModuleResolver, ModuleResolutionError
 
@@ -14,16 +14,17 @@ class CompilerError(Exception):
     pass
 
 
-def compile(source: str, file_path: Optional[str] = None) -> str:
+def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") -> str:
     """
-    Compile Roe DSL source code to WebAssembly Text format.
+    Compile Roe DSL source code to specified target format.
     
     Args:
         source: Roe DSL source code
         file_path: Optional path to source file (for module resolution)
+        target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         
     Returns:
-        WAT (WebAssembly Text) string
+        Generated code string in target format
         
     Raises:
         CompilerError: If compilation fails
@@ -37,11 +38,10 @@ def compile(source: str, file_path: Optional[str] = None) -> str:
             resolver = ModuleResolver()
             ast = resolver.resolve_includes(ast, file_path)
         
-        # Generate WAT from AST using WASM target
-        codegen = WATCodeGenerator()
-        wat = codegen.generate(ast)
+        # Generate code from AST using specified target
+        generated_code = compile_to_target(ast, target)
         
-        return wat
+        return generated_code
         
     except ParseError as e:
         raise CompilerError(f"Parse error: {str(e)}")
@@ -53,13 +53,14 @@ def compile(source: str, file_path: Optional[str] = None) -> str:
         raise CompilerError(f"Unexpected error: {str(e)}")
 
 
-def compile_file(input_path: str, output_path: Optional[str] = None) -> str:
+def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm") -> str:
     """
-    Compile a Roe DSL file to WAT.
+    Compile a Roe DSL file to specified target.
     
     Args:
         input_path: Path to .roe file
-        output_path: Optional output path for .wat file
+        output_path: Optional output path for generated file
+        target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         
     Returns:
         Output file path
@@ -74,18 +75,21 @@ def compile_file(input_path: str, output_path: Optional[str] = None) -> str:
     except IOError as e:
         raise CompilerError(f"Failed to read input file: {str(e)}")
     
-    # Compile to WAT (pass file path for module resolution)
-    wat = compile(source, input_path)
+    # Compile to target (pass file path for module resolution)
+    generated_code = compile(source, input_path, target)
     
     # Determine output path
     if output_path is None:
         base_name = os.path.splitext(input_path)[0]
-        output_path = f"{base_name}.wat"
+        # Get appropriate file extension for target
+        target_info = target_factory.get_target_info(target)
+        file_extension = target_info['file_extension']
+        output_path = f"{base_name}{file_extension}"
     
     # Write output file
     try:
         with open(output_path, 'w') as f:
-            f.write(wat)
+            f.write(generated_code)
     except IOError as e:
         raise CompilerError(f"Failed to write output file: {str(e)}")
     

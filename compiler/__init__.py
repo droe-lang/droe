@@ -2,7 +2,8 @@
 
 from .compiler import compile, compile_file, CompilerError
 from .parser import parse, ParseError
-from .codegen_wat import generate_wat, CodeGenError
+from .codegen_base import CodeGenError
+from .target_factory import target_factory, compile_to_target
 from .ast import *
 
 __all__ = [
@@ -11,6 +12,7 @@ __all__ = [
     'CompilerError',
     'parse', 
     'ParseError',
-    'generate_wat', 
     'CodeGenError',
+    'target_factory',
+    'compile_to_target',
 ]

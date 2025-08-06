@@ -8,12 +8,12 @@ This document describes the modular architecture of the Roelang compiler after t
 compiler/
 ├── __init__.py                 # Main compiler module
 ├── compiler.py                 # Primary compilation API
+├── target_factory.py           # Multi-target factory system
 ├── ast.py                      # Abstract Syntax Tree definitions
 ├── parser.py                   # Roelang DSL parser
 ├── symbols.py                  # Symbol table and type system
 ├── module_resolver.py          # Module include resolution
 ├── codegen_base.py             # Base code generator class
-├── codegen_wat.py              # Legacy WebAssembly codegen (deprecated)
 ├── libs/                       # Core runtime libraries
 │   ├── __init__.py
 │   └── core/
@@ -23,10 +23,31 @@ compiler/
 │       └── formatting.py      # Formatting utility functions
 └── targets/                    # Target-specific code generators
     ├── __init__.py
-    └── wasm/                   # WebAssembly target
+    ├── wasm/                   # WebAssembly target
+    │   ├── __init__.py
+    │   ├── codegen.py          # WASM code generation
+    │   └── runtime_builder.py  # JavaScript runtime generation
+    ├── python/                 # Python target
+    │   ├── __init__.py
+    │   └── codegen.py          # Python code generation
+    ├── java/                   # Java target
+    │   ├── __init__.py
+    │   └── codegen.py          # Java code generation
+    ├── go/                     # Go target
+    │   ├── __init__.py
+    │   └── codegen.py          # Go code generation
+    ├── node/                   # Node.js target
+    │   ├── __init__.py
+    │   └── codegen.py          # Node.js code generation
+    ├── html/                   # HTML/JavaScript target
+    │   ├── __init__.py
+    │   └── codegen.py          # HTML generation
+    ├── kotlin/                 # Kotlin target
+    │   ├── __init__.py
+    │   └── codegen.py          # Kotlin code generation
+    └── swift/                  # Swift target
         ├── __init__.py
-        ├── codegen.py          # WASM code generation
-        └── runtime_builder.py  # JavaScript runtime generation
+        └── codegen.py          # Swift code generation
 ```
 
 ## Architecture Overview
@@ -96,18 +117,75 @@ Core libraries provide built-in functionality that is available to all Roelang p
 - Enables/disables libraries based on compiler configuration
 - Updates existing runtime files
 
-### 4. Compilation Flow
+### 4. Target Factory System (`target_factory.py`)
+
+The `TargetFactory` provides a unified interface for managing multiple compilation targets:
+
+**Supported Targets**:
+- **WASM**: WebAssembly with JavaScript runtime
+- **Python**: Pure Python code with runtime library
+- **Java**: Java source code with runtime classes
+- **Go**: Go source code with runtime package
+- **Node.js**: JavaScript for Node.js execution
+- **HTML**: Complete HTML page with embedded JavaScript
+- **Kotlin**: Kotlin source code with runtime
+- **Swift**: Swift source code with runtime
+
+**Target Selection**:
+```python
+from compiler.target_factory import target_factory, compile_to_target
+
+# List available targets
+targets = target_factory.get_available_targets()
+# ['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift']
+
+# Compile to specific target
+code = compile_to_target(ast, 'python')
+```
+
+### 5. Compilation Flow
 
 1. **Parse**: Source code → AST (`parser.py`)
 2. **Resolve**: Include statements → Expanded AST (`module_resolver.py`)
-3. **Generate**: AST → Target code (e.g., `WATCodeGenerator`)
-4. **Runtime**: Core libraries → Runtime functions (`WASMRuntimeBuilder`)
+3. **Target Selection**: Choose compilation target (`target_factory.py`)
+4. **Generate**: AST → Target-specific code (target codegen)
+5. **Runtime**: Core libraries → Target runtime functions
 
 ## Usage Examples
 
-### Basic Compilation
+### Multi-Target Compilation
 
 ```python
+from compiler.compiler import compile, compile_file
+from compiler.target_factory import target_factory
+
+# Compile to different targets
+python_code = compile(source, target='python')
+java_code = compile(source, target='java')
+go_code = compile(source, target='go')
+node_code = compile(source, target='node')
+
+# Compile files with automatic extension
+compile_file('example.roe', target='python')  # → example.py
+compile_file('example.roe', target='java')    # → example.java
+compile_file('example.roe', target='go')      # → example.go
+compile_file('example.roe', target='node')    # → example.js
+
+# Get target information
+info = target_factory.get_target_info('python')
+# {
+#   'name': 'python',
+#   'file_extension': '.py',
+#   'description': 'Python source code',
+#   'runtime_files': ['roelang_runtime.py'],
+#   'dependencies': ['python3']
+# }
+```
+
+### Legacy WebAssembly Compilation
+
+```python
+# Still supported for backwards compatibility
 from compiler.targets.wasm.codegen import WATCodeGenerator
 from compiler.parser import parse
 
