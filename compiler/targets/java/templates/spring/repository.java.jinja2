@@ -1,0 +1,28 @@
+package {{ package_name }}.repository;
+
+import {{ package_name }}.entity.{{ entity_name }};
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface {{ entity_name }}Repository extends JpaRepository<{{ entity_name }}, Long> {
+    
+    // Find by name (common pattern)
+    {% if has_name_field %}
+    Optional<{{ entity_name }}> findByName(String name);
+    List<{{ entity_name }}> findByNameContainingIgnoreCase(String name);
+    {% endif %}
+    
+    {% if custom_queries %}
+    // Custom query methods
+    {% for query in custom_queries %}
+    {{ query.return_type }} {{ query.method_name }}({{ query.parameters }});
+    {% endfor %}
+    {% endif %}
+    
+    // Additional custom query methods can be added here
+}

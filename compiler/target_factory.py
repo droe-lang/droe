@@ -4,7 +4,7 @@ This module provides a factory system for creating target-specific
 code generators and managing compilation targets.
 """
 
-from typing import Dict, Type, Optional, List
+from typing import Dict, Type, Optional, List, Any
 from abc import ABC, abstractmethod
 from pathlib import Path
 from .codegen_base import BaseCodeGenerator
@@ -75,9 +75,9 @@ class JavaTarget(CompilerTarget):
     def __init__(self):
         super().__init__("java", ".java", "Java source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
         from .targets.java.codegen import JavaCodeGenerator
-        return JavaCodeGenerator(source_file_path, is_main_file, framework)
+        return JavaCodeGenerator(source_file_path, is_main_file, framework, package, database)
     
     def get_runtime_files(self) -> List[str]:
         return []  # No runtime files needed - using inline code generation
@@ -246,10 +246,10 @@ class TargetFactory:
 target_factory = TargetFactory()
 
 
-def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> str:
+def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
     """Compile a program to a specific target."""
     target = target_factory.create_target(target_name)
-    codegen = target.create_codegen(source_file_path, is_main_file, framework)
+    codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
     return codegen.generate(program)
 
 

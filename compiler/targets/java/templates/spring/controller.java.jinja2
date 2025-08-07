@@ -1,0 +1,145 @@
+package {{ package_name }}.controller;
+
+import {{ package_name }}.entity.{{ entity_name }};
+import {{ package_name }}.service.{{ service_name }};
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/{{ entity_name | lower }}s")
+@CrossOrigin(origins = "*") // Configure as needed for CORS
+public class {{ entity_name }}Controller {
+
+    @Autowired
+    private {{ service_name }} {{ service_name | lower }};
+
+    // GET /api/{{ entity_name | lower }}s - Get all {{ entity_name | lower }}s
+    @GetMapping
+    public ResponseEntity<List<{{ entity_name }}>> getAll{{ entity_name }}s() {
+        try {
+            List<{{ entity_name }}> {{ entity_name | lower }}s = {{ service_name | lower }}.findAll{{ entity_name }}s();
+            return ResponseEntity.ok({{ entity_name | lower }}s);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // GET /api/{{ entity_name | lower }}s/{id} - Get {{ entity_name | lower }} by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<{{ entity_name }}> get{{ entity_name }}ById(@PathVariable Long id) {
+        try {
+            {{ entity_name }} {{ entity_name | lower }} = {{ service_name | lower }}.find{{ entity_name }}ById(id);
+            if ({{ entity_name | lower }} != null) {
+                return ResponseEntity.ok({{ entity_name | lower }});
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // POST /api/{{ entity_name | lower }}s - Create new {{ entity_name | lower }}
+    @PostMapping
+    public ResponseEntity<{{ entity_name }}> create{{ entity_name }}(@RequestBody {{ entity_name }} {{ entity_name | lower }}) {
+        try {
+            {{ entity_name }} created{{ entity_name }} = {{ service_name | lower }}.save{{ entity_name }}({{ entity_name | lower }});
+            return ResponseEntity.status(HttpStatus.CREATED).body(created{{ entity_name }});
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    {% if create_with_params %}
+    // POST /api/{{ entity_name | lower }}s/create - Create new {{ entity_name | lower }} with parameters
+    @PostMapping("/create")
+    public ResponseEntity<{{ entity_name }}> create{{ entity_name }}WithParams({% for field in create_fields %}@RequestParam {{ field.java_type }} {{ field.name }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+        try {
+            {{ entity_name }} created{{ entity_name }} = {{ service_name | lower }}.create{{ entity_name }}({% for field in create_fields %}{{ field.name }}{% if not loop.last %}, {% endif %}{% endfor %});
+            return ResponseEntity.status(HttpStatus.CREATED).body(created{{ entity_name }});
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+    {% endif %}
+
+    // PUT /api/{{ entity_name | lower }}s/{id} - Update {{ entity_name | lower }}
+    @PutMapping("/{id}")
+    public ResponseEntity<{{ entity_name }}> update{{ entity_name }}(@PathVariable Long id, @RequestBody {{ entity_name }} {{ entity_name | lower }}) {
+        try {
+            {{ entity_name }} existing{{ entity_name }} = {{ service_name | lower }}.find{{ entity_name }}ById(id);
+            if (existing{{ entity_name }} != null) {
+                {{ entity_name | lower }}.setId(id);
+                {{ entity_name }} updated{{ entity_name }} = {{ service_name | lower }}.save{{ entity_name }}({{ entity_name | lower }});
+                return ResponseEntity.ok(updated{{ entity_name }});
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    // DELETE /api/{{ entity_name | lower }}s/{id} - Delete {{ entity_name | lower }}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete{{ entity_name }}(@PathVariable Long id) {
+        try {
+            boolean deleted = {{ service_name | lower }}.delete{{ entity_name }}(id);
+            if (deleted) {
+                return ResponseEntity.noContent().build();
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    {% if has_name_field %}
+    // GET /api/{{ entity_name | lower }}s/search?name={name} - Search {{ entity_name | lower }}s by name
+    @GetMapping("/search")
+    public ResponseEntity<List<{{ entity_name }}>> search{{ entity_name }}sByName(@RequestParam String name) {
+        try {
+            List<{{ entity_name }}> {{ entity_name | lower }}s = {{ service_name | lower }}.search{{ entity_name }}sByName(name);
+            return ResponseEntity.ok({{ entity_name | lower }}s);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // GET /api/{{ entity_name | lower }}s/by-name/{name} - Get {{ entity_name | lower }} by exact name
+    @GetMapping("/by-name/{name}")
+    public ResponseEntity<{{ entity_name }}> get{{ entity_name }}ByName(@PathVariable String name) {
+        try {
+            {{ entity_name }} {{ entity_name | lower }} = {{ service_name | lower }}.find{{ entity_name }}ByName(name);
+            if ({{ entity_name | lower }} != null) {
+                return ResponseEntity.ok({{ entity_name | lower }});
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    {% endif %}
+
+    {% if rest_endpoints %}
+    // Custom REST endpoints
+    {% for endpoint in rest_endpoints %}
+    @{{ endpoint.method | capitalize }}Mapping("{{ endpoint.path }}")
+    public ResponseEntity<{{ endpoint.return_type }}> {{ endpoint.method_name }}({% for param in endpoint.parameters %}{{ param.annotation }} {{ param.type }} {{ param.name }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+        try {
+            {% for line in endpoint.body %}
+            {{ line }}
+            {% endfor %}
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    {% endfor %}
+    {% endif %}
+}

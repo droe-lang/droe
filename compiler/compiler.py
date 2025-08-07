@@ -2,7 +2,7 @@
 
 import sys
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
 from .parser import parse, ParseError
 from .target_factory import target_factory, compile_to_target
 from .codegen_base import CodeGenError
@@ -52,7 +52,7 @@ def get_target_from_source(source: str, default_target: str = "wasm") -> str:
         return default_target
 
 
-def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", framework: str = "plain") -> str:
+def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
     """
     Compile Roe DSL source code to specified target format.
     
@@ -61,6 +61,8 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", 
         file_path: Optional path to source file (for module resolution)
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         framework: Framework to use (plain, spring for Java, etc.)
+        package: Package name for generated code (e.g., com.mycompany.app)
+        database: Database configuration dictionary
         
     Returns:
         Generated code string in target format
@@ -85,7 +87,7 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", 
         type_checker.check_program(ast)
         
         # Generate code from AST using specified target
-        generated_code = compile_to_target(ast, target, file_path, framework=framework)
+        generated_code = compile_to_target(ast, target, file_path, framework=framework, package=package, database=database)
         
         return generated_code
         
@@ -101,7 +103,7 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", 
         raise CompilerError(f"Unexpected error: {str(e)}")
 
 
-def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm", framework: str = "plain") -> str:
+def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm", framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
     """
     Compile a Roe DSL file to specified target.
     
@@ -110,6 +112,8 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
         output_path: Optional output path for generated file
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         framework: Framework to use (plain, spring for Java, etc.)
+        package: Package name for generated code (e.g., com.mycompany.app)
+        database: Database configuration dictionary
         
     Returns:
         Output file path
@@ -125,7 +129,7 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
         raise CompilerError(f"Failed to read input file: {str(e)}")
     
     # Compile to target (pass file path for module resolution)
-    generated_code = compile(source, input_path, target, framework)
+    generated_code = compile(source, input_path, target, framework, package, database)
     
     # Check if this is a mobile project (special return format)
     if generated_code.startswith("MOBILE_PROJECT:"):

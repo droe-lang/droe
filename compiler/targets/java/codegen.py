@@ -19,11 +19,13 @@ from ...codegen_base import BaseCodeGenerator, CodeGenError
 class JavaCodeGenerator(BaseCodeGenerator):
     """Generates Java code from Roelang AST."""
     
-    def __init__(self, source_file_path: Optional[str] = None, is_main_file: bool = False, framework: str = None):
+    def __init__(self, source_file_path: Optional[str] = None, is_main_file: bool = False, framework: str = None, package: Optional[str] = None, database: Optional[Dict[str, Any]] = None):
         super().__init__()
         self.source_file_path = source_file_path
         self.is_main_file = is_main_file
         self.framework = framework or "plain"  # Support for different frameworks
+        self.package = package  # Custom package name
+        self.database = database or {}  # Database configuration
         self.class_name = "RoelangProgram"  # Default
         self.imports = set()
         self.fields = []  # Instance variables
@@ -168,7 +170,21 @@ class JavaCodeGenerator(BaseCodeGenerator):
         
         # Generate Spring Boot components if framework is spring
         if self.framework == "spring":
-            return self._generate_spring_boot_project(modules_found, data_definitions, serve_modules)
+            from .spring_generator import SpringBootGenerator
+            spring_gen = SpringBootGenerator()
+            project_name = self.class_name.lower().replace("application", "")
+            
+            # Use provided package or generate default
+            package_name = self.package or f"com.example.{project_name}"
+            
+            # Generate Spring Boot project using templates
+            project_path = spring_gen.generate_spring_boot_project(
+                program=program, 
+                project_name=project_name,
+                package_name=package_name,
+                database_config=self.database
+            )
+            return f"SPRING_PROJECT:{project_path}"
         
         # Traditional approach for plain Java
         if modules_found:

@@ -1,0 +1,65 @@
+package {{ package_name }}.entity;
+
+import jakarta.persistence.*;
+{% if has_decimal_fields %}
+import java.math.BigDecimal;
+{% endif %}
+{% if has_date_fields %}
+import java.time.LocalDateTime;
+{% endif %}
+
+@Entity
+@Table(name = "{{ table_name }}")
+public class {{ class_name }} {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    {% for field in fields %}
+    @Column(name = "{{ field.name }}")
+    private {{ field.java_type }} {{ field.name }};
+
+    {% endfor %}
+
+    // Default constructor
+    public {{ class_name }}() {}
+
+    // Constructor with parameters
+    public {{ class_name }}({% for field in fields %}{{ field.java_type }} {{ field.name }}{% if not loop.last %}, {% endif %}{% endfor %}) {
+        {% for field in fields %}
+        this.{{ field.name }} = {{ field.name }};
+        {% endfor %}
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    {% for field in fields %}
+    public {{ field.java_type }} get{{ field.name | capitalize }}() {
+        return {{ field.name }};
+    }
+
+    public void set{{ field.name | capitalize }}({{ field.java_type }} {{ field.name }}) {
+        this.{{ field.name }} = {{ field.name }};
+    }
+
+    {% endfor %}
+
+    @Override
+    public String toString() {
+        return "{{ class_name }}{" +
+                "id=" + id +
+                {% for field in fields %}
+                ", {{ field.name }}=" + {{ field.name }} +
+                {% endfor %}
+                '}';
+    }
+}
