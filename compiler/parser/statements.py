@@ -23,9 +23,6 @@ class StatementParser(ExpressionParser):
         if not line:
             return None
         
-        # Debug API calls
-        if line.startswith('call '):
-            print(f"DEBUG: Statement parser received: '{line}'")
         
         # Include statements
         if line.startswith('Include '):
@@ -37,7 +34,6 @@ class StatementParser(ExpressionParser):
         
         # API call statements
         if line.startswith(('call ', 'fetch ', 'update ', 'delete ')):
-            print(f"DEBUG: Found API call line: '{line}'")  # Debug
             return self.parse_api_call(line)
         
         # Conditional statements
@@ -422,7 +418,6 @@ class StatementParser(ExpressionParser):
     
     def parse_api_call(self, line: str) -> Optional[ApiCallStatement]:
         """Parse API call statements like 'call /login method POST with loginForm'."""
-        print(f"DEBUG: Parsing potential API call: {line}")  # Debug print
         # Parse the first line: call /login method POST with loginForm into response
         parts = line.split()
         if len(parts) < 4:  # Minimum: verb endpoint method action

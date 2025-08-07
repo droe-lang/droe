@@ -1,6 +1,6 @@
 # Roelang Language Specification
 
-**Version:** 1.0  
+**Version:** 2.0  
 **Date:** August 2024  
 **Authors:** Roelang Development Team
 
@@ -16,18 +16,20 @@
 8. [Functions and Actions](#functions-and-actions)
 9. [Modules](#modules)
 10. [Data Structures](#data-structures)
-11. [String Operations](#string-operations)
-12. [Format Expressions](#format-expressions)
-13. [Include System](#include-system)
-14. [Comments](#comments)
-15. [Keywords](#keywords)
-16. [Compilation Targets](#compilation-targets)
+11. [UI Components and Layouts](#ui-components-and-layouts)
+12. [Mobile Platform Features](#mobile-platform-features)
+13. [String Operations](#string-operations)
+14. [Format Expressions](#format-expressions)
+15. [Include System](#include-system)
+16. [Comments](#comments)
+17. [Keywords](#keywords)
+18. [Compilation Targets](#compilation-targets)
 
 ---
 
 ## Overview
 
-Roelang is a domain-specific language designed for business logic and process automation. It features a readable, English-like syntax with strong typing, modern language constructs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java, JavaScript, and more.
+Roelang is a domain-specific language designed for business logic, process automation, and cross-platform application development. It features a readable, English-like syntax with strong typing, modern language constructs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java, JavaScript, HTML, and mobile platforms (Android/iOS).
 
 ### Design Principles
 
@@ -37,6 +39,8 @@ Roelang is a domain-specific language designed for business logic and process au
 - **Modular**: Support for modules and code reuse
 - **Modern**: Support for collections, string interpolation, and format expressions
 - **Metadata-Driven**: Built-in support for metadata annotations for compilation control and documentation
+- **Cross-Platform UI**: Single DSL syntax generates web, Android, and iOS applications
+- **Mobile-First**: Built-in support for mobile-specific features like camera, GPS, sensors, and notifications
 
 ---
 
@@ -90,9 +94,26 @@ Specifies the compilation target, overriding command-line options and project co
 - `java` - Java  
 - `javascript` or `node` - JavaScript/Node.js
 - `go` - Go
-- `kotlin` - Kotlin
-- `swift` - Swift
+- `html` - HTML with JavaScript
 - `bytecode` - Roelang bytecode
+
+#### @targets
+Specifies multiple compilation targets as a comma-separated string.
+
+```roe
+@targets "web, android, ios"
+@targets "python, java"
+```
+
+#### @metadata
+Complex metadata with key-value parameters for advanced configuration.
+
+```roe
+@metadata(platform="mobile", name="MyApp", package="com.example.myapp")
+@metadata(platform="web", framework="react")
+```
+
+**Note:** For mobile development, it's recommended to use project-level configuration in `roeconfig.json` rather than file-level metadata annotations.
 
 ```roe
 @target python
@@ -116,6 +137,14 @@ Provides a human-readable description of the module's purpose.
 ```roe
 @description "Handles user profile management and validation"
 @description "A utility module for mathematical operations"
+```
+
+#### @package
+Specifies the package name for mobile applications.
+
+```roe
+@package "com.example.myapp"
+@package "org.company.project"
 ```
 
 #### Custom Metadata
@@ -509,6 +538,279 @@ end module
 
 ---
 
+## UI Components and Layouts
+
+Roelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript), Android (Kotlin), and iOS (Swift) applications using a single, consistent syntax.
+
+### Layouts
+
+Layouts define the structure and organization of UI components.
+
+**Column Layout:**
+```roe
+layout MainScreen
+  column class "main-container"
+    title "My Application" class "app-title"
+    
+    column class "content-section"
+      text "Welcome to the app!" class "welcome-text"
+      button "Get Started" action startApp class "primary-btn"
+    end column
+  end column
+end layout
+```
+
+**Layout Attributes:**
+- `class` - CSS class for web, styling hints for mobile
+- Automatic responsive design for different screen sizes
+
+### UI Components
+
+#### Text Components
+```roe
+// Static text
+text "Hello World" class "greeting"
+
+// Dynamic text with data binding
+text bind UserProfile.displayName class "user-name"
+
+// Title text
+title "Page Title" class "page-header"
+```
+
+#### Input Components
+```roe
+// Text input with validation
+input id username_field text placeholder "Enter username" bind UserProfile.userName validate required class "form-input"
+
+// Email input
+input id email_field email placeholder "your@email.com" bind UserProfile.email validate email class "form-input"
+
+// Password input
+input id password_field password placeholder "Password" bind LoginForm.password validate required class "form-input"
+```
+
+#### Button Components
+```roe
+// Action button
+button "Submit" action submitForm class "submit-btn primary"
+
+// Button with conditional enabling
+button "Save" action saveData enabled when form is valid class "save-btn"
+
+// Mobile-specific buttons (see Mobile Platform Features)
+button "Take Photo" type camera action capturePhoto permissions "camera, storage"
+```
+
+#### Toggle and Selection Components
+```roe
+// Toggle switch
+toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
+
+// Dropdown selection
+dropdown id quality_dropdown bind UserSettings.photoQuality default "Medium Quality" class "dropdown-field"
+  option "High Quality"
+  option "Medium Quality" 
+  option "Low Quality"
+end dropdown
+
+// Radio button group
+radio id theme_radio group "appTheme" bind UserSettings.appTheme default "System Default" class "radio-group"
+  option "Light Theme"
+  option "Dark Theme" 
+  option "System Default"
+end radio
+```
+
+#### Image Components
+```roe
+// Static image
+image source "logo.png" alt "Company Logo" class "logo-image"
+
+// Dynamic image with data binding
+image source bind UserProfile.profilePicture alt "Profile Picture" class "profile-pic"
+```
+
+### Forms
+
+Forms provide structured data collection with validation and submission handling.
+
+```roe
+form SettingsForm
+  column class "settings-container"
+    title "User Settings" class "form-title"
+    
+    column class "form-fields"
+      input id name_field text placeholder "Full Name" bind UserProfile.fullName validate required class "form-input"
+      input id email_field email placeholder "Email Address" bind UserProfile.email validate email class "form-input"
+      
+      toggle id marketing_toggle "Receive Marketing Emails" bind UserSettings.marketingOptIn default off class "toggle-field"
+      
+      dropdown id language_dropdown bind UserSettings.language default "English" class "dropdown-field"
+        option "English"
+        option "Spanish"
+        option "French"
+      end dropdown
+      
+      button "Save Settings" action saveUserSettings class "save-btn primary"
+    end column
+  end column
+end form
+```
+
+### Data Binding
+
+UI components can bind to data models for automatic updates:
+
+```roe
+// Data binding syntax
+bind VariableName.propertyName
+bind UserProfile.userName
+bind Settings.isDarkMode
+
+// Conditional binding
+enabled when variable is condition
+enabled when form is valid
+enabled when capturedImage is not empty
+```
+
+---
+
+## Mobile Platform Features
+
+When targeting mobile platforms (`@metadata(platform="mobile")` or `@targets "android, ios"`), Roelang provides access to native mobile capabilities.
+
+### Camera Integration
+
+```roe
+// Camera button component
+button "Take Photo" type camera action capturePhoto permissions "camera, storage" class "camera-btn"
+
+// Camera action with permission handling
+action capturePhoto
+  when device has camera permission then
+    show message "Opening camera..."
+    run native camera capture
+    set capturedImage to camera result
+  otherwise
+    show alert "Camera permission required"
+  end when
+end action
+```
+
+### Location Services
+
+```roe
+// Location button component
+button "Get Location" type location action getLocation permissions "location" accuracy high class "location-btn"
+
+// Location action
+action getLocation  
+  when device has location permission then
+    show message "Getting location..."
+    run native location service with accuracy high
+    set currentLocation to location result
+  otherwise  
+    show alert "Location permission required"
+  end when
+end action
+```
+
+### Notifications
+
+```roe
+// Show notifications
+show notification "Task completed successfully!" 
+show notification "New message received" with sound
+
+// Request notification permissions
+when app starts then
+  request notification permissions
+end when
+```
+
+### Data Persistence
+
+```roe
+// Local storage operations
+action saveUserData
+  store UserProfile in local database
+  when online then sync with cloud storage
+end action
+
+action loadUserData
+  set userData from local database where userId equals currentUser.id
+  set UserProfile to userData
+end action
+```
+
+### Sensors and Hardware
+
+```roe
+// Device sensors (mobile only)
+action detectMotion
+  when device has motion sensor then
+    run native motion detection
+    set motionData to sensor result
+  end when
+end action
+
+// Hardware features
+action vibrate
+  run native vibration with pattern short
+end action
+
+action playSound with soundFile which is text
+  run native audio playback with soundFile
+end action
+```
+
+### Native Platform Integration
+
+Mobile compilation automatically handles:
+
+**Android (Kotlin) Features:**
+- `MainActivity.kt` with proper lifecycle management
+- Android XML layouts with responsive design
+- `AndroidManifest.xml` with required permissions
+- Material Design components
+- Gradle build configuration
+
+**iOS (Swift) Features:**
+- SwiftUI `ContentView` with navigation
+- iOS-specific UI components
+- `Info.plist` with privacy usage descriptions
+- Core frameworks integration (CoreLocation, AVFoundation)
+- Xcode project structure
+
+### Permission Management
+
+Roelang automatically detects required permissions based on component usage:
+
+```roe
+// These components automatically add permissions:
+button "Take Photo" type camera         // → CAMERA permission
+button "Get Location" type location     // → LOCATION permissions  
+show notification "Message"             // → NOTIFICATION permission
+action storeData                        // → STORAGE permissions
+
+// Manual permission requests
+request permissions "camera, location, notifications"
+```
+
+**Android Permissions Generated:**
+- `android.permission.CAMERA`
+- `android.permission.ACCESS_FINE_LOCATION` 
+- `android.permission.ACCESS_COARSE_LOCATION`
+- `android.permission.WRITE_EXTERNAL_STORAGE`
+
+**iOS Privacy Descriptions Generated:**
+- `NSCameraUsageDescription`
+- `NSLocationWhenInUseUsageDescription`
+- `NSPhotoLibraryUsageDescription`
+
+---
+
 ## String Operations
 
 ### String Interpolation
@@ -643,6 +945,9 @@ set value which is int to 42
 | **Logic** | `true`, `false`, `and`, `or`, `not` |
 | **Comparisons** | `equals`, `greater`, `less`, `than`, `equal`, `does` |
 | **Format** | `format`, `as` |
+| **UI Components** | `layout`, `form`, `column`, `title`, `text`, `input`, `button`, `toggle`, `dropdown`, `radio`, `image`, `option` |
+| **UI Attributes** | `id`, `class`, `placeholder`, `bind`, `validate`, `default`, `enabled`, `action`, `type`, `permissions`, `accuracy` |
+| **Mobile** | `camera`, `location`, `notification`, `native`, `device`, `sensor`, `storage`, `cloud`, `vibration`, `audio` |
 
 ### Operators
 
@@ -671,9 +976,16 @@ Roelang compiles to multiple target languages:
 | `node` | `.js` | Node.js JavaScript |  
 | `go` | `.go` | Go source code |
 | `html` | `.html` | HTML with embedded JavaScript |
-| `kotlin` | `.kt` | Kotlin source code |
-| `swift` | `.swift` | Swift source code |
 | `bytecode` | `.roebc` | Roelang VM bytecode |
+
+### Mobile Platform Targets
+
+When using `@metadata(platform="mobile")` or `@targets "android, ios"`, Roelang generates complete mobile projects:
+
+| Platform | Generated Files | Description |
+|----------|----------------|-------------|
+| **Android** | Project folder with Kotlin | Complete Android Studio project with `MainActivity.kt`, XML layouts, `AndroidManifest.xml`, Gradle build files |
+| **iOS** | Project folder with Swift | Complete Xcode project with SwiftUI `ContentView.swift`, `Info.plist`, project configuration |
 
 ### Compilation Commands
 ```bash
@@ -682,8 +994,44 @@ roe compile program.roe --target java
 roe compile program.roe --target python
 roe compile program.roe --target wasm
 
+# Compile to HTML (web application)
+roe compile webapp.roe --target html
+
+# Compile mobile application (generates both Android and iOS)
+roe compile mobile_app.roe --target mobile
+
 # Compile and run
 roe run program.roe
+```
+
+### Mobile Project Structure
+
+Mobile compilation creates complete, buildable projects:
+
+**Android Project Structure:**
+```
+dist/android/
+├── app/
+│   ├── src/main/
+│   │   ├── java/com/example/myapp/
+│   │   │   └── MainActivity.kt
+│   │   ├── res/
+│   │   │   └── layout/
+│   │   │       └── activity_main.xml
+│   │   └── AndroidManifest.xml
+│   └── build.gradle
+├── build.gradle
+└── settings.gradle
+```
+
+**iOS Project Structure:**
+```
+dist/ios/
+├── MyApp.xcodeproj/
+├── ContentView.swift
+├── MainscreenView.swift
+├── Info.plist
+└── Assets.xcassets/
 ```
 
 ### Type Mapping
@@ -779,4 +1127,129 @@ Roelang enforces strong typing and will generate compilation errors for:
 
 ---
 
-*This specification covers Roelang version 1.0. For updates and examples, visit the official Roelang documentation.*
+---
+
+## Cross-Platform Mobile Example
+
+Complete example of a Roelang application that compiles to web, Android, and iOS:
+
+```roe
+// Cross-platform photo sharing app
+@name "PhotoShare"
+@description "Cross-platform photo sharing application"
+@targets "web, android, ios"
+@package "com.example.photoshare"
+
+module photoshare
+
+  // Main application layout
+  layout MainScreen
+    column class "main-container"
+      title "PhotoShare App" class "app-title"
+      
+      column class "form-container"
+        input id name_field text placeholder "Enter your name" bind UserProfile.userName validate required class "form-input"
+        
+        // Mobile-specific components work seamlessly
+        button "Take Photo" type camera action capturePhoto permissions "camera, storage" class "camera-btn"
+        button "Get Location" type location action getLocation permissions "location" accuracy high class "location-btn"
+        
+        image source "placeholder.jpg" alt "Your captured photo" bind UserProfile.capturedImage class "photo-preview"
+        
+        button "Share Photo" action sharePhoto enabled when capturedImage is not empty class "share-btn primary"
+      end column
+    end column
+  end layout
+
+  // Settings form with cross-platform controls
+  form SettingsForm
+    column class "settings-container"
+      title "App Settings" class "form-title"
+      
+      column class "form-fields"
+        toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
+        
+        dropdown id quality_dropdown bind UserSettings.photoQuality default "Medium Quality" class "dropdown-field"
+          option "High Quality"
+          option "Medium Quality" 
+          option "Low Quality"
+        end dropdown
+        
+        button "Save Settings" action saveSettings class "save-btn primary"
+      end column
+    end column
+  end form
+
+  // Actions with platform-specific implementations
+  action capturePhoto
+    when device has camera permission then
+      show message "Opening camera..."
+      run native camera capture
+      set capturedImage to camera result
+    otherwise
+      show alert "Camera permission required"
+    end when
+  end action
+
+  action getLocation  
+    when device has location permission then
+      show message "Getting location..."
+      run native location service with accuracy high
+      set currentLocation to location result
+    otherwise  
+      show alert "Location permission required"
+    end when
+  end action
+
+  action sharePhoto
+    when capturedImage is not empty then
+      show message "Sharing photo..."
+      run task UploadPhoto
+    otherwise
+      show alert "Please take a photo first"
+    end when
+  end action
+
+  // Data persistence across platforms
+  action saveSettings
+    store UserSettings in local database
+    when online then sync with cloud storage
+    show notification "Settings saved successfully!"
+  end action
+
+  // Background tasks
+  task UploadPhoto
+    step "Compress image for upload"
+    step "Upload to cloud server"
+    step "Generate shareable link" 
+    
+    when task completed then
+      show notification "Photo shared successfully!"
+    end when
+    
+    when task failed then
+      show alert "Upload failed. Please try again."
+    end when
+  end task
+
+  // Cross-platform data models
+  data Photo
+    id is text required
+    imagePath is text required  
+    location is text optional
+    timestamp is date required
+    userName is text required
+    isShared is flag default false
+  end data
+
+end module
+```
+
+This single Roelang file generates:
+- **Web**: HTML/JavaScript with responsive design
+- **Android**: Complete Kotlin project with Material Design
+- **iOS**: SwiftUI project with native iOS components
+
+---
+
+*This specification covers Roelang version 2.0 with mobile DSL support. For updates and examples, visit the official Roelang documentation.*

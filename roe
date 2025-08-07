@@ -556,7 +556,7 @@ def main():
     compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
     compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
-    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode'], help='Compilation target (overrides roeconfig.json)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile'], help='Compilation target (overrides roeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
@@ -622,7 +622,13 @@ def main():
     
     elif args.command == 'build':
         project_root = find_project_root()
-        build_distribution(project_root, args.clean, args.release)
+        config = load_config(project_root)
+        
+        # Check if this is a mobile project
+        if config.get('target') == 'mobile':
+            build_mobile_project(project_root, args.clean, args.release)
+        else:
+            build_distribution(project_root, args.clean, args.release)
         return
     
     elif args.command == 'clean':
@@ -717,29 +723,34 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             # Use new multi-target compiler if available
             if hasattr(compiler, 'compile_file') and hasattr(compiler, 'CompilerError'):
                 try:
-                    # Calculate output path for build directory if not specified
-                    if output_path is None:
-                        # Determine the appropriate file extension for the target
-                        target_extensions = {
-                            'wasm': '.wat',
-                            'python': '.py', 
-                            'java': '.java',
-                            'go': '.go',
-                            'node': '.js',
-                            'html': '.html',
-                            'kotlin': '.kt',
-                            'swift': '.swift',
-                            'bytecode': '.roebc'
-                        }
-                        extension = target_extensions.get(target, '.txt')
-                        computed_output_path = build_dir / f"{basename}{extension}"
+                    # For mobile targets, don't create individual output paths
+                    if target == 'mobile':
+                        # Mobile projects handle their own directory structure
+                        output_file = compiler.compile_file(str(roe_file), target=target)
                     else:
-                        computed_output_path = Path(output_path)
-                    
-                    # Ensure build directory exists
-                    computed_output_path.parent.mkdir(parents=True, exist_ok=True)
-                    
-                    output_file = compiler.compile_file(str(roe_file), output_path=str(computed_output_path), target=target)
+                        # Calculate output path for build directory if not specified
+                        if output_path is None:
+                            # Determine the appropriate file extension for the target
+                            target_extensions = {
+                                'wasm': '.wat',
+                                'python': '.py', 
+                                'java': '.java',
+                                'go': '.go',
+                                'node': '.js',
+                                'html': '.html',
+                                'kotlin': '.kt',
+                                'swift': '.swift',
+                                'bytecode': '.roebc'
+                            }
+                            extension = target_extensions.get(target, '.txt')
+                            computed_output_path = build_dir / f"{basename}{extension}"
+                        else:
+                            computed_output_path = Path(output_path)
+                        
+                        # Ensure build directory exists
+                        computed_output_path.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        output_file = compiler.compile_file(str(roe_file), output_path=str(computed_output_path), target=target)
                     print(f"✅ Compiled successfully -> {output_file}")
                     
                     # Runtime files are no longer needed - using inline code generation
@@ -811,11 +822,16 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
 
 def run_file(roe_filename, watch=False):
     """Compile and run a .roe file."""
+    # Check if this is a mobile project first
+    project_root = find_project_root()
+    config = load_config(project_root)
+    
+    if config.get("target") == "mobile":
+        # Use mobile-specific run function
+        run_mobile_app(roe_filename, watch)
+        return
+    
     def do_run():
-        # Determine project root and config
-        project_root = find_project_root()
-        config = load_config(project_root)
-        
         # Read source to determine the actual target (respecting @target metadata)
         roe_file = Path(roe_filename)
         if not roe_file.is_absolute():
@@ -929,6 +945,90 @@ def run_wasm_file(roe_filename):
     
     result = subprocess.run(['node', str(runtime), str(wasm_file)])
     return result.returncode == 0
+
+
+def build_mobile_project(project_root, clean=False, release=False):
+    """Build mobile project - development or release."""
+    try:
+        # Import mobile build system
+        sys.path.insert(0, str(Path.home() / ".roelang"))
+        from compiler.targets.mobile.build_system import MobileBuildSystem
+        
+        if clean:
+            clean_build(all_dirs=False)
+        
+        builder = MobileBuildSystem(Path(project_root))
+        results = builder.build_mobile_projects(release=release)
+        
+        if results:
+            if release:
+                print(f"\n🎉 Release builds completed!")
+                for platform, path in results.items():
+                    print(f"   📱 {platform.title()}: {path}")
+            else:
+                print(f"\n✅ Development builds completed!")
+        else:
+            print(f"\n❌ No builds were successful")
+            print(f"💡 Check that mobile projects exist in build/ directory")
+            exit(1)
+            
+    except ImportError as e:
+        print(f"❌ Mobile build system not available: {e}")
+        print(f"💡 Make sure the Roelang compiler is properly installed")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Mobile build failed: {e}")
+        exit(1)
+
+
+def run_mobile_app(roe_filename, watch=False):
+    """Run mobile app with incremental updates."""
+    def do_mobile_run():
+        # First ensure projects are up to date
+        success = compile_file(roe_filename, output_format=None, target_override=None)
+        if not success:
+            return False
+        
+        # Then run the mobile app
+        try:
+            sys.path.insert(0, str(Path.home() / ".roelang"))
+            from compiler.targets.mobile.build_system import MobileBuildSystem
+            
+            project_root = find_project_root()
+            builder = MobileBuildSystem(Path(project_root))
+            return builder.run_mobile_app()
+            
+        except ImportError as e:
+            print(f"❌ Mobile build system not available: {e}")
+            return False
+        except Exception as e:
+            print(f"❌ Failed to run mobile app: {e}")
+            return False
+    
+    if watch:
+        print(f"👀 Watching {roe_filename} for changes...")
+        roe_file = Path(roe_filename)
+        if not roe_file.is_absolute():
+            roe_file = Path.cwd() / roe_filename
+        
+        last_modified = 0
+        
+        try:
+            while True:
+                if roe_file.exists():
+                    current_modified = roe_file.stat().st_mtime
+                    if current_modified > last_modified:
+                        last_modified = current_modified
+                        print(f"\n📝 Change detected at {datetime.now().strftime('%H:%M:%S')}")
+                        do_mobile_run()
+                        print(f"\n👀 Watching for changes...")
+                
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\n⏹️ Watch mode stopped")
+    else:
+        do_mobile_run()
+
 
 if __name__ == "__main__":
     main()

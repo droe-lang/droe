@@ -244,10 +244,6 @@ class MobileGenerator:
         
         find_api_calls_in_statements(program.statements)
         
-        print(f"DEBUG: Found {len(api_calls)} API calls")  # Debug print
-        for call in api_calls:
-            print(f"  - {call['verb']} {call['endpoint']} ({call['method']})")
-        
         return api_calls
     
     def process_api_call(self, api_call: ApiCallStatement) -> Dict[str, Any]:

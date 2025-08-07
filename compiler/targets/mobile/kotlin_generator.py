@@ -51,12 +51,10 @@ class KotlinGenerator(MobileGenerator):
         
         # Generate API-related files if APIs are present
         if context['has_api']:
-            print(f"DEBUG: Generating API files for {len(context['api_calls'])} API calls")
             # Generate API service interface
             api_service = self.generate_api_service(context)
             api_service_path = output_path / 'app/src/main/java/com/example/myapp/network/ApiService.kt'
             generated_files[str(api_service_path)] = api_service
-            print(f"DEBUG: Created API service file: {api_service_path}")
             
             # Generate network module for Hilt
             network_module = self.generate_network_module(context)

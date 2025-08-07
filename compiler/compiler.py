@@ -125,6 +125,12 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
     # Compile to target (pass file path for module resolution)
     generated_code = compile(source, input_path, target)
     
+    # Check if this is a mobile project (special return format)
+    if generated_code.startswith("MOBILE_PROJECT:"):
+        # Mobile projects don't create individual output files
+        project_path = generated_code.replace("MOBILE_PROJECT:", "")
+        return project_path
+    
     # Determine output path
     if output_path is None:
         base_name = os.path.splitext(input_path)[0]

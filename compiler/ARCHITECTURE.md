@@ -42,12 +42,17 @@ compiler/
     ├── html/                   # HTML/JavaScript target
     │   ├── __init__.py
     │   └── codegen.py          # HTML generation
-    ├── kotlin/                 # Kotlin target
+    ├── mobile/                 # Mobile target (Android/iOS)
     │   ├── __init__.py
-    │   └── codegen.py          # Kotlin code generation
-    └── swift/                  # Swift target
+    │   ├── base_generator.py   # Shared mobile functionality
+    │   ├── kotlin_generator.py # Android/Kotlin generation
+    │   ├── swift_generator.py  # iOS/Swift generation
+    │   └── templates/          # Jinja2 templates
+    │       ├── kotlin/         # Android templates
+    │       └── swift/          # iOS templates
+    └── bytecode/               # Roe VM bytecode target
         ├── __init__.py
-        └── codegen.py          # Swift code generation
+        └── codegen.py          # Bytecode generation
 ```
 
 ## Architecture Overview

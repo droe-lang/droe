@@ -20,6 +20,12 @@ data UserSettings
   language is text
 end data
 
+data ApiResponse
+  success is boolean
+  message is text
+  data is text
+end data
+
 module showcase
 
   layout main_layout
@@ -177,7 +183,15 @@ module showcase
 
   action save_settings gives text
     display "Saving user settings..."
-    display "Form data will be passed automatically via JavaScript"
+    
+    // API call to save user settings
+    call /api/user/settings method POST with UserSettings
+      using headers
+        Authorization: "Bearer user-token"
+        Content-Type: "application/json"
+    into saveResponse
+    
+    display "Settings saved to server! Response: " + saveResponse.message
     respond with "Settings saved successfully!"
   end action
 
@@ -188,6 +202,14 @@ module showcase
 
   action apply_settings gives text
     display "Applying quick settings..."
+    
+    // API call to apply quick settings
+    fetch /api/user/preferences method GET
+      using headers
+        Authorization: "Bearer user-token"
+    into preferences
+    
+    display "Loaded preferences: " + preferences.data
     respond with "Settings applied"
   end action
 

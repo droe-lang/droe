@@ -2,6 +2,9 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
       "Bash(mkdir:*)",
       "Bash(python test:*)",
       "Bash(mv:*)",
@@ -40,7 +43,12 @@
       "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3 -c \"\nfrom compiler.compiler import compile_file\ntry:\n    output_path = compile_file(''src/frontend_login_ui.roe'', ''src/frontend_login_ui.html'', ''html'')\n    print(f''✅ Successfully compiled to: {output_path}'')\nexcept Exception as e:\n    print(f''❌ Compilation error: {e}'')\n\")",
       "Bash(PYTHONPATH=/Users/yppartha/PROJECTS/ROELANG/roelang-installer python3:*)",
       "Bash(../sync-dev.sh)",
-      "Bash(roe:*)"
+      "Bash(roe:*)",
+      "Bash(../roe compile src/consistent_mobile_demo.roe)",
+      "Bash(../roe compile src/consistent_mobile_demo.roe --target html)",
+      "Bash(../roe compile src/html_api_demo.roe --target html)",
+      "Bash(../roe compile src/showcase_all_components.roe --target html)",
+      "Bash(../roe compile src/simple_api_test.roe --target html)"
     ],
     "deny": []
   }

@@ -1,0 +1,25 @@
+@target html
+
+// Simple API test without module to verify functionality
+call /api/test method GET into testResult
+
+action testApiCall gives text
+    call /api/users method POST with userData
+      using headers
+        Authorization: "Bearer token123"
+        Content-Type: "application/json"
+    into response
+    
+    display "API Response: " + response.message
+    respond with "API call completed"
+end action
+
+data UserData
+    name is text
+    email is text
+end data
+
+data ApiResponse
+    success is boolean
+    message is text
+end data

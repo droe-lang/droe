@@ -13,7 +13,8 @@ from ...ast import (
     InputComponent, TextareaComponent, DropdownComponent, ToggleComponent,
     CheckboxComponent, RadioComponent, ButtonComponent, 
     ImageComponent, VideoComponent, AudioComponent, AssetInclude,
-    AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute
+    AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute,
+    ApiCallStatement, ApiHeader
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -53,6 +54,15 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                 self.data_models[stmt.name] = stmt
             elif isinstance(stmt, ActionDefinitionWithParams):
                 self.actions[stmt.name] = stmt
+            elif isinstance(stmt, ActionDefinition):
+                # Convert ActionDefinition to ActionDefinitionWithParams for consistency
+                action_with_params = ActionDefinitionWithParams(
+                    name=stmt.name,
+                    parameters=[],
+                    body=stmt.body,
+                    return_type=getattr(stmt, 'return_type', None)
+                )
+                self.actions[stmt.name] = action_with_params
             elif isinstance(stmt, LayoutDefinition):
                 self.layouts[stmt.name] = stmt
                 # Recursively collect forms from layout children
@@ -68,12 +78,22 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                         self.data_models[module_stmt.name] = module_stmt
                     elif isinstance(module_stmt, ActionDefinitionWithParams):
                         self.actions[module_stmt.name] = module_stmt
+                    elif isinstance(module_stmt, ActionDefinition):
+                        # Convert ActionDefinition to ActionDefinitionWithParams for consistency
+                        action_with_params = ActionDefinitionWithParams(
+                            name=module_stmt.name,
+                            parameters=[],
+                            body=module_stmt.body,
+                            return_type=getattr(module_stmt, 'return_type', None)
+                        )
+                        self.actions[module_stmt.name] = action_with_params
                     elif isinstance(module_stmt, LayoutDefinition):
                         self.layouts[module_stmt.name] = module_stmt
                         # Recursively collect forms from layout children
                         self._collect_forms_from_children(module_stmt.children)
                     elif isinstance(module_stmt, FormDefinition):
                         self.forms[module_stmt.name] = module_stmt
+        
         
         # Generate HTML document
         html_content = self.generate_html_document(program)
@@ -712,6 +732,13 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         for name, action in self.actions.items():
             self.generate_action_js(name, action)
         
+        # Generate top-level statements (like API calls)
+        self.emit("")
+        self.emit("// Top-level statements")
+        for stmt in program.statements:
+            if isinstance(stmt, ApiCallStatement):
+                self.generate_api_call_js(stmt)
+        
         # Generate form submission handlers
         self.emit("")
         self.emit("// Form Handlers")
@@ -724,7 +751,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             
             # Build validation rules for this form
             self.emit(f"// Handler for {form_name}")
-            self.emit(f"window.submit_{form_name} = function(actionName) {{")
+            self.emit(f"window.submit_{form_name} = async function(actionName) {{")
             self.indent_level += 1
             
             # Generate validation rules object
@@ -803,7 +830,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             self.emit("// Call the action")
             self.emit("if (typeof window[actionName] === 'function') {")
             self.indent_level += 1
-            self.emit("return window[actionName](formData);")
+            self.emit("return await window[actionName](formData);")
             self.indent_level -= 1
             self.emit("} else {")
             self.indent_level += 1
@@ -994,7 +1021,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                     self.emit("}")
                     self.emit("")
         
-        self.emit("function handleFormSubmit(actionName, formId) {")
+        self.emit("async function handleFormSubmit(actionName, formId) {")
         self.indent_level += 1
         self.emit("const form = document.getElementById(formId);")
         self.emit("if (!form) {")
@@ -1080,7 +1107,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.emit("// Call the appropriate action")
         self.emit("if (typeof window[actionName] === 'function') {")
         self.indent_level += 1
-        self.emit("window[actionName](formData);")
+        self.emit("await window[actionName](formData);")
         self.indent_level -= 1
         self.emit("} else {")
         self.indent_level += 1
@@ -1095,7 +1122,11 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         params = [param.name for param in action.parameters]
         param_list = ", ".join(params)
         
-        self.emit(f"function {name}({param_list}) {{")
+        # Check if action contains API calls (needs to be async)
+        has_api_calls = self._has_api_calls(action.body)
+        async_keyword = "async " if has_api_calls else ""
+        
+        self.emit(f"{async_keyword}function {name}({param_list}) {{")
         self.indent_level += 1
         
         # Generate action body
@@ -1106,6 +1137,14 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.emit("}")
         self.emit("")
     
+    def _has_api_calls(self, statements: List[ASTNode]) -> bool:
+        """Check if any statement in the list is an API call."""
+        for stmt in statements:
+            if isinstance(stmt, ApiCallStatement):
+                return True
+            # Could check nested statements in if/while/etc. here if needed
+        return False
+    
     def generate_js_statement(self, stmt: ASTNode):
         """Generate JavaScript statement."""
         if isinstance(stmt, DisplayStatement):
@@ -1114,6 +1153,88 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         elif isinstance(stmt, ReturnStatement):
             expr = self.generate_js_expression(stmt.expression)
             self.emit(f"return {expr};")
+        elif isinstance(stmt, ApiCallStatement):
+            self.generate_api_call_js(stmt)
+    
+    def generate_api_call_js(self, api_call: ApiCallStatement):
+        """Generate JavaScript Fetch API call."""
+        # Generate async function call with fetch
+        endpoint = api_call.endpoint
+        method = api_call.method.upper()
+        
+        # Build fetch options
+        fetch_options = {
+            'method': method,
+            'headers': {}
+        }
+        
+        # Add headers
+        for header in api_call.headers:
+            header_name = header.name
+            header_value = header.value
+            # Remove quotes if present
+            if header_value.startswith('"') and header_value.endswith('"'):
+                header_value = header_value[1:-1]
+            fetch_options['headers'][header_name] = header_value
+        
+        # Add Content-Type for POST/PUT requests with payload
+        if api_call.payload and method in ['POST', 'PUT', 'PATCH']:
+            fetch_options['headers']['Content-Type'] = 'application/json'
+        
+        # Build fetch call
+        self.emit("try {")
+        self.indent_level += 1
+        
+        # Construct fetch options
+        self.emit("const fetchOptions = {")
+        self.indent_level += 1
+        self.emit(f"method: '{method}',")
+        
+        if fetch_options['headers']:
+            self.emit("headers: {")
+            self.indent_level += 1
+            for header_name, header_value in fetch_options['headers'].items():
+                self.emit(f"'{header_name}': '{self.escape_js_string(header_value)}',")
+            self.indent_level -= 1
+            self.emit("},")
+        
+        # Add body for POST/PUT requests
+        if api_call.payload and method in ['POST', 'PUT', 'PATCH']:
+            self.emit(f"body: JSON.stringify({api_call.payload})")
+        
+        self.indent_level -= 1
+        self.emit("};")
+        self.emit("")
+        
+        # Make the fetch call
+        self.emit(f"const response = await fetch('{endpoint}', fetchOptions);")
+        self.emit("")
+        
+        # Handle response
+        self.emit("if (!response.ok) {")
+        self.indent_level += 1
+        self.emit("throw new Error(`HTTP error! status: ${response.status}`);")
+        self.indent_level -= 1
+        self.emit("}")
+        self.emit("")
+        
+        # Parse response and assign to variable
+        if api_call.response_variable:
+            self.emit(f"const {api_call.response_variable} = await response.json();")
+            self.emit(f"console.log('API Response:', {api_call.response_variable});")
+        else:
+            self.emit("const apiResponse = await response.json();")
+            self.emit("console.log('API Response:', apiResponse);")
+        
+        self.indent_level -= 1
+        self.emit("} catch (error) {")
+        self.indent_level += 1
+        self.emit("console.error('API call failed:', error);")
+        if api_call.response_variable:
+            self.emit(f"const {api_call.response_variable} = null;")
+        self.indent_level -= 1
+        self.emit("}")
+        self.emit("")
     
     def generate_js_expression(self, expr: ASTNode) -> str:
         """Generate JavaScript expression."""
