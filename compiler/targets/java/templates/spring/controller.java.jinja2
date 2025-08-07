@@ -30,7 +30,11 @@ public class {{ entity_name }}Controller {
 
     // GET /api/{{ entity_name | lower }}s/{id} - Get {{ entity_name | lower }} by ID
     @GetMapping("/{id}")
+    {% if has_id_field %}
+    public ResponseEntity<{{ entity_name }}> get{{ entity_name }}ById(@PathVariable {{ id_field_info.java_type }} id) {
+    {% else %}
     public ResponseEntity<{{ entity_name }}> get{{ entity_name }}ById(@PathVariable Long id) {
+    {% endif %}
         try {
             {{ entity_name }} {{ entity_name | lower }} = {{ service_name | lower }}.find{{ entity_name }}ById(id);
             if ({{ entity_name | lower }} != null) {
@@ -69,11 +73,19 @@ public class {{ entity_name }}Controller {
 
     // PUT /api/{{ entity_name | lower }}s/{id} - Update {{ entity_name | lower }}
     @PutMapping("/{id}")
+    {% if has_id_field %}
+    public ResponseEntity<{{ entity_name }}> update{{ entity_name }}(@PathVariable {{ id_field_info.java_type }} id, @RequestBody {{ entity_name }} {{ entity_name | lower }}) {
+    {% else %}
     public ResponseEntity<{{ entity_name }}> update{{ entity_name }}(@PathVariable Long id, @RequestBody {{ entity_name }} {{ entity_name | lower }}) {
+    {% endif %}
         try {
             {{ entity_name }} existing{{ entity_name }} = {{ service_name | lower }}.find{{ entity_name }}ById(id);
             if (existing{{ entity_name }} != null) {
+                {% if has_id_field %}
+                {{ entity_name | lower }}.set{{ id_field_info.name | capitalize }}(id);
+                {% else %}
                 {{ entity_name | lower }}.setId(id);
+                {% endif %}
                 {{ entity_name }} updated{{ entity_name }} = {{ service_name | lower }}.save{{ entity_name }}({{ entity_name | lower }});
                 return ResponseEntity.ok(updated{{ entity_name }});
             } else {
@@ -86,7 +98,11 @@ public class {{ entity_name }}Controller {
 
     // DELETE /api/{{ entity_name | lower }}s/{id} - Delete {{ entity_name | lower }}
     @DeleteMapping("/{id}")
+    {% if has_id_field %}
+    public ResponseEntity<Void> delete{{ entity_name }}(@PathVariable {{ id_field_info.java_type }} id) {
+    {% else %}
     public ResponseEntity<Void> delete{{ entity_name }}(@PathVariable Long id) {
+    {% endif %}
         try {
             boolean deleted = {{ service_name | lower }}.delete{{ entity_name }}(id);
             if (deleted) {

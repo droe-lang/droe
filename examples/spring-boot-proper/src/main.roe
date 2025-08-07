@@ -1,0 +1,7 @@
+include UserModule
+include UserAPI
+
+display "Spring Boot User Management Service"
+display "This demonstrates proper separation of concerns:"
+display "  - UserModule: Data definitions and business logic (Entity + Repository + Service)"
+display "  - UserAPI: REST endpoints (Controller)"

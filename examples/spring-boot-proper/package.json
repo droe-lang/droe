@@ -1,0 +1,12 @@
+{
+  "name": "spring-boot-proper",
+  "version": "1.0.0",
+  "description": "A Roelang project: spring-boot-proper",
+  "author": "Unknown",
+  "main": "src/main.roe",
+  "dependencies": {},
+  "devDependencies": {},
+  "roelang": {
+    "version": "^1.0.0"
+  }
+}

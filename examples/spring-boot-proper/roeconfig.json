@@ -1,0 +1,20 @@
+{
+  "src": "src",
+  "build": "build",
+  "dist": "dist", 
+  "modules": "modules",
+  "main": "src/main.roe",
+  "target": "java",
+  "framework": "spring",
+  "name": "ProductService",
+  "description": "Spring Boot Product Service with spec-compliant syntax",
+  "package": "io.mycompany.productservice",
+  "database": {
+    "type": "mysql",
+    "host": "localhost",
+    "port": 3306,
+    "database": "productdb",
+    "username": "dbuser",
+    "password": "dbpass"
+  }
+}

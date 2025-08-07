@@ -4,7 +4,8 @@ import re
 from typing import List, Optional
 from ..ast import (
     ModuleDefinition, DataDefinition, DataField, 
-    LayoutDefinition, FormDefinition, MetadataAnnotation
+    LayoutDefinition, FormDefinition, MetadataAnnotation,
+    ActionDefinition
 )
 from .ui_components import UIComponentParser
 from .base import ParseError
@@ -216,3 +217,130 @@ class StructureParser(UIComponentParser):
             return MetadataAnnotation(key=key, value=value)
         
         return None
+    
+    def parse_module_spec_syntax(self, line: str) -> ModuleDefinition:
+        """Parse module with spec syntax: 'module ModuleName'"""
+        # Extract module name
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid module definition: {line}")
+        
+        module_name = parts[1]
+        body = []
+        
+        # Parse module body until 'end module'
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == 'end module':
+                self.consume_line()  # consume 'end module'
+                break
+                
+            # Parse indented content
+            if next_line.startswith('    '):  # 4 spaces
+                self.consume_line()
+                content = next_line.strip()
+                
+                if content.startswith('data '):
+                    stmt = self.parse_data_spec_syntax(content)
+                    if stmt:
+                        body.append(stmt)
+                elif content.startswith('action '):
+                    stmt = self.parse_action_spec_syntax(content)
+                    if stmt:
+                        body.append(stmt)
+                else:
+                    # Parse as regular statement
+                    stmt = self.parse_statement(content)
+                    if stmt:
+                        body.append(stmt)
+            else:
+                # Non-indented line means end of module
+                break
+        
+        return ModuleDefinition(module_name, body)
+    
+    def parse_data_spec_syntax(self, line: str) -> DataDefinition:
+        """Parse data with spec syntax: 'data DataName'"""
+        # Extract data name
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid data definition: {line}")
+        
+        data_name = parts[1]
+        fields = []
+        
+        # Parse data fields until 'end data'
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == 'end data':
+                self.consume_line()  # consume 'end data'
+                break
+                
+            # Parse indented field definitions
+            if next_line.startswith('        ') and ' is ' in next_line:  # 8 spaces for nested
+                self.consume_line()
+                field_line = next_line.strip()
+                field = self.parse_data_field(field_line)
+                if field:
+                    fields.append(field)
+            else:
+                # Non-field line means end of data definition
+                break
+        
+        return DataDefinition(data_name, fields)
+    
+    def parse_data_field(self, line: str) -> Optional[DataField]:
+        """Parse a data field with spec syntax: 'fieldName is type'"""
+        if ' is ' not in line:
+            return None
+        
+        parts = line.split(' is ', 1)
+        if len(parts) != 2:
+            return None
+        
+        field_name = parts[0].strip()
+        field_type = parts[1].strip()
+        
+        return DataField(field_name, field_type)
+    
+    def parse_action_spec_syntax(self, line: str) -> Optional[ActionDefinition]:
+        """Parse action with spec syntax: 'action actionName'"""
+        # Extract action name and parameters
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid action definition: {line}")
+        
+        action_name = parts[1]
+        body = []
+        
+        # Skip action body for now (parse until 'end action')
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == 'end action':
+                self.consume_line()  # consume 'end action'
+                break
+                
+            # Skip indented content for now
+            if next_line.startswith('        '):  # 8 spaces for nested
+                self.consume_line()
+                content = next_line.strip()
+                # Parse action body content
+                stmt = self.parse_statement(content)
+                if stmt:
+                    body.append(stmt)
+            else:
+                break
+        
+        return ActionDefinition(action_name, body)

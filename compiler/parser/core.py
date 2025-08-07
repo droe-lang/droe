@@ -47,6 +47,10 @@ class Parser(StructureParser, StatementParser):
                 stmt = self.parse_module_definition()
             elif line_stripped == 'Data:':
                 stmt = self.parse_data_definition()
+            elif line_stripped.startswith('module '):
+                stmt = self.parse_module_spec_syntax(line_stripped)
+            elif line_stripped.startswith('data '):
+                stmt = self.parse_data_spec_syntax(line_stripped)
             elif line_stripped == 'Layout:':
                 stmt = self.parse_layout_definition()
             elif line_stripped == 'Form:':

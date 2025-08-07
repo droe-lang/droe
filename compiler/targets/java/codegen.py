@@ -178,13 +178,14 @@ class JavaCodeGenerator(BaseCodeGenerator):
             package_name = self.package or f"com.example.{project_name}"
             
             # Generate Spring Boot project using templates
-            project_path = spring_gen.generate_spring_boot_project(
+            project_result = spring_gen.generate_spring_boot_project(
                 program=program, 
                 project_name=project_name,
                 package_name=package_name,
                 database_config=self.database
             )
-            return f"SPRING_PROJECT:{project_path}"
+            # Return the complete result dictionary for file creation
+            return project_result
         
         # Traditional approach for plain Java
         if modules_found:

@@ -246,11 +246,71 @@ class TargetFactory:
 target_factory = TargetFactory()
 
 
-def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
+def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None):
     """Compile a program to a specific target."""
     target = target_factory.create_target(target_name)
     codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
-    return codegen.generate(program)
+    result = codegen.generate(program)
+    
+    # Handle Spring Boot projects and other multi-file results
+    if isinstance(result, dict) and 'files' in result:
+        # Create the actual files
+        _create_project_files(result, source_file_path)
+        return result
+    
+    return result
+
+
+def _create_project_files(project_result: Dict[str, Any], source_file_path: str = None):
+    """Create actual files from a project result dictionary."""
+    import os
+    import json
+    from pathlib import Path
+    
+    files = project_result.get('files', {})
+    project_root_name = project_result.get('project_root', 'generated_project')
+    
+    # Find project root and load config (like mobile target does)
+    if source_file_path:
+        project_root_dir = Path(source_file_path).parent
+    else:
+        project_root_dir = Path.cwd()
+    
+    # Look for roeconfig.json up to 10 levels up
+    config_dir = project_root_dir
+    config = {}
+    for _ in range(10):
+        config_path = config_dir / "roeconfig.json"
+        if config_path.exists():
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                project_root_dir = config_dir
+                break
+            except Exception:
+                pass
+        parent = config_dir.parent
+        if parent == config_dir:
+            break
+        config_dir = parent
+    
+    # Use build directory from config (like mobile target)
+    build_dir = project_root_dir / config.get('build', 'build')
+    base_dir = build_dir / project_root_name
+    
+    # Create project directory
+    base_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create all files
+    for file_path, content in files.items():
+        full_path = base_dir / file_path
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(full_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+    
+    print(f"✅ Created {len(files)} files in {base_dir}")
+    return str(base_dir)
 
 
 def get_target_codegen(target_name: str, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:

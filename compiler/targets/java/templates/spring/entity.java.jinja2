@@ -12,6 +12,24 @@ import java.time.LocalDateTime;
 @Table(name = "{{ table_name }}")
 public class {{ class_name }} {
 
+    {% if has_id_field %}
+    {# Use the existing id field from Roe definition as primary key #}
+    @Id
+    {% if id_field_info.java_type == 'Long' %}
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    {% endif %}
+    @Column(name = "{{ id_field_info.name }}")
+    private {{ id_field_info.java_type }} {{ id_field_info.name }};
+
+    {% for field in fields %}
+    {% if field.name != 'id' %}
+    @Column(name = "{{ field.name }}")
+    private {{ field.java_type }} {{ field.name }};
+
+    {% endif %}
+    {% endfor %}
+    {% else %}
+    {# No id field defined, add auto-generated Long id #}
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -22,6 +40,7 @@ public class {{ class_name }} {
     private {{ field.java_type }} {{ field.name }};
 
     {% endfor %}
+    {% endif %}
 
     // Default constructor
     public {{ class_name }}() {}
@@ -34,6 +53,28 @@ public class {{ class_name }} {
     }
 
     // Getters and Setters
+    {% if has_id_field %}
+    public {{ id_field_info.java_type }} get{{ id_field_info.name | capitalize }}() {
+        return {{ id_field_info.name }};
+    }
+
+    public void set{{ id_field_info.name | capitalize }}({{ id_field_info.java_type }} {{ id_field_info.name }}) {
+        this.{{ id_field_info.name }} = {{ id_field_info.name }};
+    }
+
+    {% for field in fields %}
+    {% if field.name != 'id' %}
+    public {{ field.java_type }} get{{ field.name | capitalize }}() {
+        return {{ field.name }};
+    }
+
+    public void set{{ field.name | capitalize }}({{ field.java_type }} {{ field.name }}) {
+        this.{{ field.name }} = {{ field.name }};
+    }
+
+    {% endif %}
+    {% endfor %}
+    {% else %}
     public Long getId() {
         return id;
     }
@@ -52,14 +93,24 @@ public class {{ class_name }} {
     }
 
     {% endfor %}
+    {% endif %}
 
     @Override
     public String toString() {
         return "{{ class_name }}{" +
+                {% if has_id_field %}
+                "{{ id_field_info.name }}=" + {{ id_field_info.name }} +
+                {% for field in fields %}
+                {% if field.name != 'id' %}
+                ", {{ field.name }}=" + {{ field.name }} +
+                {% endif %}
+                {% endfor %}
+                {% else %}
                 "id=" + id +
                 {% for field in fields %}
                 ", {{ field.name }}=" + {{ field.name }} +
                 {% endfor %}
+                {% endif %}
                 '}';
     }
 }

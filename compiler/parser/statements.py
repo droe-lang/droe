@@ -29,7 +29,7 @@ class StatementParser(ExpressionParser):
             return self.parse_include(line)
         
         # Display statements
-        if line.startswith('Display '):
+        if line.startswith('Display ') or line.startswith('display '):
             return self.parse_display(line)
         
         # API call statements
@@ -91,8 +91,11 @@ class StatementParser(ExpressionParser):
         return IncludeStatement(module_name, file_path)
     
     def parse_display(self, line: str) -> DisplayStatement:
-        """Parse Display statement."""
-        content = line[8:].strip()  # Remove "Display "
+        """Parse Display/display statement."""
+        if line.startswith('display '):
+            content = line[8:].strip()  # Remove "display "
+        else:
+            content = line[8:].strip()  # Remove "Display "
         
         # Check if content is a string literal
         if (content.startswith('"') and content.endswith('"')) or \

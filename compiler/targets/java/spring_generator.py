@@ -6,8 +6,8 @@ from typing import Dict, Any, List, Optional
 from jinja2 import Environment, FileSystemLoader
 from ...ast import (
     Program, ModuleDefinition, DataDefinition, DataField,
-    ActionDefinitionWithParams, ServeStatement, AcceptStatement,
-    RespondStatement, ParamsStatement, DatabaseStatement
+    ActionDefinition, ActionDefinitionWithParams, ServeStatement, 
+    AcceptStatement, RespondStatement, ParamsStatement, DatabaseStatement
 )
 
 
@@ -56,24 +56,25 @@ class SpringBootGenerator:
         files[f"src/main/java/{package_name.replace('.', '/')}/Application.java"] = \
             self._render_template('application.java.jinja2', context)
         
-        # Generate entities, repositories, services, and controllers
+        # Generate entities and repositories for all data definitions
         for entity in context['entities']:
             entity_context = {**context, **entity}
             
-            # Entity class
+            # Entity class - ALWAYS generated for data definitions
             files[f"src/main/java/{package_name.replace('.', '/')}/entity/{entity['class_name']}.java"] = \
                 self._render_template('entity.java.jinja2', entity_context)
             
-            # Repository interface
+            # Repository interface - ALWAYS generated for data definitions
             files[f"src/main/java/{package_name.replace('.', '/')}/repository/{entity['class_name']}Repository.java"] = \
                 self._render_template('repository.java.jinja2', entity_context)
             
-            # Service class
-            files[f"src/main/java/{package_name.replace('.', '/')}/service/{entity['service_name']}.java"] = \
-                self._render_template('service.java.jinja2', entity_context)
+            # Service class - ONLY generated if there are actions defined
+            if entity.get('has_actions', False):
+                files[f"src/main/java/{package_name.replace('.', '/')}/service/{entity['service_name']}.java"] = \
+                    self._render_template('service.java.jinja2', entity_context)
             
-            # Controller class (if has REST endpoints)
-            if entity.get('has_rest_endpoints', True):
+            # Controller class - ONLY generated if there are serve statements
+            if entity.get('has_rest_endpoints', False):
                 files[f"src/main/java/{package_name.replace('.', '/')}/controller/{entity['class_name']}Controller.java"] = \
                     self._render_template('controller.java.jinja2', entity_context)
         
@@ -133,25 +134,44 @@ class SpringBootGenerator:
         entities = []
         modules = []
         
-        # Process modules
-        print(f"DEBUG SpringGen: Processing program with {len(program.statements)} statements")
+        # Process modules and track what's actually defined
+        # Process program statements
         for i, stmt in enumerate(program.statements):
-            print(f"DEBUG SpringGen: Statement {i}: {type(stmt).__name__}")
             if isinstance(stmt, ModuleDefinition):
-                print(f"DEBUG SpringGen: Found module: {stmt.name}")
-                modules.append(self._process_module(stmt))
+                module_info = self._process_module(stmt)
+                modules.append(module_info)
                 
-                # Extract data definitions from module
+                # Track what's in this module
+                module_has_actions = False
+                module_data_names = []
+                
+                # Extract data definitions and actions from module
                 for module_stmt in stmt.body:
-                    print(f"DEBUG SpringGen: Module stmt: {type(module_stmt).__name__}")
                     if isinstance(module_stmt, DataDefinition):
-                        print(f"DEBUG SpringGen: Found data def: {module_stmt.name}")
                         entity = self._process_data_definition(module_stmt, context)
+                        entity['module_name'] = module_info['name']
+                        module_data_names.append(entity['class_name'])
                         entities.append(entity)
+                    elif isinstance(module_stmt, ActionDefinition) or isinstance(module_stmt, ActionDefinitionWithParams):
+                        module_has_actions = True
+                
+                # Update entities with action info if they belong to this module
+                if module_has_actions:
+                    for entity in entities:
+                        if entity.get('module_name') == module_info['name']:
+                            entity['has_actions'] = True
+                
+                # Update entities with REST endpoints if module has serve statements
+                if module_info['has_rest_endpoints']:
+                    for entity in entities:
+                        if entity.get('module_name') == module_info['name']:
+                            entity['has_rest_endpoints'] = True
             
             elif isinstance(stmt, DataDefinition):
-                print(f"DEBUG SpringGen: Found top-level data def: {stmt.name}")
+                # Standalone data definition - no actions or endpoints
                 entity = self._process_data_definition(stmt, context)
+                entity['has_actions'] = False
+                entity['has_rest_endpoints'] = False
                 entities.append(entity)
         
         context['entities'] = entities
@@ -167,6 +187,8 @@ class SpringBootGenerator:
         has_name_field = False
         has_decimal_fields = False
         has_date_fields = False
+        has_id_field = False
+        id_field_info = None
         
         for field in data_def.fields:
             java_type = self._get_java_type(field.type)
@@ -178,6 +200,9 @@ class SpringBootGenerator:
             }
             fields.append(field_info)
             
+            if field.name.lower() == 'id':
+                has_id_field = True
+                id_field_info = field_info
             if field.name.lower() == 'name':
                 has_name_field = True
             if java_type == 'BigDecimal':
@@ -196,10 +221,10 @@ class SpringBootGenerator:
             'has_name_field': has_name_field,
             'has_decimal_fields': has_decimal_fields,
             'has_date_fields': has_date_fields,
-            'has_rest_endpoints': True,
-            'create_fields': fields,  # Fields used in create operations
-            'update_fields': fields,  # Fields used in update operations
-            'create_with_params': True,
+            'has_id_field': has_id_field,
+            'id_field_info': id_field_info,
+            'has_rest_endpoints': False,  # Only True when explicitly defined via serve statements
+            'has_actions': False,  # Only True when actions are defined in the module
             'package_name': base_context['package_name']
         }
     

@@ -131,16 +131,15 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
     # Compile to target (pass file path for module resolution)
     generated_code = compile(source, input_path, target, framework, package, database)
     
-    # Check if this is a mobile project (special return format)
-    if generated_code.startswith("MOBILE_PROJECT:"):
+    # Check if this is a multi-file project (like Spring Boot or Mobile)
+    if isinstance(generated_code, dict) and 'files' in generated_code:
+        # Multi-file projects are handled by the target factory and don't need individual output files
+        return generated_code
+    
+    # Check if this is a mobile project (special return format - legacy)
+    if isinstance(generated_code, str) and generated_code.startswith("MOBILE_PROJECT:"):
         # Mobile projects don't create individual output files
         project_path = generated_code.replace("MOBILE_PROJECT:", "")
-        return project_path
-    
-    # Check if this is a Spring Boot project (special return format)
-    if generated_code.startswith("SPRING_PROJECT:"):
-        # Spring Boot projects don't create individual output files
-        project_path = generated_code.replace("SPRING_PROJECT:", "")
         return project_path
     
     # Determine output path

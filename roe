@@ -69,7 +69,6 @@ def init_project(name=None, author=None):
     build_dir = project_root / "build"
     modules_dir = project_root / "modules"
     config_path = project_root / "roeconfig.json"
-    package_path = project_root / "package.json"
 
     if any(project_root.iterdir()) and not config_path.exists():
         confirm = input("⚠️ Current directory is not empty. Continue? (y/N): ")
@@ -96,23 +95,6 @@ def init_project(name=None, author=None):
             json.dump(config_data, f, indent=2)
         print("✅ Created roeconfig.json")
 
-    # Create package.json for dependency management
-    if not package_path.exists():
-        package_data = {
-            "name": name or project_root.name,
-            "version": "1.0.0",
-            "description": f"A Roelang project: {name or project_root.name}",
-            "author": author or "Unknown",
-            "main": "src/main.roe",
-            "dependencies": {},
-            "devDependencies": {},
-            "roelang": {
-                "version": "^1.0.0"
-            }
-        }
-        with open(package_path, "w") as f:
-            json.dump(package_data, f, indent=2)
-        print("✅ Created package.json")
 
     # Create a sample main.roe file
     main_file = src_dir / "main.roe"
@@ -148,7 +130,6 @@ display greeting
     print("  dist/        - Distribution packages")
     print("\n🚀 Next steps:")
     print("  roe run src/main.roe     - Run the sample")
-    print("  roe install package-name - Install packages")
     print("  roe build               - Build project")
 
 # Package management functions
@@ -403,8 +384,11 @@ def build_distribution(project_root, clean=False, release=False):
     build_dir = project_root / config.get("build", "build")
     dist_dir = project_root / config.get("dist", "dist")
     main_file = config.get("main", "src/main.roe")
+    target = config.get("target", "wasm")
+    framework = config.get("framework", "plain")
     
     print(f"📦 Building distribution package...")
+    print(f"🎯 Target: {target}" + (f" ({framework})" if framework != "plain" else ""))
     if release:
         print("🚀 Release build (optimized)")
     if clean:
@@ -475,39 +459,98 @@ def build_distribution(project_root, clean=False, release=False):
         shutil.rmtree(dist_dir)
     dist_dir.mkdir(parents=True, exist_ok=True)
     
-    # Find all .wasm files in build directory
-    wasm_files = []
-    for wasm_file in build_dir.rglob("*.wasm"):
-        relative_path = wasm_file.relative_to(build_dir)
-        wasm_files.append(str(relative_path))
-        
-        # Copy to dist with same structure
-        dest_file = dist_dir / relative_path
-        dest_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(wasm_file, dest_file)
-        print(f"📋 Copied: {relative_path}")
+    # Handle different target types
+    copied_files = []
+    main_entry = None
     
-    if not wasm_files:
-        print("⚠️  Warning: No .wasm files found in build directory")
-        print("💡 Run 'roe compile' or 'roe run' on some files first")
+    if target == "java" and framework == "spring":
+        # Handle Java Spring Boot projects
+        print("📱 Packaging Spring Boot projects...")
+        
+        # Find all Spring Boot project directories in build
+        for project_dir in build_dir.iterdir():
+            if project_dir.is_dir() and (project_dir / "pom.xml").exists():
+                relative_path = project_dir.relative_to(build_dir)
+                
+                # Copy entire Spring Boot project to dist
+                dest_dir = dist_dir / relative_path
+                shutil.copytree(project_dir, dest_dir, dirs_exist_ok=True)
+                copied_files.append(str(relative_path))
+                print(f"📋 Copied Spring Boot project: {relative_path}")
+                
+                # Set main entry to first project found
+                if main_entry is None:
+                    main_entry = str(relative_path)
+        
+        if not copied_files:
+            print("⚠️  Warning: No Spring Boot projects found in build directory")
+            print("💡 Run 'roe compile' on your .roe files first")
+    
+    elif target == "mobile":
+        # Handle mobile projects
+        print("📱 Packaging mobile projects...")
+        
+        # Look for android/ios directories
+        for mobile_dir in ["android", "ios"]:
+            mobile_path = build_dir / mobile_dir
+            if mobile_path.exists():
+                dest_dir = dist_dir / mobile_dir
+                shutil.copytree(mobile_path, dest_dir, dirs_exist_ok=True)
+                copied_files.append(mobile_dir)
+                print(f"📋 Copied mobile project: {mobile_dir}")
+        
+        if not copied_files:
+            print("⚠️  Warning: No mobile projects found in build directory")
+            print("💡 Run 'roe compile' on your .roe files first")
+    
+    else:
+        # Handle WASM and other single-file targets
+        target_extensions = {
+            "wasm": "*.wasm",
+            "python": "*.py", 
+            "java": "*.java",
+            "go": "*.go",
+            "node": "*.js",
+            "html": "*.html"
+        }
+        
+        pattern = target_extensions.get(target, "*.wasm")
+        print(f"📦 Looking for {pattern} files...")
+        
+        for target_file in build_dir.rglob(pattern):
+            relative_path = target_file.relative_to(build_dir)
+            copied_files.append(str(relative_path))
+            
+            # Copy to dist with same structure
+            dest_file = dist_dir / relative_path
+            dest_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(target_file, dest_file)
+            print(f"📋 Copied: {relative_path}")
+        
+        if not copied_files:
+            print(f"⚠️  Warning: No {pattern} files found in build directory")
+            print("💡 Run 'roe compile' or 'roe run' on some files first")
+        
+        # Set main entry for single-file targets
+        if main_file and copied_files:
+            main_stem = Path(main_file).stem
+            for file_path in copied_files:
+                if Path(file_path).stem == main_stem:
+                    main_entry = file_path
+                    break
+            # Fallback to first file
+            if main_entry is None and copied_files:
+                main_entry = copied_files[0]
     
     # Generate manifest.json
-    main_wasm = None
-    if main_file:
-        # Convert main .roe file to expected .wasm path
-        main_stem = Path(main_file).stem
-        # Look for matching .wasm file in the list
-        for wasm_file in wasm_files:
-            if Path(wasm_file).stem == main_stem:
-                main_wasm = wasm_file
-                break
-    
     manifest = {
         "name": project_root.name,
         "version": "1.0.0",
-        "description": f"Roelang project: {project_root.name}",
-        "main": main_wasm or (wasm_files[0] if wasm_files else None),
-        "files": wasm_files,
+        "description": config.get("description", f"Roelang project: {project_root.name}"),
+        "target": target,
+        "framework": framework if framework != "plain" else None,
+        "main": main_entry,
+        "files": copied_files,
         "build_time": __import__('datetime').datetime.now().isoformat(),
         "roelang_version": "1.0.0"
     }
@@ -518,9 +561,9 @@ def build_distribution(project_root, clean=False, release=False):
     
     print(f"📄 Created manifest.json")
     print(f"✅ Distribution built successfully!")
-    print(f"📦 {len(wasm_files)} files copied to {dist_dir}")
-    if main_wasm:
-        print(f"🎯 Main entry: {main_wasm}")
+    print(f"📦 {len(copied_files)} files copied to {dist_dir}")
+    if main_entry:
+        print(f"🎯 Main entry: {main_entry}")
 
 # Command line parsing with argparse
 def main():
@@ -754,13 +797,21 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
                         computed_output_path.parent.mkdir(parents=True, exist_ok=True)
                         
                         output_file = compiler.compile_file(str(roe_file), output_path=str(computed_output_path), target=target, framework=config.get("framework", "plain"), package=config.get("package"), database=config.get("database"))
-                    print(f"✅ Compiled successfully -> {output_file}")
+                    # Handle different types of compilation results
+                    if isinstance(output_file, dict) and 'files' in output_file:
+                        # Multi-file project (like Spring Boot)
+                        project_root = output_file.get('project_root', 'project')
+                        num_files = len(output_file.get('files', {}))
+                        print(f"✅ Compiled successfully -> {project_root}/ ({num_files} files)")
+                    else:
+                        # Single file result
+                        print(f"✅ Compiled successfully -> {output_file}")
                     
                     # Runtime files are no longer needed - using inline code generation
                     print("ℹ️  Runtime dependency eliminated - using native language features")
                     
                     # Handle backward compatibility for wasm format
-                    if target == 'wasm' and output_format == 'wasm':
+                    if target == 'wasm' and output_format == 'wasm' and isinstance(output_file, str):
                         # For WASM target, also generate .wasm file using wat2wasm
                         if output_file.endswith('.wat'):
                             wasm_output = output_file.replace('.wat', '.wasm')

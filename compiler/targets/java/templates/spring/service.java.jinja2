@@ -19,6 +19,17 @@ public class {{ service_name }} {
     }
 
     // Find {{ entity_name | lower }} by ID
+    {% if has_id_field %}
+    public {{ entity_name }} find{{ entity_name }}ById({{ id_field_info.java_type }} id) {
+        Optional<{{ entity_name }}> result = {{ entity_name | lower }}Repository.findById(id);
+        return result.orElse(null);
+    }
+
+    // Find {{ entity_name | lower }} by ID (with Optional)
+    public Optional<{{ entity_name }}> find{{ entity_name }}ByIdOptional({{ id_field_info.java_type }} id) {
+        return {{ entity_name | lower }}Repository.findById(id);
+    }
+    {% else %}
     public {{ entity_name }} find{{ entity_name }}ById(Long id) {
         Optional<{{ entity_name }}> result = {{ entity_name | lower }}Repository.findById(id);
         return result.orElse(null);
@@ -28,6 +39,7 @@ public class {{ service_name }} {
     public Optional<{{ entity_name }}> find{{ entity_name }}ByIdOptional(Long id) {
         return {{ entity_name | lower }}Repository.findById(id);
     }
+    {% endif %}
 
     // Save {{ entity_name | lower }}
     public {{ entity_name }} save{{ entity_name }}({{ entity_name }} {{ entity_name | lower }}) {
@@ -57,6 +69,30 @@ public class {{ service_name }} {
     }
 
     // Update {{ entity_name | lower }}
+    {% if has_id_field %}
+    public {{ entity_name }} update{{ entity_name }}({{ id_field_info.java_type }} id, {% for field in update_fields %}{% if field.name != 'id' %}{{ field.java_type }} {{ field.name }}{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}) {
+        Optional<{{ entity_name }}> result = {{ entity_name | lower }}Repository.findById(id);
+        if (result.isPresent()) {
+            {{ entity_name }} {{ entity_name | lower }} = result.get();
+            {% for field in update_fields %}
+            {% if field.name != 'id' %}
+            {{ entity_name | lower }}.set{{ field.name | capitalize }}({{ field.name }});
+            {% endif %}
+            {% endfor %}
+            return {{ entity_name | lower }}Repository.save({{ entity_name | lower }});
+        }
+        return null;
+    }
+
+    // Delete {{ entity_name | lower }}
+    public boolean delete{{ entity_name }}({{ id_field_info.java_type }} id) {
+        if ({{ entity_name | lower }}Repository.existsById(id)) {
+            {{ entity_name | lower }}Repository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+    {% else %}
     public {{ entity_name }} update{{ entity_name }}(Long id, {% for field in update_fields %}{{ field.java_type }} {{ field.name }}{% if not loop.last %}, {% endif %}{% endfor %}) {
         Optional<{{ entity_name }}> result = {{ entity_name | lower }}Repository.findById(id);
         if (result.isPresent()) {
@@ -77,6 +113,7 @@ public class {{ service_name }} {
         }
         return false;
     }
+    {% endif %}
 
     {% if service_methods %}
     // Custom service methods

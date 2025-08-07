@@ -48,7 +48,8 @@
       "Bash(../roe compile src/consistent_mobile_demo.roe --target html)",
       "Bash(../roe compile src/html_api_demo.roe --target html)",
       "Bash(../roe compile src/showcase_all_components.roe --target html)",
-      "Bash(../roe compile src/simple_api_test.roe --target html)"
+      "Bash(../roe compile src/simple_api_test.roe --target html)",
+      "Bash(../../sync-dev.sh)"
     ],
     "deny": []
   }

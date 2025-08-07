@@ -1,0 +1,35 @@
+module UserModule
+
+    data User
+        id is text
+        name is text
+        email is text
+        active is flag
+    end data
+
+    action getUser with userId which is text gives User
+        display "Getting user with ID: " + userId
+        // Business logic would go here
+    end action
+
+    action createUser with name which is text and email which is text gives User
+        display "Creating user: " + name
+        // Business logic would go here
+    end action
+
+    action updateUser with userId which is text and name which is text and email which is text gives User
+        display "Updating user: " + userId
+        // Business logic would go here
+    end action
+
+    action deleteUser with userId which is text gives text
+        display "Deleting user: " + userId
+        return "DONE"
+    end action
+
+    action listAllUsers gives list of User
+        display "Listing all users"
+        // Business logic would go here
+    end action
+
+end module

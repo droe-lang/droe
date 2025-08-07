@@ -9,7 +9,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
+{% if has_id_field %}
+public interface {{ entity_name }}Repository extends JpaRepository<{{ entity_name }}, {{ id_field_info.java_type }}> {
+{% else %}
 public interface {{ entity_name }}Repository extends JpaRepository<{{ entity_name }}, Long> {
+{% endif %}
     
     // Find by name (common pattern)
     {% if has_name_field %}
