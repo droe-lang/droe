@@ -1,0 +1,6 @@
+@target java
+@framework spring
+@package com.example.springtest
+
+set projectName which is text to "spring-test"
+display "Hello from [projectName]!"

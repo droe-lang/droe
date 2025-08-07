@@ -1,0 +1,11 @@
+{
+  "src": "src",
+  "build": "build",
+  "dist": "dist",
+  "modules": "modules",
+  "main": "src/main.roe",
+  "target": "java",
+  "framework": "spring",
+  "package": "com.example.springtest",
+  "database": "postgresql"
+}

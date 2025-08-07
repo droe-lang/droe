@@ -63,57 +63,165 @@ def load_config(project_root=None):
     return default_config
 
 # Initialize a Roelang project
-def init_project(name=None, author=None):
-    project_root = Path.cwd()
+def init_project(name=None, author=None, target=None, framework=None):
+    # If name is provided, create a directory for the project
+    if name:
+        project_root = Path.cwd() / name
+        
+        # Check if directory already exists
+        if project_root.exists():
+            if project_root.is_dir():
+                if any(project_root.iterdir()):
+                    print(f"❌ Error: Directory '{name}' already exists and is not empty")
+                    print(f"📁 Directory: {project_root}")
+                    print("💡 Choose a different project name or remove the existing directory")
+                    exit(1)
+            else:
+                print(f"❌ Error: A file named '{name}' already exists")
+                print(f"📁 Location: {project_root}")
+                print("💡 Choose a different project name")
+                exit(1)
+        
+        # Create the project directory
+        project_root.mkdir(parents=True, exist_ok=True)
+        print(f"📁 Created project directory: {name}/")
+    else:
+        # Use current directory
+        project_root = Path.cwd()
+        
+        # Check if directory is not empty
+        if any(project_root.iterdir()):
+            config_path = project_root / "roeconfig.json"
+            if config_path.exists():
+                print("❌ Error: This directory already contains a Roelang project")
+                print(f"📁 Current directory: {project_root}")
+                print("💡 Use a new empty directory to create a different project")
+            else:
+                print("❌ Error: Directory is not empty")
+                print(f"📁 Current directory: {project_root}")
+                print("💡 'roe init' must be run in an empty directory or provide a project name")
+            exit(1)
+    
     src_dir = project_root / "src"
     build_dir = project_root / "build"
     modules_dir = project_root / "modules"
     config_path = project_root / "roeconfig.json"
-
-    if any(project_root.iterdir()) and not config_path.exists():
-        confirm = input("⚠️ Current directory is not empty. Continue? (y/N): ")
-        if confirm.lower() != "y":
-            print("❌ Aborted.")
-            exit(1)
 
     # Create directories
     src_dir.mkdir(exist_ok=True)
     build_dir.mkdir(exist_ok=True)
     modules_dir.mkdir(exist_ok=True)
 
+    # Initialize config_data (always available)
+    config_data = {
+        "src": "src",
+        "build": "build",
+        "dist": "dist",
+        "modules": "modules",
+        "main": "src/main.roe",
+        "target": target or "wasm"
+    }
+    
+    # Validate framework-target compatibility
+    if framework:
+        valid_frameworks = {
+            "java": ["spring"],
+            "python": ["fastapi"],
+            "go": ["fiber"],
+            "node": ["fastify"],
+            "wasm": [],
+            "html": [],
+            "mobile": []
+        }
+        
+        target_key = target or "wasm"
+        if target_key in valid_frameworks:
+            if framework != "plain" and framework not in valid_frameworks[target_key]:
+                print(f"❌ Error: Framework '{framework}' is not compatible with target '{target_key}'")
+                if valid_frameworks[target_key]:
+                    print(f"💡 Valid frameworks for {target_key}: {', '.join(valid_frameworks[target_key])}")
+                else:
+                    print(f"💡 Target '{target_key}' does not support frameworks")
+                exit(1)
+        
+        # Add framework if specified and applicable (ignore for targets that don't support frameworks)
+        if framework != "plain" and target_key in ["java", "python", "go", "node"]:
+            config_data["framework"] = framework
+        
+    # Add package name for Java Spring projects
+    if target == "java" and framework == "spring":
+        if name:
+            # Convert project name to Java package name format
+            package_name = "com.example." + name.lower().replace("-", "").replace("_", "")
+        else:
+            package_name = "com.example.app"
+        config_data["package"] = package_name
+        config_data["database"] = "postgresql"  # Default database for Spring
+
     # Create roeconfig.json
     if not config_path.exists():
-        config_data = {
-            "src": "src",
-            "build": "build",
-            "dist": "dist",
-            "modules": "modules",
-            "main": "src/main.roe",
-            "target": "wasm"
-        }
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=2)
         print("✅ Created roeconfig.json")
+    else:
+        # If config exists, load it to preserve existing values
+        with open(config_path) as f:
+            existing_config = json.load(f)
+            # Use existing config but allow override of target/framework from command line
+            for key in ["target", "framework", "package", "database"]:
+                if key in config_data:
+                    existing_config[key] = config_data[key]
+            config_data = existing_config
 
 
     # Create a sample main.roe file
     main_file = src_dir / "main.roe"
     if not main_file.exists():
-        main_content = '''display "Welcome to Roelang!"
-display "This is your main entry point."
+        # Generate target-specific sample content  
+        project_name = name or project_root.name
+        
+        if target == "java" and framework == "spring":
+            main_content = f'''@target java
+@framework spring
+@package {config_data.get("package", "com.example.app")}
 
-# Example variable
-set message which is text to "Hello, World!"
-display message
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        elif target == "html":
+            main_content = f'''@target html
 
-# Example action
-action greet with name which is text returns text
-    return "Hello, " + name + "!"
-end
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        elif target == "mobile":
+            main_content = f'''@target mobile
 
-# Use the action
-set greeting which is text from greet with "Developer"
-display greeting
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        elif target == "python":
+            main_content = f'''@target python
+
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        elif target == "go":
+            main_content = f'''@target go
+
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        elif target == "node":
+            main_content = f'''@target node
+
+set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
+'''
+        else:
+            # Default WASM/generic content
+            main_content = f'''set projectName which is text to "{project_name}"
+display "Hello from [projectName]!"
 '''
         with open(main_file, "w") as f:
             f.write(main_content)
@@ -123,14 +231,23 @@ display greeting
     print(f"📁 Project name: {name or project_root.name}")
     if author:
         print(f"👤 Author: {author}")
+    # Show framework only for targets that support it
+    framework_targets = ["java", "python", "go", "node"] 
+    show_framework = framework and framework != "plain" and (target or "wasm") in framework_targets
+    print(f"🎯 Target: {target or 'wasm'}" + (f" with {framework} framework" if show_framework else ""))
     print("\n📂 Directory structure:")
     print("  src/         - Source code (.roe files)")
     print("  modules/     - Downloaded packages")
-    print("  build/       - Compiled files (.wat, .wasm)")
+    print("  build/       - Compiled files")
     print("  dist/        - Distribution packages")
     print("\n🚀 Next steps:")
-    print("  roe run src/main.roe     - Run the sample")
-    print("  roe build               - Build project")
+    if name:  # If a project directory was created
+        print(f"  cd {name}/              - Navigate to project directory")
+        print("  roe run src/main.roe     - Run the sample")
+        print("  roe build               - Build project")
+    else:  # If initialized in current directory
+        print("  roe run src/main.roe     - Run the sample")
+        print("  roe build               - Build project")
 
 # Package management functions
 def install_package(package_name, is_dev=False):
@@ -289,7 +406,7 @@ def show_help():
     print("    roe [COMMAND] [OPTIONS]")
     print("")
     print("COMMANDS:")
-    print("    init                    Initialize new Roelang project")
+    print("    init [name]             Initialize new Roelang project")
     print("    compile <file>          Compile .roe file to target language")
     print("    run <file>              Compile and run .roe file")
     print("    build                   Build entire project")
@@ -297,8 +414,10 @@ def show_help():
     print("    install [package]       Install package dependencies")
     print("")
     print("INIT OPTIONS:")
-    print("    --name <name>           Set project name")
+    print("    name                    Project name (creates directory if specified)")
     print("    --author <author>       Set project author")
+    print("    --target <target>       Set compilation target (wasm|python|java|go|node|html|mobile)")
+    print("    --framework <fw>        Set framework (spring|fastapi|fiber|fastify)")
     print("")
     print("INSTALL OPTIONS:")
     print("    --dev                   Install as development dependency")
@@ -323,7 +442,14 @@ def show_help():
     print("    --version               Show version information")
     print("")
     print("EXAMPLES:")
-    print("    roe init --name my-app --author \"John Doe\"")
+    print("    roe init my-app --author \"John Doe\"")
+    print("    roe init my-api --target java --framework spring")
+    print("    roe init api-server --target python --framework fastapi")
+    print("    roe init web-server --target go --framework fiber") 
+    print("    roe init node-api --target node --framework fastify")
+    print("    roe init web-app --target html")
+    print("    roe init my-mobile-app --target mobile")
+    print("    roe init --target python                      # Initialize in current directory")
     print("    roe install math-utils")
     print("    roe install dev-tools --dev")
     print("    roe compile src/main.roe --target java")
@@ -581,8 +707,11 @@ def main():
     
     # Init command
     init_parser = subparsers.add_parser('init', help='Initialize new Roelang project')
-    init_parser.add_argument('--name', help='Project name')
+    init_parser.add_argument('project_name', nargs='?', help='Project name (creates directory if specified)')
+    init_parser.add_argument('--name', help='Project name (deprecated, use positional argument)')
     init_parser.add_argument('--author', help='Project author')
+    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile'], help='Compilation target')
+    init_parser.add_argument('--framework', choices=['plain', 'spring', 'fastapi', 'fiber', 'fastify'], help='Framework to use with target')
     
     # Install command
     install_parser = subparsers.add_parser('install', help='Install package dependencies')
@@ -640,7 +769,9 @@ def main():
     
     # Handle commands
     if args.command == 'init':
-        init_project(args.name, args.author)
+        # Use positional argument if provided, otherwise fall back to --name flag
+        project_name = args.project_name or args.name
+        init_project(project_name, args.author, args.target, args.framework)
         return
     
     elif args.command == 'install':

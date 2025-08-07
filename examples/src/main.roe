@@ -1,0 +1,28 @@
+# Spring Boot API Example
+@target java
+@framework spring
+@package com.example.app
+
+api UserAPI
+    model User
+        id which is int key auto
+        username which is text unique required
+        email which is text unique required
+        password which is text required
+        createdAt which is datetime auto
+    end
+    
+    endpoint GET /users
+        return all User
+    end
+    
+    endpoint POST /users
+        input User data
+        return created User with data
+    end
+    
+    endpoint GET /users/{id}
+        input id which is int from path
+        return one User where id = id
+    end
+end

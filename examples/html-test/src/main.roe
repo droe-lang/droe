@@ -1,0 +1,4 @@
+@target html
+
+set projectName which is text to "html-test"
+display "Hello from [projectName]!"
