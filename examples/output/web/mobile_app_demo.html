@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Roelang Web App</title>
+  <link rel="stylesheet" href="assets/global.css">
+  <script src="assets/main.js"></script>
+</head>
+<body>
+  <div id="layout-MainScreen" class="layout-column">
+    <h2 class="title">PhotoShare App</h2>
+  </div>
+  
+  <div class="form-container">
+    <form id="form-Settings" class="layout-column">
+      <h2 class="title">App Settings</h2>
+    </form>
+  </div>
+  
+  <script>
+    // Roelang Application Code
+    
+    // Data Models
+    class Photo {
+      constructor() {
+        this.id = "";
+        this.path = "";
+        this.location = "";
+        this.timestamp = 0;
+        this.userName = "";
+      }
+    }
+    
+    
+    // Initialize Roelang
+    window.RoelangInit = {
+      initializeBindings: function() {
+        Roelang.DataBinding.createModel('Photo', Photo, null);
+        
+      }
+    };
+    
+    // Actions
+    
+    // Form Handlers
+    // Handler for Settings
+    window.submit_Settings = function(actionName) {
+      const validationRules = {
+      };
+      
+      const formData = {};
+      let isValid = true;
+      
+      // Display form data for verification
+      const displayElement = document.querySelector('.form-result-display');
+      if (displayElement) {
+        let displayText = 'Form Data: ';
+        for (const [key, value] of Object.entries(formData)) {
+          displayText += `${key}: "${value}", `;
+        }
+        const titleElement = displayElement.querySelector('.title');
+        if (titleElement) {
+          titleElement.textContent = displayText.slice(0, -2); // Remove trailing comma
+          titleElement.className = 'title text-success';
+        }
+      }
+      
+      // Call the action
+      if (typeof window[actionName] === 'function') {
+        return window[actionName](formData);
+      } else {
+        console.error('Action not found:', actionName);
+        return null;
+      }
+    }
+    
+  </script>
+</body>
+</html>

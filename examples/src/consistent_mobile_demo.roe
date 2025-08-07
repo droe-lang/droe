@@ -1,0 +1,128 @@
+// Consistent Mobile DSL - Following existing Roelang patterns exactly
+// Uses the same natural language style and end keyword structure
+
+@name "PhotoShare"
+@description "Cross-platform photo sharing app" 
+@targets "web, android, ios"  // Clear about multiple targets
+@package "com.example.photoshare"
+
+module photoshare
+
+  layout MainScreen
+    column class "main-container"
+      title "PhotoShare App" class "app-title"
+      
+      column class "form-container mb-4"
+        // Using existing input syntax but with mobile extensions
+        input id name_field text placeholder "Enter your name" bind UserProfile.userName validate required
+        
+        // Mobile-specific components using button pattern but with mobile types
+        button "Take Photo" type camera action capturePhoto permissions "camera, storage" class "mobile-camera-btn"
+        button "Get Location" type location action getLocation permissions "location" accuracy high class "mobile-location-btn"
+        
+        image source "placeholder.jpg" alt "Your captured photo" bind UserProfile.capturedImage class "photo-preview"
+        
+        button "Share Photo" action sharePhoto enabled when capturedImage is not empty class "share-btn primary"
+      end column
+    end column
+  end layout
+
+  // Using existing form syntax with proper end keywords
+  form SettingsForm
+    column class "settings-container"
+      title "App Settings" class "form-title"
+      
+      column class "form-fields mb-4"
+        toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
+        toggle id autobackup_toggle "Auto-backup Photos" bind UserSettings.autoBackup default on class "toggle-field"
+        
+        dropdown id quality_dropdown bind UserSettings.photoQuality default "Medium Quality" class "dropdown-field"
+          option "High Quality"
+          option "Medium Quality" 
+          option "Low Quality"
+        end dropdown
+        
+        radio id theme_radio group "appTheme" bind UserSettings.appTheme default "System Default" class "radio-group"
+          option "Light Theme"
+          option "Dark Theme" 
+          option "System Default"
+        end radio
+        
+        button "Save Settings" action saveSettings class "save-btn primary"
+      end column
+    end column
+  end form
+
+// Using existing action syntax
+action capturePhoto
+    when device has camera permission then
+        show message "Opening camera..."
+        run native camera capture
+        set capturedImage to camera result
+    otherwise
+        show alert "Camera permission required"
+    end when
+end action
+
+action getLocation  
+    when device has location permission then
+        show message "Getting location..."
+        run native location service with accuracy high
+        set currentLocation to location result
+    otherwise  
+        show alert "Location permission required"
+    end when
+end action
+
+action sharePhoto
+    when capturedImage is not empty then
+        show message "Sharing photo..."
+        run task UploadPhoto
+    otherwise
+        show alert "Please take a photo first"
+    end when
+end action
+
+action saveSettings
+    show toast "Settings saved successfully"
+    navigate back to previous screen  
+end action
+
+// Using existing task syntax
+task UploadPhoto
+    step "Compress image for upload"
+    step "Upload to cloud server"
+    step "Generate shareable link" 
+    
+    when task completed then
+        show toast "Photo shared successfully!"
+    end when
+    
+    when task failed then
+        show alert "Upload failed. Please try again."
+    end when
+end task
+
+// Using existing data syntax
+data Photo
+    id is text required
+    imagePath is text required  
+    location is text optional
+    timestamp is date required
+    userName is text required
+    isShared is boolean default false
+end data
+
+// Storage using existing module pattern
+module PhotoStorage
+    action save photo with photoData which is Photo gives boolean
+        store photoData in local database
+        when online then sync with cloud storage
+        give true
+    end action
+    
+    action load all photos gives group of Photo
+        set photos which are group of Photo from local database where isShared is true
+        give photos
+    end action
+end module

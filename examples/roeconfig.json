@@ -3,5 +3,17 @@
   "build": "build",
   "dist": "dist",
   "main": "src/main.roe",
-  "target": "python"
+  "target": "python",
+  "mobile": {
+    "enabled": false,
+    "platforms": ["android", "ios"],
+    "package": "com.example.app",
+    "appName": "MyApp",
+    "permissions": {
+      "camera": true,
+      "location": true,
+      "storage": true,
+      "notifications": false
+    }
+  }
 }

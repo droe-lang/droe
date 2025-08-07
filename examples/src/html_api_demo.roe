@@ -1,0 +1,40 @@
+// HTML API Demo - Testing API support with Fetch API
+@target html
+
+module api_demo
+
+  data LoginForm
+    email is text
+    password is text
+  end data
+
+  data ApiResponse
+    success is boolean 
+    token is text
+    message is text
+  end data
+
+  layout login_screen
+    column
+      title "API Login Demo"
+      input email bind LoginForm.email validate required, email
+      input type password bind LoginForm.password secure
+      button "Login" run performLogin
+    end column
+  end layout
+
+  action performLogin with email which is text, password which is text gives text
+    display "Calling API..."
+    
+    // API call using Roelang API syntax - generates Fetch API for HTML target
+    call /api/login method POST with LoginForm
+      using headers
+        Authorization: "Bearer test-token"
+        Content-Type: "application/json"
+    into response
+    
+    display "Login successful! Response: " + response.message
+    respond with "API call completed"
+  end action
+
+end module
