@@ -1,0 +1,73 @@
+import Foundation
+
+class ApiService {
+    static let shared = ApiService()
+    private let baseURL = "{{ base_url | default('https://api.example.com') }}"
+    private let session = URLSession.shared
+    
+    private init() {}
+    
+    {% for api_call in api_calls %}
+    // {{ api_call.verb|title }} {{ api_call.endpoint }}
+    func {{ api_call.function_name }}(
+        {% if api_call.headers %}
+        {% for header in api_call.headers %}
+        {{ header.name|lower|replace('-', '_') }}: String{{ "," if not loop.last }}
+        {% endfor %}
+        {% if api_call.payload %},
+        payload: {{ api_call.payload_type }}
+        {% endif %}
+        {% else %}
+        {% if api_call.payload %}
+        payload: {{ api_call.payload_type }}
+        {% endif %}
+        {% endif %}
+    ) async throws -> {{ api_call.response_type }}? {
+        guard let url = URL(string: baseURL + "{{ api_call.endpoint }}") else {
+            throw APIError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "{{ api_call.method }}"
+        
+        // Add headers
+        {% for header in api_call.headers %}
+        request.setValue({{ header.name|lower|replace('-', '_') }}, forHTTPHeaderField: "{{ header.name }}")
+        {% endfor %}
+        
+        {% if api_call.payload %}
+        // Add request body
+        do {
+            let jsonData = try JSONEncoder().encode(payload)
+            request.httpBody = jsonData
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        } catch {
+            throw APIError.encodingError(error)
+        }
+        {% endif %}
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw APIError.serverError
+            }
+            
+            let result = try JSONDecoder().decode({{ api_call.response_type }}.self, from: data)
+            return result
+        } catch {
+            throw APIError.networkError(error)
+        }
+    }
+    
+    {% endfor %}
+}
+
+enum APIError: Error {
+    case invalidURL
+    case encodingError(Error)
+    case networkError(Error)
+    case decodingError(Error)
+    case serverError
+}

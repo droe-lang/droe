@@ -212,9 +212,9 @@ class FormatExpression(ASTNode):
 
 @dataclass
 class MetadataAnnotation(ASTNode):
-    """Represents a metadata annotation like @target web or @name user_form."""
-    key: str  # The annotation key (target, name, description)
-    value: str  # The annotation value
+    """Represents a metadata annotation like @target web or @metadata(platform="mobile")."""
+    key: str  # The annotation key (target, name, description, metadata)
+    value: Union[str, dict]  # The annotation value or parameters dict
 
 
 @dataclass
@@ -382,6 +382,35 @@ class ActionAttribute(ASTNode):
     """Represents an action attribute (run action_name)."""
     action_name: str
     name: str = field(default="run", init=False)
+
+
+@dataclass
+class ApiCallStatement(ASTNode):
+    """Represents an API call statement (call/fetch /endpoint method GET/POST with data)."""
+    verb: str  # 'call', 'fetch', 'update', 'delete'
+    endpoint: str  # '/login', '/user/profile', etc.
+    method: str  # 'GET', 'POST', 'PUT', 'DELETE'
+    payload: Optional[str] = None  # Variable name for request body (e.g., 'loginForm')
+    headers: List['ApiHeader'] = field(default_factory=list)  # List of headers
+    response_variable: Optional[str] = None  # Variable to store response (e.g., 'response')
+    
+    
+@dataclass
+class ApiHeader(ASTNode):
+    """Represents an API header (Authorization: "Bearer Token")."""
+    name: str  # 'Authorization', 'Content-Type', etc.
+    value: str  # '"Bearer Token"', '"application/json"', etc.
+
+
+@dataclass
+class ApiEndpointDefinition(ASTNode):
+    """Represents an API endpoint definition for type-safe calls."""
+    name: str  # endpoint identifier
+    path: str  # '/api/users/{id}'
+    method: str  # 'GET', 'POST', etc.
+    request_type: Optional[str] = None  # Data type for request body
+    response_type: Optional[str] = None  # Data type for response
+    headers: List[ApiHeader] = field(default_factory=list)
 
 
 @dataclass

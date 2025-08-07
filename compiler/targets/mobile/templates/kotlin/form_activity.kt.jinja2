@@ -1,0 +1,37 @@
+package {{ package_name }}
+
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import android.widget.*
+
+class {{ form.name | pascalcase }}Activity : AppCompatActivity() {
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.{{ form.name | snakecase }})
+        
+        initializeFormElements()
+    }
+    
+    private fun initializeFormElements() {
+        {% for element in form.elements %}
+        {% if element.type == 'button' %}
+        findViewById<Button>(R.id.{{ element.id | default('button_' + loop.index0|string) }}).setOnClickListener {
+            {% if element.action %}
+            {{ element.action }}()
+            {% endif %}
+        }
+        {% elif element.type == 'toggle' %}
+        // Toggle: {{ element.label }}
+        {% endif %}
+        {% endfor %}
+    }
+    
+    {% for element in form.elements %}
+    {% if element.action %}
+    private fun {{ element.action }}() {
+        // TODO: Implement {{ element.action }} action
+    }
+    {% endif %}
+    {% endfor %}
+}

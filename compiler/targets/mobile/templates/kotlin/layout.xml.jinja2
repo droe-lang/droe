@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+    
+    {% for component in layout.components %}
+    {% if component.type == 'title' %}
+    <TextView
+        android:id="@+id/{{ component.id | default('title_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="{{ component.text }}"
+        android:textSize="{{ (24 - (component.level - 1) * 2) }}sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+    
+    {% elif component.type == 'input' %}
+    <EditText
+        android:id="@+id/{{ component.id | default('input_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="{{ component.placeholder }}"
+        {% if component.input_type == 'password' %}
+        android:inputType="textPassword"
+        {% elif component.input_type == 'email' %}
+        android:inputType="textEmailAddress"
+        {% elif component.input_type == 'number' %}
+        android:inputType="number"
+        {% else %}
+        android:inputType="text"
+        {% endif %}
+        android:layout_marginBottom="12dp" />
+    
+    {% elif component.type == 'button' or component.type.startswith('mobile_') %}
+    <Button
+        android:id="@+id/{{ component.id | default('button_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="{{ component.text }}"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+    
+    {% elif component.type == 'textarea' %}
+    <EditText
+        android:id="@+id/{{ component.id | default('textarea_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="{{ component.placeholder }}"
+        android:inputType="textMultiLine"
+        android:lines="{{ component.rows }}"
+        android:gravity="top"
+        android:layout_marginBottom="12dp" />
+    
+    {% elif component.type == 'dropdown' %}
+    <Spinner
+        android:id="@+id/{{ component.id | default('dropdown_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp" />
+    
+    {% elif component.type == 'toggle' %}
+    <Switch
+        android:id="@+id/{{ component.id | default('toggle_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="{{ component.label }}"
+        android:layout_marginBottom="12dp" />
+    
+    {% elif component.type == 'checkbox' %}
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="12dp">
+        {% for option in component.options %}
+        <CheckBox
+            android:id="@+id/{{ component.id }}_{{ loop.index0 }}"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="{{ option }}" />
+        {% endfor %}
+    </LinearLayout>
+    
+    {% elif component.type == 'radio' %}
+    <RadioGroup
+        android:id="@+id/{{ component.id | default('radio_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="12dp">
+        {% for option in component.options %}
+        <RadioButton
+            android:id="@+id/{{ component.id }}_{{ loop.index0 }}"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="{{ option }}"
+            {% if component.default == option %}
+            android:checked="true"
+            {% endif %} />
+        {% endfor %}
+    </RadioGroup>
+    
+    {% elif component.type == 'image' %}
+    <ImageView
+        android:id="@+id/{{ component.id | default('image_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:contentDescription="{{ component.alt }}"
+        android:adjustViewBounds="true"
+        android:layout_marginBottom="12dp" />
+    
+    {% elif component.type == 'video' %}
+    <VideoView
+        android:id="@+id/{{ component.id | default('video_' + loop.index0|string) }}"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginBottom="12dp" />
+    
+    {% endif %}
+    {% endfor %}
+    
+</LinearLayout>

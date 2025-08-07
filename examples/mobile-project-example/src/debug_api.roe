@@ -1,0 +1,13 @@
+// Debug API Test
+@name "DebugAPI"
+@description "Testing API at top level"
+@targets "android, ios"
+
+// Top level API call (should be parsed)
+call /test method GET into testResponse
+
+layout TestScreen
+    column
+        title "Test"
+    end column
+end layout

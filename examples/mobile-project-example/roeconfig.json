@@ -1,0 +1,25 @@
+{
+  "src": "src",
+  "build": "build",
+  "dist": "dist",
+  "main": "src/main.roe",
+  "target": "mobile",
+  "mobile": {
+    "enabled": true,
+    "platforms": ["android", "ios"],
+    "package": "com.example.photoshare",
+    "appName": "PhotoShare",
+    "version": "1.0.1",
+    "permissions": {
+      "camera": true,
+      "location": true,
+      "storage": true,
+      "notifications": true
+    },
+    "features": {
+      "offline": true,
+      "cloudSync": true,
+      "analytics": false
+    }
+  }
+}

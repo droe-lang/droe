@@ -6,6 +6,7 @@ code generators and managing compilation targets.
 
 from typing import Dict, Type, Optional, List
 from abc import ABC, abstractmethod
+from pathlib import Path
 from .codegen_base import BaseCodeGenerator
 from .ast import Program
 
@@ -102,38 +103,9 @@ class HTMLTarget(CompilerTarget):
         return []  # Runs in browser, no external deps
 
 
-class KotlinTarget(CompilerTarget):
-    """Kotlin compilation target."""
-    
-    def __init__(self):
-        super().__init__("kotlin", ".kt", "Kotlin source code")
-    
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
-        from .targets.kotlin.codegen import KotlinCodeGenerator
-        return KotlinCodeGenerator()
-    
-    def get_runtime_files(self) -> List[str]:
-        return ["RoelangRuntime.kt"]
-    
-    def get_dependencies(self) -> List[str]:
-        return ["kotlinc", "kotlin"]
-
-
-class SwiftTarget(CompilerTarget):
-    """Swift compilation target."""
-    
-    def __init__(self):
-        super().__init__("swift", ".swift", "Swift source code")
-    
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
-        from .targets.swift.codegen import SwiftCodeGenerator
-        return SwiftCodeGenerator()
-    
-    def get_runtime_files(self) -> List[str]:
-        return ["RoelangRuntime.swift"]
-    
-    def get_dependencies(self) -> List[str]:
-        return ["swift", "swiftc"]
+# Note: Kotlin and Swift targets have been replaced by the mobile target
+# which generates complete Android (Kotlin) and iOS (Swift) projects.
+# Use @metadata(platform="mobile") or @targets "android, ios" instead.
 
 
 class GoTarget(CompilerTarget):
@@ -187,6 +159,38 @@ class BytecodeTarget(CompilerTarget):
         return ["roevm"]  # Requires the Roe VM
 
 
+class MobileTarget(CompilerTarget):
+    """Mobile compilation target - generates Android and iOS projects."""
+    
+    def __init__(self):
+        super().__init__("mobile", ".mobile", "Mobile platforms (Android + iOS)")
+    
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+        # Mobile target generates complete project structures
+        from .targets.mobile.codegen import MobileProjectCodegen
+        
+        # Find project root by looking for roeconfig.json
+        project_root = None
+        if source_file_path:
+            current_dir = Path(source_file_path).parent
+            for _ in range(10):  # Search up to 10 levels
+                if (current_dir / "roeconfig.json").exists():
+                    project_root = str(current_dir)
+                    break
+                parent = current_dir.parent
+                if parent == current_dir:
+                    break
+                current_dir = parent
+        
+        return MobileProjectCodegen(source_file_path, project_root)
+    
+    def get_runtime_files(self) -> List[str]:
+        return []  # Mobile projects are complete standalone projects
+    
+    def get_dependencies(self) -> List[str]:
+        return ["android-sdk", "xcode"]  # Development environment dependencies
+
+
 class TargetFactory:
     """Factory for creating compilation targets."""
     
@@ -196,11 +200,10 @@ class TargetFactory:
             "python": PythonTarget,
             "java": JavaTarget,
             "html": HTMLTarget,
-            "kotlin": KotlinTarget,
-            "swift": SwiftTarget,
             "go": GoTarget,
             "node": NodeTarget,
-            "bytecode": BytecodeTarget
+            "bytecode": BytecodeTarget,
+            "mobile": MobileTarget
         }
     
     def get_available_targets(self) -> List[str]:
@@ -210,6 +213,14 @@ class TargetFactory:
     def create_target(self, target_name: str) -> CompilerTarget:
         """Create a compilation target by name."""
         if target_name not in self._targets:
+            # Provide helpful migration message for removed targets
+            if target_name in ['kotlin', 'swift']:
+                raise ValueError(
+                    f"Target '{target_name}' has been replaced by the mobile target. "
+                    f"Use @metadata(platform=\"mobile\") or @targets \"android, ios\" instead. "
+                    f"See MOBILE_MIGRATION.md for details."
+                )
+            
             available = ", ".join(self.get_available_targets())
             raise ValueError(f"Unknown target '{target_name}'. Available: {available}")
         

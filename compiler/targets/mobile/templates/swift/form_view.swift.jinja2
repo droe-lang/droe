@@ -1,0 +1,110 @@
+import SwiftUI
+
+struct {{ form.name | pascalcase }}FormView: View {
+    {% for element in form.elements %}
+    {% if element.type == 'input' %}
+    @State private var {{ element.id | camelcase }} = ""
+    {% elif element.type == 'toggle' %}
+    @State private var {{ element.id | camelcase }} = false
+    {% elif element.type == 'dropdown' %}
+    @State private var {{ element.id | camelcase }}Selection = 0
+    {% endif %}
+    {% endfor %}
+    
+    var body: some View {
+        Form {
+            {% for element in form.elements %}
+            {% if element.type == 'title' %}
+            Section {
+                Text("{{ element.text }}")
+                    .font(.title2)
+                    .fontWeight(.bold)
+            }
+            
+            {% elif element.type == 'input' %}
+            Section {
+                {% if element.input_type == 'password' %}
+                SecureField("{{ element.placeholder }}", text: ${{ element.id | camelcase }})
+                {% else %}
+                TextField("{{ element.placeholder }}", text: ${{ element.id | camelcase }})
+                    {% if element.input_type == 'email' %}
+                    .keyboardType(.emailAddress)
+                    {% elif element.input_type == 'number' %}
+                    .keyboardType(.numberPad)
+                    {% endif %}
+                {% endif %}
+            }
+            
+            {% elif element.type == 'toggle' %}
+            Section {
+                Toggle("{{ element.label }}", isOn: ${{ element.id | camelcase }})
+            }
+            
+            {% elif element.type == 'dropdown' %}
+            Section {
+                Picker("", selection: ${{ element.id | camelcase }}Selection) {
+                    {% for option in element.options %}
+                    Text("{{ option }}").tag({{ loop.index0 }})
+                    {% endfor %}
+                }
+                .pickerStyle(MenuPickerStyle())
+            }
+            
+            {% elif element.type == 'radio' %}
+            Section {
+                VStack(alignment: .leading) {
+                    {% for option in element.options %}
+                    HStack {
+                        Image(systemName: {{ element.id | camelcase }}Selection == {{ loop.index0 }} ? "largecircle.fill.circle" : "circle")
+                            .foregroundColor({{ element.id | camelcase }}Selection == {{ loop.index0 }} ? .blue : .gray)
+                            .onTapGesture {
+                                {{ element.id | camelcase }}Selection = {{ loop.index0 }}
+                            }
+                        Text("{{ option }}")
+                    }
+                    {% endfor %}
+                }
+            }
+            
+            {% elif element.type == 'button' %}
+            Section {
+                Button(action: {
+                    {% if element.action %}
+                    self.{{ element.action }}()
+                    {% endif %}
+                }) {
+                    Text("{{ element.text }}")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+            {% endif %}
+            {% endfor %}
+        }
+        .navigationTitle("{{ form.name | title }}")
+    }
+    
+    {% for element in form.elements %}
+    {% if element.type == 'radio' %}
+    @State private var {{ element.id | camelcase }}Selection = 0
+    {% endif %}
+    {% endfor %}
+    
+    {% for element in form.elements %}
+    {% if element.action %}
+    func {{ element.action }}() {
+        // TODO: Implement {{ element.action }} action
+    }
+    {% endif %}
+    {% endfor %}
+}
+
+struct {{ form.name | pascalcase }}FormView_Previews: PreviewProvider {
+    static var previews: some View {
+        {{ form.name | pascalcase }}FormView()
+    }
+}

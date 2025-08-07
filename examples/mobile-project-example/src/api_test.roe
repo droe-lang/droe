@@ -1,0 +1,55 @@
+// API Test - Testing API call syntax
+@name "APITest"
+@description "Testing API functionality"
+@targets "android, ios"
+
+module apitest
+
+  layout LoginScreen
+    column class "login-container"
+      title "Login" class "app-title"
+      
+      column class "form-container"
+        input id email_field text placeholder "Email" bind loginForm.email
+        input id password_field password placeholder "Password" bind loginForm.password
+        
+        button "Login" action performLogin class "login-btn primary"
+      end column
+    end column
+  end layout
+
+action performLogin gives flag
+    // API call using the natural syntax
+    call /login method POST with loginForm
+      using headers
+        Authorization: "Bearer AuthToken"
+        Content-Type: "application/json"
+    into response
+    
+    display "Login successful"
+    give true
+end action
+
+action fetchProfile gives flag
+    // Another API call example
+    fetch /user/profile method GET 
+      using headers
+        Authorization: "Bearer Token"
+    into userProfile
+    
+    display "Profile loaded"
+    give true
+end action
+
+data LoginForm
+    email is text required
+    password is text required
+end data
+
+data UserProfile
+    id is text required
+    name is text required
+    email is text required
+end data
+
+end module

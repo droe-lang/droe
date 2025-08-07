@@ -1,0 +1,80 @@
+// Mobile Project - Using project-level mobile configuration
+@name "PhotoShare"
+@description "Cross-platform photo sharing app"
+@targets "android, ios"
+
+module photoshare
+
+  layout MainScreen
+    column class "main-container"
+      title "PhotoShare App" class "app-title"
+      
+      column class "form-container mb-4"
+        input id name_field text placeholder "Enter your name" bind UserProfile.userName validate required
+        
+        // Mobile components automatically available since target=mobile in config
+        button "Take Photo" type camera action capturePhoto class "mobile-camera-btn"
+        button "Get Location" type location action getLocation accuracy high class "mobile-location-btn"
+        
+        image source "placeholder.jpg" alt "Your captured photo" bind UserProfile.capturedImage class "photo-preview"
+        
+        button "Share Photo" action sharePhoto enabled when capturedImage is not empty class "share-btn primary"
+      end column
+    end column
+  end layout
+
+  form SettingsForm
+    column class "settings-container"
+      title "App Settings" class "form-title"
+      
+      column class "form-fields mb-4"
+        toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
+        toggle id autobackup_toggle "Auto-backup Photos" bind UserSettings.autoBackup default on class "toggle-field"
+        
+        input id quality_field text placeholder "Photo Quality" bind UserSettings.photoQuality default "Medium Quality" class "form-input"
+        
+        button "Save Settings" action saveSettings class "save-btn primary"
+      end column
+    end column
+  end form
+
+action capturePhoto gives flag
+    display "Opening camera..."
+    display "Camera capture initiated - updated again!"
+    give true
+end action
+
+action getLocation gives flag
+    display "Getting current location..."
+    display "Location service activated"
+    give true
+end action
+
+action sharePhoto gives flag
+    display "Sharing photo..."
+    display "Photo shared successfully"
+    give true
+end action
+
+action saveSettings gives flag
+    display "Settings saved successfully"
+    give true
+end action
+
+task UploadPhoto
+    display "Compressing image for upload"
+    display "Uploading to cloud server"
+    display "Generating shareable link"
+    display "Upload completed successfully"
+end task
+
+data Photo
+    id is text required
+    imagePath is text required  
+    location is text optional
+    timestamp is date required
+    userName is text required
+    isShared is boolean default false
+end data
+
+end module

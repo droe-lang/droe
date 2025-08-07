@@ -1,0 +1,145 @@
+import SwiftUI
+{% if has_camera %}
+import AVFoundation
+{% endif %}
+{% if has_location %}
+import CoreLocation
+{% endif %}
+{% if has_notifications %}
+import UserNotifications
+{% endif %}
+
+struct ContentView: View {
+    {% if forms %}
+    @State private var showingForm = false
+    {% endif %}
+    {% if has_location %}
+    @StateObject private var locationManager = LocationManager()
+    {% endif %}
+    
+    var body: some View {
+        NavigationView {
+            {% if layouts %}
+            {{ layouts[0].name | pascalcase }}View()
+            {% else %}
+            VStack(spacing: 20) {
+                {% for component in components %}
+                {% if component.type == 'title' %}
+                Text("{{ component.text }}")
+                    .font(.{{ 'largeTitle' if component.level == 1 else ('title' if component.level == 2 else 'headline') }})
+                    .padding(.bottom)
+                
+                {% elif component.type == 'button' or component.type.startswith('mobile_') %}
+                Button(action: {
+                    {% if component.mobile_type == 'camera' %}
+                    self.openCamera()
+                    {% elif component.mobile_type == 'location' %}
+                    self.getCurrentLocation()
+                    {% elif component.mobile_type == 'notification' %}
+                    self.showNotification()
+                    {% elif component.action %}
+                    self.{{ component.action }}()
+                    {% endif %}
+                }) {
+                    Text("{{ component.text }}")
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Color.blue)
+                        .cornerRadius(8)
+                }
+                
+                {% elif component.type == 'image' %}
+                Image("{{ component.src }}")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .accessibility(label: Text("{{ component.alt }}"))
+                
+                {% endif %}
+                {% endfor %}
+                
+                Spacer()
+            }
+            .padding()
+            {% endif %}
+            .navigationTitle("{{ app_name }}")
+        }
+        .onAppear {
+            {% if permissions %}
+            self.requestPermissions()
+            {% endif %}
+        }
+    }
+    
+    {% if permissions %}
+    func requestPermissions() {
+        {% if 'camera' in permissions %}
+        AVCaptureDevice.requestAccess(for: .video) { _ in }
+        {% endif %}
+        {% if 'notifications' in permissions %}
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in }
+        {% endif %}
+    }
+    {% endif %}
+    
+    {% if has_camera %}
+    func openCamera() {
+        // Camera implementation
+        // In a real app, this would present a camera view
+    }
+    {% endif %}
+    
+    {% if has_location %}
+    func getCurrentLocation() {
+        locationManager.requestLocation()
+    }
+    {% endif %}
+    
+    {% if has_notifications %}
+    func showNotification() {
+        let content = UNMutableNotificationContent()
+        content.title = "Notification"
+        content.body = "This is a notification from {{ app_name }}"
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        )
+        
+        UNUserNotificationCenter.current().add(request)
+    }
+    {% endif %}
+}
+
+{% if has_location %}
+class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    @Published var location: CLLocation?
+    
+    override init() {
+        super.init()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyBest
+    }
+    
+    func requestLocation() {
+        manager.requestWhenInUseAuthorization()
+        manager.requestLocation()
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        location = locations.first
+    }
+    
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Location error: \(error)")
+    }
+}
+{% endif %}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
