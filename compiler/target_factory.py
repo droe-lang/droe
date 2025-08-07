@@ -20,7 +20,7 @@ class CompilerTarget(ABC):
         self.description = description
     
     @abstractmethod
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         """Create a code generator for this target."""
         pass
     
@@ -41,7 +41,7 @@ class WASMTarget(CompilerTarget):
     def __init__(self):
         super().__init__("wasm", ".wasm", "WebAssembly binary format")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.wasm.codegen import WATCodeGenerator
         return WATCodeGenerator()
     
@@ -58,7 +58,7 @@ class PythonTarget(CompilerTarget):
     def __init__(self):
         super().__init__("python", ".py", "Python source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.python.codegen import PythonCodeGenerator
         return PythonCodeGenerator()
     
@@ -75,9 +75,9 @@ class JavaTarget(CompilerTarget):
     def __init__(self):
         super().__init__("java", ".java", "Java source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.java.codegen import JavaCodeGenerator
-        return JavaCodeGenerator(source_file_path, is_main_file)
+        return JavaCodeGenerator(source_file_path, is_main_file, framework)
     
     def get_runtime_files(self) -> List[str]:
         return []  # No runtime files needed - using inline code generation
@@ -92,7 +92,7 @@ class HTMLTarget(CompilerTarget):
     def __init__(self):
         super().__init__("html", ".html", "HTML with embedded JavaScript")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.html.codegen import HTMLCodeGenerator
         return HTMLCodeGenerator()
     
@@ -114,7 +114,7 @@ class GoTarget(CompilerTarget):
     def __init__(self):
         super().__init__("go", ".go", "Go source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.go.codegen import GoCodeGenerator
         return GoCodeGenerator()
     
@@ -131,7 +131,7 @@ class NodeTarget(CompilerTarget):
     def __init__(self):
         super().__init__("node", ".js", "Node.js JavaScript code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.node.codegen import NodeCodeGenerator
         return NodeCodeGenerator()
     
@@ -148,7 +148,7 @@ class BytecodeTarget(CompilerTarget):
     def __init__(self):
         super().__init__("bytecode", ".roebc", "Roe VM bytecode format")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.bytecode.codegen import BytecodeGenerator
         return BytecodeGenerator()
     
@@ -165,7 +165,7 @@ class MobileTarget(CompilerTarget):
     def __init__(self):
         super().__init__("mobile", ".mobile", "Mobile platforms (Android + iOS)")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False) -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         # Mobile target generates complete project structures
         from .targets.mobile.codegen import MobileProjectCodegen
         
@@ -246,10 +246,10 @@ class TargetFactory:
 target_factory = TargetFactory()
 
 
-def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False) -> str:
+def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> str:
     """Compile a program to a specific target."""
     target = target_factory.create_target(target_name)
-    codegen = target.create_codegen(source_file_path, is_main_file)
+    codegen = target.create_codegen(source_file_path, is_main_file, framework)
     return codegen.generate(program)
 
 

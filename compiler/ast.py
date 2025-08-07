@@ -414,6 +414,45 @@ class ApiEndpointDefinition(ASTNode):
 
 
 @dataclass
+class ServeStatement(ASTNode):
+    """Represents a serve statement (serve get/post/put/delete /endpoint ... end serve)."""
+    method: str  # 'get', 'post', 'put', 'delete'
+    endpoint: str  # '/user', '/user/:id', etc.
+    body: List[ASTNode]  # Statements inside the serve block
+    params: List[str] = field(default_factory=list)  # URL parameters
+    accept_type: Optional[str] = None  # Type for request body (accept statement)
+    response_action: Optional[ASTNode] = None  # Action called for response
+
+@dataclass
+class AcceptStatement(ASTNode):
+    """Represents an accept statement (accept TypeName.actionName)."""
+    module_name: str
+    action_name: str
+    param_name: Optional[str] = None  # For accept ... with param_name
+
+@dataclass
+class RespondStatement(ASTNode):
+    """Represents a respond statement (respond with ModuleName.actionName)."""
+    module_name: str
+    action_name: str
+    param_name: Optional[str] = None  # For respond with ... with param_name
+
+@dataclass
+class ParamsStatement(ASTNode):
+    """Represents a params statement (params id which is text)."""
+    param_name: str
+    param_type: str
+
+@dataclass
+class DatabaseStatement(ASTNode):
+    """Represents a database operation (db find/create/update User ...)."""
+    operation: str  # 'find', 'create', 'update', 'delete'
+    entity_name: str  # User, Product, etc.
+    conditions: List[ASTNode] = field(default_factory=list)  # where clauses
+    fields: List[ASTNode] = field(default_factory=list)  # set clauses for update
+    return_var: Optional[str] = None  # return id into variable
+
+@dataclass
 class Program(ASTNode):
     """Root node containing all statements in the program."""
     statements: List[ASTNode]

@@ -52,7 +52,7 @@ def get_target_from_source(source: str, default_target: str = "wasm") -> str:
         return default_target
 
 
-def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") -> str:
+def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", framework: str = "plain") -> str:
     """
     Compile Roe DSL source code to specified target format.
     
@@ -60,6 +60,7 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
         source: Roe DSL source code
         file_path: Optional path to source file (for module resolution)
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
+        framework: Framework to use (plain, spring for Java, etc.)
         
     Returns:
         Generated code string in target format
@@ -84,7 +85,7 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
         type_checker.check_program(ast)
         
         # Generate code from AST using specified target
-        generated_code = compile_to_target(ast, target, file_path)
+        generated_code = compile_to_target(ast, target, file_path, framework=framework)
         
         return generated_code
         
@@ -100,7 +101,7 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm") 
         raise CompilerError(f"Unexpected error: {str(e)}")
 
 
-def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm") -> str:
+def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm", framework: str = "plain") -> str:
     """
     Compile a Roe DSL file to specified target.
     
@@ -108,6 +109,7 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
         input_path: Path to .roe file
         output_path: Optional output path for generated file
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
+        framework: Framework to use (plain, spring for Java, etc.)
         
     Returns:
         Output file path
@@ -123,12 +125,18 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
         raise CompilerError(f"Failed to read input file: {str(e)}")
     
     # Compile to target (pass file path for module resolution)
-    generated_code = compile(source, input_path, target)
+    generated_code = compile(source, input_path, target, framework)
     
     # Check if this is a mobile project (special return format)
     if generated_code.startswith("MOBILE_PROJECT:"):
         # Mobile projects don't create individual output files
         project_path = generated_code.replace("MOBILE_PROJECT:", "")
+        return project_path
+    
+    # Check if this is a Spring Boot project (special return format)
+    if generated_code.startswith("SPRING_PROJECT:"):
+        # Spring Boot projects don't create individual output files
+        project_path = generated_code.replace("SPRING_PROJECT:", "")
         return project_path
     
     # Determine output path

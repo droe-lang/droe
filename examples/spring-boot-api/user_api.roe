@@ -1,0 +1,57 @@
+// REST API Module - Demonstrates Spring Boot REST Controller generation
+// Note: The 'serve' syntax is planned for future implementation
+// Currently, use traditional module/action syntax which generates Service classes
+
+module UserAPI
+
+  // Import the User data type from UserService module
+  // In Spring Boot, this creates proper package imports
+  
+  action handleGetUser with userId which is text gives text
+    // This would call the UserService.getUserById method
+    // In a full implementation with 'serve' syntax:
+    // serve get /user/{id}
+    //   respond with UserService.getUserById
+    // end serve
+    give "User retrieved successfully"
+  end action
+
+  action handleCreateUser with userName which is text, userEmail which is text gives text
+    // This would call UserService.createUser
+    // In future with 'serve' syntax:
+    // serve post /user
+    //   accept UserInput
+    //   respond with UserService.createUser
+    // end serve
+    give "User created successfully"
+  end action
+
+  action handleUpdateUser with userId which is text, userName which is text, userEmail which is text gives text
+    // This would call UserService.updateUser
+    // In future with 'serve' syntax:
+    // serve put /user/{id}
+    //   accept UserInput
+    //   respond with UserService.updateUser
+    // end serve
+    give "User updated successfully"
+  end action
+
+  action handleDeleteUser with userId which is text gives text
+    // This would call UserService.deleteUser
+    // In future with 'serve' syntax:
+    // serve delete /user/{id}
+    //   respond with UserService.deleteUser
+    // end serve
+    give "User deleted successfully"
+  end action
+
+end module
+
+// Main entry point
+display "Spring Boot User Management API initialized"
+display "Generated classes will include:"
+display "- @SpringBootApplication main class"
+display "- User @Entity with JPA annotations"
+display "- UserRepository extending JpaRepository"
+display "- UserService with @Service annotation"
+display "- Future: UserAPIController with @RestController"

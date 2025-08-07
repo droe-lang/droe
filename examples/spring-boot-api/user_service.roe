@@ -1,0 +1,62 @@
+// User Service Module - Demonstrates Spring Boot Service and JPA Entity generation
+// When compiled with framework: "spring", this generates:
+// - JPA Entity class with annotations
+// - Repository interface extending JpaRepository
+// - Service class with @Service annotation
+
+module UserService
+
+  // This data definition becomes a JPA @Entity
+  data User
+    id is text        // Automatically gets @Id and @GeneratedValue
+    name is text      // Becomes @Column(name = "name")
+    email is text     // Becomes @Column(name = "email")
+    active is flag    // Becomes @Column(name = "active") with boolean type
+    createdDate is date
+  end data
+
+  // Additional data type for input validation
+  data UserInput
+    name is text
+    email is text
+  end data
+
+  // These actions become @Service methods with @Autowired repository
+  action getAllUsers gives list of User
+    // In Spring Boot, this translates to: userRepository.findAll()
+    give []
+  end action
+
+  action getUserById with id which is text gives User
+    // Translates to: userRepository.findById(id).orElse(null)
+    give User with name is "Test User", email is "test@example.com", active is true
+  end action
+
+  action createUser with input which is UserInput gives User
+    // Would translate to:
+    // User user = new User();
+    // user.setName(input.getName());
+    // user.setEmail(input.getEmail());
+    // user.setActive(true);
+    // return userRepository.save(user);
+    give User with name is input.name, email is input.email, active is true
+  end action
+
+  action updateUser with id which is text, input which is UserInput gives User
+    // Would translate to:
+    // Optional<User> existing = userRepository.findById(id);
+    // if (existing.isPresent()) {
+    //   User user = existing.get();
+    //   user.setName(input.getName());
+    //   user.setEmail(input.getEmail());
+    //   return userRepository.save(user);
+    // }
+    give User with name is input.name, email is input.email, active is true
+  end action
+
+  action deleteUser with id which is text gives flag
+    // Translates to: userRepository.deleteById(id)
+    give true
+  end action
+
+end module

@@ -1,0 +1,8 @@
+{
+  "src": "src",
+  "build": "build",
+  "target": "java",
+  "framework": "spring",
+  "name": "UserManagementAPI",
+  "description": "Example showing difference between plain and Spring Boot Java generation"
+}

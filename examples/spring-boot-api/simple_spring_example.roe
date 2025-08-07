@@ -1,0 +1,35 @@
+// Simple Spring Boot Example
+// This demonstrates the current Spring Boot code generation capabilities
+
+module ProductService
+
+  // JPA Entity definition
+  data Product
+    id is text
+    name is text
+    price is decimal
+    inStock is flag
+  end data
+
+  // Service methods that will use JPA repository
+  action findAllProducts gives list of Product
+    give []
+  end action
+
+  action findProductById with productId which is text gives Product
+    give Product with name is "Sample Product", price is 99.99, inStock is true
+  end action
+
+  action saveProduct with productName which is text, productPrice which is decimal gives Product
+    give Product with name is productName, price is productPrice, inStock is true
+  end action
+
+end module
+
+// When compiled with framework: "spring", this generates:
+// 1. ProductServiceApplication.java - Spring Boot main class
+// 2. Product.java - JPA Entity with @Entity, @Table, @Id, @Column annotations
+// 3. ProductRepository.java - Interface extending JpaRepository<Product, Long>
+// 4. ProductService.java - Service class with @Service and @Autowired repository
+
+display "Spring Boot Product Service configured"

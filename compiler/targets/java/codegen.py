@@ -9,7 +9,8 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, AcceptStatement,
+    RespondStatement, ParamsStatement, DatabaseStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -18,10 +19,11 @@ from ...codegen_base import BaseCodeGenerator, CodeGenError
 class JavaCodeGenerator(BaseCodeGenerator):
     """Generates Java code from Roelang AST."""
     
-    def __init__(self, source_file_path: Optional[str] = None, is_main_file: bool = False):
+    def __init__(self, source_file_path: Optional[str] = None, is_main_file: bool = False, framework: str = None):
         super().__init__()
         self.source_file_path = source_file_path
         self.is_main_file = is_main_file
+        self.framework = framework or "plain"  # Support for different frameworks
         self.class_name = "RoelangProgram"  # Default
         self.imports = set()
         self.fields = []  # Instance variables
@@ -29,6 +31,11 @@ class JavaCodeGenerator(BaseCodeGenerator):
         self.methods = []  # Action definitions become methods
         self.module_classes = []  # Module definitions become separate classes
         self.has_modules = False
+        self.spring_boot_config = {}  # Spring Boot specific configuration
+        self.jpa_entities = []  # JPA entity classes
+        self.api_controllers = []  # REST controllers
+        self.services = []  # Service classes
+        self.repositories = []  # Repository interfaces
         
         # Determine class name from file or detect modules
         if source_file_path:
@@ -121,6 +128,10 @@ class JavaCodeGenerator(BaseCodeGenerator):
         self.constructor_code.clear()
         self.methods.clear()
         self.module_classes.clear()
+        self.jpa_entities.clear()
+        self.api_controllers.clear()
+        self.services.clear()
+        self.repositories.clear()
         self.has_modules = False
         
         # Add core imports
@@ -129,18 +140,37 @@ class JavaCodeGenerator(BaseCodeGenerator):
         self.imports.add("java.time.format.*")
         self.imports.add("java.text.*")
         
+        # Setup framework-specific imports
+        if self.framework == "spring":
+            self._setup_spring_boot_imports()
+        
         # First pass: Check for modules and extract them
         modules_found = []
+        data_definitions = []
+        serve_modules = []
         non_module_statements = []
         
         for stmt in program.statements:
             if isinstance(stmt, ModuleDefinition):
                 modules_found.append(stmt)
                 self.has_modules = True
+                # Check if module has serve statements (API module)
+                if any(isinstance(s, ServeStatement) for s in stmt.body):
+                    serve_modules.append(stmt)
+                # Check if module has data definitions
+                for body_stmt in stmt.body:
+                    if isinstance(body_stmt, DataDefinition):
+                        data_definitions.append(body_stmt)
+            elif isinstance(stmt, DataDefinition):
+                data_definitions.append(stmt)
             else:
                 non_module_statements.append(stmt)
         
-        # If we have modules, treat all modules as separate classes
+        # Generate Spring Boot components if framework is spring
+        if self.framework == "spring":
+            return self._generate_spring_boot_project(modules_found, data_definitions, serve_modules)
+        
+        # Traditional approach for plain Java
         if modules_found:
             # Process all modules as separate classes
             for module in modules_found:
@@ -548,3 +578,689 @@ class JavaCodeGenerator(BaseCodeGenerator):
         elif pattern == "bin":
             return f'"0b" + Integer.toBinaryString({expr_str})'
         return f'String.valueOf({expr_str})'
+    
+    def _setup_spring_boot_imports(self):
+        """Add Spring Boot specific imports."""
+        if self.framework == "spring":
+            self.imports.update([
+                "org.springframework.boot.SpringApplication",
+                "org.springframework.boot.autoconfigure.SpringBootApplication",
+                "org.springframework.web.bind.annotation.*",
+                "org.springframework.stereotype.Service",
+                "org.springframework.stereotype.Repository",
+                "org.springframework.data.jpa.repository.JpaRepository",
+                "jakarta.persistence.*",
+                "org.springframework.beans.factory.annotation.Autowired",
+                "org.springframework.http.ResponseEntity",
+                "org.springframework.http.HttpStatus",
+                "java.util.Optional"
+            ])
+    
+    def _generate_spring_boot_application(self) -> List[str]:
+        """Generate the main Spring Boot application class."""
+        lines = []
+        lines.append("@SpringBootApplication")
+        lines.append(f"public class {self.class_name}Application {{")
+        lines.append("")
+        lines.append("    public static void main(String[] args) {")
+        lines.append(f"        SpringApplication.run({self.class_name}Application.class, args);")
+        lines.append("    }")
+        lines.append("}")
+        return lines
+    
+    def _generate_jpa_entity(self, data_def: DataDefinition) -> List[str]:
+        """Generate a JPA entity class from a data definition."""
+        lines = []
+        lines.append("@Entity")
+        lines.append("@Table(name = \"" + data_def.name.lower() + "s\")")
+        lines.append(f"public class {data_def.name} {{")
+        lines.append("")
+        
+        # Generate fields
+        id_field_added = False
+        for field in data_def.fields:
+            if field.name.lower() == "id":
+                lines.append("    @Id")
+                lines.append("    @GeneratedValue(strategy = GenerationType.IDENTITY)")
+                id_field_added = True
+            
+            java_type = self._get_java_type_from_declared(field.type)
+            lines.append(f"    @Column(name = \"{field.name}\")")
+            lines.append(f"    private {java_type} {field.name};")
+            lines.append("")
+        
+        # Add default ID field if not present
+        if not id_field_added:
+            lines.insert(-len(data_def.fields) * 3, "    @Id")
+            lines.insert(-len(data_def.fields) * 3 + 1, "    @GeneratedValue(strategy = GenerationType.IDENTITY)")
+            lines.insert(-len(data_def.fields) * 3 + 2, "    @Column(name = \"id\")")
+            lines.insert(-len(data_def.fields) * 3 + 3, "    private Long id;")
+            lines.insert(-len(data_def.fields) * 3 + 4, "")
+        
+        # Generate getters and setters
+        if not id_field_added:
+            lines.extend(self._generate_getter_setter("Long", "id"))
+            
+        for field in data_def.fields:
+            java_type = self._get_java_type_from_declared(field.type)
+            lines.extend(self._generate_getter_setter(java_type, field.name))
+        
+        lines.append("}")
+        return lines
+    
+    def _generate_getter_setter(self, java_type: str, field_name: str) -> List[str]:
+        """Generate getter and setter methods for a field."""
+        lines = []
+        capitalized_name = field_name.capitalize()
+        
+        # Getter
+        lines.append(f"    public {java_type} get{capitalized_name}() {{")
+        lines.append(f"        return {field_name};")
+        lines.append("    }")
+        lines.append("")
+        
+        # Setter
+        lines.append(f"    public void set{capitalized_name}({java_type} {field_name}) {{")
+        lines.append(f"        this.{field_name} = {field_name};")
+        lines.append("    }")
+        lines.append("")
+        
+        return lines
+    
+    def _generate_repository(self, entity_name: str) -> List[str]:
+        """Generate a JPA repository interface."""
+        lines = []
+        lines.append("@Repository")
+        lines.append(f"public interface {entity_name}Repository extends JpaRepository<{entity_name}, Long> {{")
+        lines.append("    // Custom query methods can be added here")
+        lines.append("}")
+        return lines
+    
+    def _generate_service(self, module: ModuleDefinition) -> List[str]:
+        """Generate a service class from a module definition."""
+        lines = []
+        lines.append("@Service")
+        lines.append(f"public class {module.name} {{")
+        lines.append("")
+        
+        # Add repository injections based on data types referenced
+        repositories = set()
+        for stmt in module.body:
+            if isinstance(stmt, ActionDefinitionWithParams):
+                # Scan action body for database operations
+                for body_stmt in stmt.body:
+                    if isinstance(body_stmt, DatabaseStatement):
+                        repositories.add(body_stmt.entity_name)
+        
+        for entity in repositories:
+            lines.append("    @Autowired")
+            lines.append(f"    private {entity}Repository {entity.lower()}Repository;")
+            lines.append("")
+        
+        # Generate service methods from actions
+        for stmt in module.body:
+            if isinstance(stmt, ActionDefinitionWithParams):
+                lines.extend(self._generate_service_method(stmt))
+        
+        lines.append("}")
+        return lines
+    
+    def _generate_service_method(self, action: ActionDefinitionWithParams) -> List[str]:
+        """Generate a service method from an action definition."""
+        lines = []
+        
+        # Build parameter list
+        params = []
+        if action.parameters:
+            for param in action.parameters:
+                param_type = self._get_java_type(self.map_user_type_to_internal(param.type))
+                params.append(f"{param_type} {param.name}")
+        
+        param_list = ", ".join(params)
+        
+        # Determine return type
+        return_type = "Object"
+        if action.return_type:
+            return_type = self._get_java_type(self.map_user_type_to_internal(action.return_type))
+        
+        lines.append(f"    public {return_type} {action.name}({param_list}) {{")
+        
+        # Generate method body from database operations
+        for stmt in action.body:
+            if isinstance(stmt, DatabaseStatement):
+                lines.extend(self._generate_database_operation(stmt, 2))
+            elif isinstance(stmt, ReturnStatement):
+                if hasattr(stmt.expression, 'name'):
+                    lines.append(f"        return {stmt.expression.name};")
+                else:
+                    expr_str = self.emit_expression(stmt.expression)
+                    lines.append(f"        return {expr_str};")
+        
+        if return_type != "void" and not any("return" in line for line in lines[-5:]):
+            lines.append("        return null;")
+        
+        lines.append("    }")
+        lines.append("")
+        return lines
+    
+    def _generate_database_operation(self, stmt: DatabaseStatement, indent: int = 0) -> List[str]:
+        """Generate database operation code."""
+        lines = []
+        indent_str = "    " * indent
+        
+        if stmt.operation == "find":
+            if stmt.conditions:
+                # For now, simple findById operation
+                lines.append(f"{indent_str}Optional<{stmt.entity_name}> result = {stmt.entity_name.lower()}Repository.findById({stmt.conditions[0].name});")
+                lines.append(f"{indent_str}{stmt.entity_name} {stmt.entity_name.lower()} = result.orElse(null);")
+            else:
+                lines.append(f"{indent_str}List<{stmt.entity_name}> results = {stmt.entity_name.lower()}Repository.findAll();")
+        
+        elif stmt.operation == "create":
+            lines.append(f"{indent_str}{stmt.entity_name} {stmt.entity_name.lower()} = new {stmt.entity_name}();")
+            for field in stmt.fields:
+                if hasattr(field, 'field_name') and hasattr(field, 'value'):
+                    lines.append(f"{indent_str}{stmt.entity_name.lower()}.set{field.field_name.capitalize()}({field.value.name});")
+            lines.append(f"{indent_str}{stmt.entity_name.lower()} = {stmt.entity_name.lower()}Repository.save({stmt.entity_name.lower()});")
+        
+        elif stmt.operation == "update":
+            if stmt.conditions:
+                lines.append(f"{indent_str}Optional<{stmt.entity_name}> result = {stmt.entity_name.lower()}Repository.findById({stmt.conditions[0].name});")
+                lines.append(f"{indent_str}if (result.isPresent()) {{")
+                lines.append(f"{indent_str}    {stmt.entity_name} {stmt.entity_name.lower()} = result.get();")
+                for field in stmt.fields:
+                    if hasattr(field, 'field_name') and hasattr(field, 'value'):
+                        lines.append(f"{indent_str}    {stmt.entity_name.lower()}.set{field.field_name.capitalize()}({field.value.name});")
+                lines.append(f"{indent_str}    {stmt.entity_name.lower()} = {stmt.entity_name.lower()}Repository.save({stmt.entity_name.lower()});")
+                lines.append(f"{indent_str}}}")
+        
+        return lines
+    
+    def _generate_rest_controller(self, module: ModuleDefinition) -> List[str]:
+        """Generate a REST controller from module with serve statements."""
+        lines = []
+        lines.append("@RestController")
+        lines.append(f"@RequestMapping(\"/api\")")
+        lines.append(f"public class {module.name}Controller {{")
+        lines.append("")
+        
+        # Inject service
+        lines.append("    @Autowired")
+        lines.append(f"    private {module.name} {module.name.lower()}Service;")
+        lines.append("")
+        
+        # Generate endpoints from serve statements
+        for stmt in module.body:
+            if isinstance(stmt, ServeStatement):
+                lines.extend(self._generate_rest_endpoint(stmt))
+        
+        lines.append("}")
+        return lines
+    
+    def _generate_rest_endpoint(self, serve: ServeStatement) -> List[str]:
+        """Generate a REST endpoint from a serve statement."""
+        lines = []
+        
+        # Determine Spring annotation
+        method_map = {
+            "get": "GetMapping",
+            "post": "PostMapping", 
+            "put": "PutMapping",
+            "delete": "DeleteMapping"
+        }
+        
+        spring_annotation = method_map.get(serve.method, "RequestMapping")
+        lines.append(f"    @{spring_annotation}(\"{serve.endpoint}\")")
+        
+        # Build method signature
+        method_name = f"{serve.method}{serve.endpoint.replace('/', '').replace('{', '').replace('}', '').capitalize()}"
+        if not method_name.endswith("Mapping"):
+            method_name = method_name.replace("Mapping", "")
+        
+        params = []
+        for param_stmt in serve.body:
+            if isinstance(param_stmt, ParamsStatement):
+                java_type = self._get_java_type(self.map_user_type_to_internal(param_stmt.param_type))
+                params.append(f"@PathVariable {java_type} {param_stmt.param_name}")
+        
+        # Add request body parameter if needed
+        for stmt in serve.body:
+            if isinstance(stmt, AcceptStatement):
+                params.append(f"@RequestBody Object requestBody")
+                break
+        
+        param_list = ", ".join(params)
+        
+        lines.append(f"    public ResponseEntity<Object> {method_name}({param_list}) {{")
+        lines.append("        try {")
+        
+        # Generate method body
+        for stmt in serve.body:
+            if isinstance(stmt, RespondStatement):
+                if serve.body and any(isinstance(s, ParamsStatement) for s in serve.body):
+                    # Has parameters
+                    param_names = [p.param_name for p in serve.body if isinstance(p, ParamsStatement)]
+                    param_args = ", ".join(param_names)
+                    lines.append(f"            Object result = {stmt.module_name.lower()}Service.{stmt.action_name}({param_args});")
+                else:
+                    lines.append(f"            Object result = {stmt.module_name.lower()}Service.{stmt.action_name}();")
+                lines.append("            return ResponseEntity.ok(result);")
+        
+        lines.append("        } catch (Exception e) {")
+        lines.append("            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(\"Error: \" + e.getMessage());")
+        lines.append("        }")
+        lines.append("    }")
+        lines.append("")
+        
+        return lines
+    
+    def _generate_spring_boot_project(self, modules_found: List[ModuleDefinition], 
+                                    data_definitions: List[DataDefinition], 
+                                    serve_modules: List[ModuleDefinition]) -> str:
+        """Generate a complete Spring Boot project structure."""
+        from pathlib import Path
+        import os
+        
+        # Create project structure
+        project_name = self.class_name.lower().replace("application", "")
+        base_package = f"com.example.{project_name}"
+        
+        # Define project root relative to current output file location
+        if self.source_file_path:
+            source_dir = Path(self.source_file_path).parent
+            project_root = source_dir / "build" / f"{project_name}-spring-boot"
+        else:
+            project_root = Path("build") / f"{project_name}-spring-boot"
+        
+        # Create directory structure
+        src_main_java = project_root / "src" / "main" / "java" / "com" / "example" / project_name
+        src_main_resources = project_root / "src" / "main" / "resources"
+        
+        # Ensure directories exist
+        os.makedirs(src_main_java / "entity", exist_ok=True)
+        os.makedirs(src_main_java / "repository", exist_ok=True)
+        os.makedirs(src_main_java / "service", exist_ok=True)
+        os.makedirs(src_main_java / "controller", exist_ok=True)
+        os.makedirs(src_main_resources, exist_ok=True)
+        
+        # Generate main application class
+        main_app_lines = self._generate_spring_boot_application_with_package(base_package)
+        main_app_file = src_main_java / "Application.java"
+        with open(main_app_file, 'w') as f:
+            f.write("\n".join(main_app_lines))
+        
+        # Generate JPA entities from data definitions
+        entities_created = []
+        for module in modules_found:
+            for stmt in module.body:
+                if isinstance(stmt, DataDefinition):
+                    data_definitions.append(stmt)
+        
+        for data_def in data_definitions:
+            entity_lines = self._generate_jpa_entity_with_package(data_def, base_package)
+            entity_file = src_main_java / "entity" / f"{data_def.name}.java"
+            with open(entity_file, 'w') as f:
+                f.write("\n".join(entity_lines))
+            entities_created.append(data_def.name)
+            
+            # Generate repository
+            repo_lines = self._generate_repository_with_package(data_def.name, base_package)
+            repo_file = src_main_java / "repository" / f"{data_def.name}Repository.java"
+            with open(repo_file, 'w') as f:
+                f.write("\n".join(repo_lines))
+        
+        # Generate services from modules
+        for module in modules_found:
+            service_lines = self._generate_service_with_package(module, base_package, entities_created)
+            service_file = src_main_java / "service" / f"{module.name}Service.java"
+            with open(service_file, 'w') as f:
+                f.write("\n".join(service_lines))
+        
+        # Generate controllers from serve modules (if any)
+        for module in serve_modules:
+            controller_lines = self._generate_rest_controller_with_package(module, base_package)
+            controller_file = src_main_java / "controller" / f"{module.name}Controller.java"
+            with open(controller_file, 'w') as f:
+                f.write("\n".join(controller_lines))
+        
+        # Generate Maven pom.xml
+        pom_content = self._generate_maven_pom(project_name, base_package)
+        pom_file = project_root / "pom.xml"
+        with open(pom_file, 'w') as f:
+            f.write(pom_content)
+        
+        # Generate application.properties
+        props_content = self._generate_application_properties()
+        props_file = src_main_resources / "application.properties"
+        with open(props_file, 'w') as f:
+            f.write(props_content)
+        
+        # Generate README for the Spring Boot project
+        readme_content = self._generate_spring_boot_readme(project_name)
+        readme_file = project_root / "README.md"
+        with open(readme_file, 'w') as f:
+            f.write(readme_content)
+        
+        return f"SPRING_PROJECT:{project_root}"
+    
+    def _build_class_file(self, class_lines: List[str], class_name: str) -> str:
+        """Build a complete Java class file with imports."""
+        lines = []
+        
+        # Add imports
+        if self.imports:
+            for imp in sorted(self.imports):
+                lines.append(f"import {imp};")
+            lines.append("")
+        
+        # Add class content
+        lines.extend(class_lines)
+        
+        return "\n".join(lines)
+    
+    def _generate_spring_boot_application_with_package(self, package: str) -> List[str]:
+        """Generate Spring Boot application class with package declaration."""
+        lines = []
+        lines.append(f"package {package};")
+        lines.append("")
+        lines.append("import org.springframework.boot.SpringApplication;")
+        lines.append("import org.springframework.boot.autoconfigure.SpringBootApplication;")
+        lines.append("")
+        lines.append("@SpringBootApplication")
+        lines.append("public class Application {")
+        lines.append("")
+        lines.append("    public static void main(String[] args) {")
+        lines.append("        SpringApplication.run(Application.class, args);")
+        lines.append("    }")
+        lines.append("}")
+        return lines
+    
+    def _generate_jpa_entity_with_package(self, data_def: DataDefinition, package: str) -> List[str]:
+        """Generate JPA entity with package declaration."""
+        lines = []
+        lines.append(f"package {package}.entity;")
+        lines.append("")
+        lines.append("import jakarta.persistence.*;")
+        lines.append("")
+        lines.append("@Entity")
+        lines.append(f"@Table(name = \"{data_def.name.lower()}s\")")
+        lines.append(f"public class {data_def.name} {{")
+        lines.append("")
+        
+        # Add ID field if not present
+        id_field_added = any(field.name.lower() == "id" for field in data_def.fields)
+        if not id_field_added:
+            lines.append("    @Id")
+            lines.append("    @GeneratedValue(strategy = GenerationType.IDENTITY)")
+            lines.append("    @Column(name = \"id\")")
+            lines.append("    private Long id;")
+            lines.append("")
+        
+        # Generate fields
+        for field in data_def.fields:
+            if field.name.lower() == "id":
+                lines.append("    @Id")
+                lines.append("    @GeneratedValue(strategy = GenerationType.IDENTITY)")
+            
+            java_type = self._get_java_type_from_declared(field.type)
+            lines.append(f"    @Column(name = \"{field.name.lower()}\")")
+            lines.append(f"    private {java_type} {field.name};")
+            lines.append("")
+        
+        # Generate getters and setters
+        if not id_field_added:
+            lines.extend(self._generate_getter_setter("Long", "id"))
+            
+        for field in data_def.fields:
+            java_type = self._get_java_type_from_declared(field.type)
+            lines.extend(self._generate_getter_setter(java_type, field.name))
+        
+        lines.append("}")
+        return lines
+    
+    def _generate_repository_with_package(self, entity_name: str, package: str) -> List[str]:
+        """Generate JPA repository with package declaration."""
+        lines = []
+        lines.append(f"package {package}.repository;")
+        lines.append("")
+        lines.append(f"import {package}.entity.{entity_name};")
+        lines.append("import org.springframework.data.jpa.repository.JpaRepository;")
+        lines.append("import org.springframework.stereotype.Repository;")
+        lines.append("")
+        lines.append("@Repository")
+        lines.append(f"public interface {entity_name}Repository extends JpaRepository<{entity_name}, Long> {{")
+        lines.append("    // Custom query methods can be added here")
+        lines.append("}")
+        return lines
+    
+    def _generate_service_with_package(self, module: ModuleDefinition, package: str, entities: List[str]) -> List[str]:
+        """Generate service class with package declaration."""
+        lines = []
+        lines.append(f"package {package}.service;")
+        lines.append("")
+        
+        # Add imports
+        lines.append("import org.springframework.beans.factory.annotation.Autowired;")
+        lines.append("import org.springframework.stereotype.Service;")
+        lines.append("import java.util.List;")
+        lines.append("import java.util.Optional;")
+        lines.append("")
+        
+        # Add entity and repository imports
+        for entity in entities:
+            lines.append(f"import {package}.entity.{entity};")
+            lines.append(f"import {package}.repository.{entity}Repository;")
+        lines.append("")
+        
+        lines.append("@Service")
+        lines.append(f"public class {module.name}Service {{")
+        lines.append("")
+        
+        # Add repository injections
+        for entity in entities:
+            lines.append("    @Autowired")
+            lines.append(f"    private {entity}Repository {entity.lower()}Repository;")
+            lines.append("")
+        
+        # Generate service methods from actions
+        for stmt in module.body:
+            if isinstance(stmt, ActionDefinitionWithParams):
+                lines.extend(self._generate_service_method_with_package(stmt))
+        
+        lines.append("}")
+        return lines
+    
+    def _generate_service_method_with_package(self, action: ActionDefinitionWithParams) -> List[str]:
+        """Generate service method with proper typing."""
+        lines = []
+        
+        # Build parameter list
+        params = []
+        if action.parameters:
+            for param in action.parameters:
+                param_type = self._get_java_type(self.map_user_type_to_internal(param.type))
+                params.append(f"{param_type} {param.name}")
+        
+        param_list = ", ".join(params)
+        
+        # Determine return type
+        return_type = "Object"
+        if action.return_type:
+            return_type = self._get_java_type(self.map_user_type_to_internal(action.return_type))
+        
+        lines.append(f"    public {return_type} {action.name}({param_list}) {{")
+        lines.append("        // TODO: Implement business logic")
+        
+        if return_type != "void":
+            lines.append("        return null;")
+        
+        lines.append("    }")
+        lines.append("")
+        return lines
+    
+    def _generate_rest_controller_with_package(self, module: ModuleDefinition, package: str) -> List[str]:
+        """Generate REST controller with package declaration."""
+        lines = []
+        lines.append(f"package {package}.controller;")
+        lines.append("")
+        lines.append(f"import {package}.service.{module.name}Service;")
+        lines.append("import org.springframework.beans.factory.annotation.Autowired;")
+        lines.append("import org.springframework.web.bind.annotation.*;")
+        lines.append("")
+        lines.append("@RestController")
+        lines.append("@RequestMapping(\"/api\")")
+        lines.append(f"public class {module.name}Controller {{")
+        lines.append("")
+        lines.append("    @Autowired")
+        lines.append(f"    private {module.name}Service {module.name.lower()}Service;")
+        lines.append("")
+        lines.append("    // TODO: Add REST endpoints")
+        lines.append("}")
+        return lines
+    
+    def _generate_maven_pom(self, project_name: str, package: str) -> str:
+        """Generate Maven pom.xml file."""
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.1.5</version>
+        <relativePath/>
+    </parent>
+    
+    <groupId>com.example</groupId>
+    <artifactId>{project_name}-spring-boot</artifactId>
+    <version>1.0.0</version>
+    <name>{project_name.title()} Spring Boot Application</name>
+    <description>Spring Boot application generated from Roelang DSL</description>
+    
+    <properties>
+        <java.version>17</java.version>
+    </properties>
+    
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+    
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>"""
+    
+    def _generate_application_properties(self) -> str:
+        """Generate application.properties file."""
+        return """# Spring Boot Configuration
+spring.application.name=roelang-spring-app
+
+# H2 Database Configuration (for development)
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driverClassName=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+
+# JPA/Hibernate Configuration
+spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+spring.jpa.hibernate.ddl-auto=create-drop
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+
+# H2 Console (for development)
+spring.h2.console.enabled=true
+spring.h2.console.path=/h2-console
+
+# Server Configuration
+server.port=8080
+"""
+    
+    def _generate_spring_boot_readme(self, project_name: str) -> str:
+        """Generate README for the Spring Boot project."""
+        return f"""# {project_name.title()} Spring Boot Application
+
+This Spring Boot application was generated from Roelang DSL.
+
+## Features
+
+- Spring Boot 3.1.5
+- Spring Data JPA
+- H2 Database (in-memory, for development)
+- RESTful API endpoints
+- Automatic database schema generation
+
+## Project Structure
+
+```
+src/main/java/com/example/{project_name}/
+├── Application.java              # Main Spring Boot application class
+├── entity/                       # JPA entities
+├── repository/                   # Data access layer
+├── service/                      # Business logic layer
+└── controller/                   # REST API controllers
+```
+
+## Running the Application
+
+1. Ensure you have Java 17+ and Maven installed
+2. Navigate to the project directory
+3. Run the application:
+
+```bash
+mvn spring-boot:run
+```
+
+Or build and run the JAR:
+
+```bash
+mvn clean package
+java -jar target/{project_name}-spring-boot-1.0.0.jar
+```
+
+## Accessing the Application
+
+- Application: http://localhost:8080
+- H2 Console: http://localhost:8080/h2-console
+  - JDBC URL: `jdbc:h2:mem:testdb`
+  - Username: `sa`
+  - Password: (leave empty)
+
+## API Endpoints
+
+The application exposes REST endpoints under `/api/` path.
+
+## Development
+
+This is a standard Maven Spring Boot project. You can:
+- Import it into any Java IDE
+- Modify the generated classes
+- Add additional dependencies to `pom.xml`
+- Customize application properties
+
+Generated by Roelang compiler with Spring Boot framework support.
+"""
