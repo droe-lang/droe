@@ -39,7 +39,7 @@ def load_compiler():
 
 # Load config from roeconfig.json if available
 def load_config(project_root=None):
-    default_config = {"src": "src", "build": "build", "target": "wasm", "framework": "plain"}
+    default_config = {"src": "src", "build": "build", "target": "roe", "framework": "plain"}
     if project_root is None:
         config_path = Path.cwd() / "roeconfig.json"
     else:
@@ -52,7 +52,7 @@ def load_config(project_root=None):
                 return {
                     "src": config.get("src", "src"),
                     "build": config.get("build", "build"),
-                    "target": config.get("target", "wasm"),
+                    "target": config.get("target", "roe"),
                     "framework": config.get("framework", "plain"),
                     "package": config.get("package"),
                     "database": config.get("database")
@@ -119,7 +119,7 @@ def init_project(name=None, author=None, target=None, framework=None):
         "dist": "dist",
         "modules": "modules",
         "main": "src/main.roe",
-        "target": target or "wasm"
+        "target": target or "roe"
     }
     
     # Validate framework-target compatibility
@@ -132,10 +132,11 @@ def init_project(name=None, author=None, target=None, framework=None):
             "wasm": [],
             "html": [],
             "mobile": [],
+            "rust": ["axum"],
             "roe": ["axum"]
         }
         
-        target_key = target or "wasm"
+        target_key = target or "roe"
         if target_key in valid_frameworks:
             if framework != "plain" and framework not in valid_frameworks[target_key]:
                 print(f"❌ Error: Framework '{framework}' is not compatible with target '{target_key}'")
@@ -146,7 +147,7 @@ def init_project(name=None, author=None, target=None, framework=None):
                 exit(1)
         
         # Add framework if specified and applicable (ignore for targets that don't support frameworks)
-        if framework != "plain" and target_key in ["java", "python", "go", "node", "roe"]:
+        if framework != "plain" and target_key in ["java", "python", "go", "node", "rust", "roe"]:
             config_data["framework"] = framework
         
     # Add package name for Java Spring projects
@@ -247,7 +248,7 @@ display "Hello from [projectName]!"
     # Show framework only for targets that support it
     framework_targets = ["java", "python", "go", "node"] 
     show_framework = framework and framework != "plain" and (target or "wasm") in framework_targets
-    print(f"🎯 Target: {target or 'wasm'}" + (f" with {framework} framework" if show_framework else ""))
+    print(f"🎯 Target: {target or 'roe'}" + (f" with {framework} framework" if show_framework else ""))
     print("\n📂 Directory structure:")
     print("  src/         - Source code (.roe files)")
     print("  modules/     - Downloaded packages")
@@ -523,7 +524,7 @@ def build_distribution(project_root, clean=False, release=False):
     build_dir = project_root / config.get("build", "build")
     dist_dir = project_root / config.get("dist", "dist")
     main_file = config.get("main", "src/main.roe")
-    target = config.get("target", "wasm")
+    target = config.get("target", "roe")
     framework = config.get("framework", "plain")
     
     print(f"📦 Building distribution package...")
@@ -651,10 +652,11 @@ def build_distribution(project_root, clean=False, release=False):
             "go": "*.go",
             "node": "*.js",
             "html": "*.html",
-            "roe": "*.rs"
+            "rust": "*.rs",
+            "roe": "*.roebc"
         }
         
-        pattern = target_extensions.get(target, "*.wasm")
+        pattern = target_extensions.get(target, "*.roebc")
         print(f"📦 Looking for {pattern} files...")
         
         for target_file in build_dir.rglob(pattern):
@@ -724,7 +726,7 @@ def main():
     init_parser.add_argument('project_name', nargs='?', help='Project name (creates directory if specified)')
     init_parser.add_argument('--name', help='Project name (deprecated, use positional argument)')
     init_parser.add_argument('--author', help='Project author')
-    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile', 'roe'], help='Compilation target')
+    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile', 'rust', 'roe'], help='Compilation target')
     init_parser.add_argument('--framework', choices=['plain', 'spring', 'fastapi', 'fiber', 'fastify', 'axum'], help='Framework to use with target')
     
     # Install command
@@ -745,7 +747,7 @@ def main():
     compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
     compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
-    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'roe'], help='Compilation target (overrides roeconfig.json)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'rust', 'roe'], help='Compilation target (overrides roeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
@@ -902,7 +904,7 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             if target_override:
                 target = target_override
             else:
-                config_target = config.get("target", "wasm")
+                config_target = config.get("target", "roe")
                 target = compiler.get_target_from_source(source_content, config_target)
             
             # If output_format is specified and not 'wasm', it's likely wat - keep backward compatibility
@@ -914,8 +916,8 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             # Use new multi-target compiler if available
             if hasattr(compiler, 'compile_file') and hasattr(compiler, 'CompilerError'):
                 try:
-                    # For mobile and roe targets, don't create individual output paths
-                    if target in ['mobile', 'roe']:
+                    # For mobile and rust targets, don't create individual output paths
+                    if target in ['mobile', 'rust']:
                         # These projects handle their own directory structure
                         output_file = compiler.compile_file(str(roe_file), target=target, framework=config.get("framework", "plain"), package=config.get("package"), database=config.get("database"))
                     else:
@@ -932,7 +934,8 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
                                 'kotlin': '.kt',
                                 'swift': '.swift',
                                 'bytecode': '.roebc',
-                                'roe': '.rs'
+                                'rust': '.rs',
+                                'roe': '.roebc'
                             }
                             extension = target_extensions.get(target, '.txt')
                             computed_output_path = build_dir / f"{basename}{extension}"

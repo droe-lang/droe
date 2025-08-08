@@ -1,0 +1,20 @@
+use serde::{Deserialize, Serialize};
+{% if has_database_ops and db_type in ['postgres', 'mysql', 'sqlite'] %}
+use sqlx::FromRow;
+{% if has_uuid_fields %}
+use uuid::Uuid;
+{% endif %}
+{% if has_datetime_fields %}
+use chrono::{DateTime, Utc};
+{% endif %}
+{% endif %}
+
+{% for name, data_def in data_structures.items() %}
+#[derive(Debug, Clone, Serialize, Deserialize{% if has_database_ops and db_type in ['postgres', 'mysql', 'sqlite'] %}, FromRow{% endif %})]
+pub struct {{ name }} {
+{% for field in data_def.fields %}
+    pub {{ field.name | snake_case }}: {% if 'key' in field.annotations and 'auto' in field.annotations %}Uuid{% elif field.type == 'text' %}String{% elif field.type == 'int' %}i32{% elif field.type == 'decimal' %}f64{% elif field.type == 'flag' %}bool{% elif field.type in ['date', 'datetime'] %}DateTime<Utc>{% else %}String{% endif %}{% if 'optional' in field.annotations %}Option<{{ field.type | rust_type }}>{% endif %},
+{% endfor %}
+}
+
+{% endfor %}

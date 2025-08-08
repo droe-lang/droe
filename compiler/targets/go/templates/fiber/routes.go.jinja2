@@ -1,0 +1,135 @@
+package main
+
+import (
+	"strconv"
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+)
+
+{% for data in data_definitions %}
+// RegisterRoutes{{ data.name }} registers CRUD routes for {{ data.name }}
+func RegisterRoutes{{ data.name }}(app *fiber.App, db *gorm.DB) {
+	api := app.Group("/api/{{ data.name.lower() }}s")
+
+	// GET /api/{{ data.name.lower() }}s - List all {{ data.name.lower() }}s
+	api.Get("/", func(c *fiber.Ctx) error {
+		var {{ data.name.lower() }}s []{{ data.name }}
+		
+		// Parse query parameters
+		limit, _ := strconv.Atoi(c.Query("limit", "100"))
+		offset, _ := strconv.Atoi(c.Query("offset", "0"))
+		
+		result := db.Limit(limit).Offset(offset).Find(&{{ data.name.lower() }}s)
+		if result.Error != nil {
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to fetch {{ data.name.lower() }}s",
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"data": {{ data.name.lower() }}s,
+			"total": len({{ data.name.lower() }}s),
+		})
+	})
+
+	// GET /api/{{ data.name.lower() }}s/:id - Get {{ data.name.lower() }} by ID
+	api.Get("/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		var {{ data.name.lower() }} {{ data.name }}
+		
+		result := db.First(&{{ data.name.lower() }}, "id = ?", id)
+		if result.Error != nil {
+			if result.Error == gorm.ErrRecordNotFound {
+				return c.Status(404).JSON(fiber.Map{
+					"error": "{{ data.name }} not found",
+				})
+			}
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to fetch {{ data.name.lower() }}",
+			})
+		}
+
+		return c.JSON({{ data.name.lower() }})
+	})
+
+	// POST /api/{{ data.name.lower() }}s - Create new {{ data.name.lower() }}
+	api.Post("/", func(c *fiber.Ctx) error {
+		var {{ data.name.lower() }} {{ data.name }}
+		
+		if err := c.BodyParser(&{{ data.name.lower() }}); err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Invalid request body",
+			})
+		}
+
+		result := db.Create(&{{ data.name.lower() }})
+		if result.Error != nil {
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to create {{ data.name.lower() }}",
+			})
+		}
+
+		return c.Status(201).JSON({{ data.name.lower() }})
+	})
+
+	// PUT /api/{{ data.name.lower() }}s/:id - Update {{ data.name.lower() }}
+	api.Put("/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		var {{ data.name.lower() }} {{ data.name }}
+		
+		// Check if {{ data.name.lower() }} exists
+		result := db.First(&{{ data.name.lower() }}, "id = ?", id)
+		if result.Error != nil {
+			if result.Error == gorm.ErrRecordNotFound {
+				return c.Status(404).JSON(fiber.Map{
+					"error": "{{ data.name }} not found",
+				})
+			}
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to fetch {{ data.name.lower() }}",
+			})
+		}
+
+		// Parse update data
+		var updateData {{ data.name }}
+		if err := c.BodyParser(&updateData); err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": "Invalid request body",
+			})
+		}
+
+		// Update {{ data.name.lower() }}
+		result = db.Model(&{{ data.name.lower() }}).Updates(updateData)
+		if result.Error != nil {
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to update {{ data.name.lower() }}",
+			})
+		}
+
+		return c.JSON({{ data.name.lower() }})
+	})
+
+	// DELETE /api/{{ data.name.lower() }}s/:id - Delete {{ data.name.lower() }}
+	api.Delete("/:id", func(c *fiber.Ctx) error {
+		id := c.Params("id")
+		
+		result := db.Delete(&{{ data.name }}{}, "id = ?", id)
+		if result.Error != nil {
+			return c.Status(500).JSON(fiber.Map{
+				"error": "Failed to delete {{ data.name.lower() }}",
+			})
+		}
+
+		if result.RowsAffected == 0 {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "{{ data.name }} not found",
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"message": "{{ data.name }} deleted successfully",
+		})
+	})
+}
+
+{% endfor %}

@@ -1,0 +1,16 @@
+data User
+    id is text key auto
+    name is text required
+    email is text unique required
+end data
+
+serve get /api/users
+end serve
+
+serve post /api/users
+end serve
+
+serve get /api/users/:id
+end serve
+
+Display "Go Fiber API Server"

@@ -1,0 +1,59 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+
+from .models import *
+from .database import get_db{% for name in data_structures.keys() %}, {{ name }}CRUD{% endfor %}
+
+{% for name in data_structures.keys() %}
+{{ name | snake_case }}_router = APIRouter(prefix="/{{ name | snake_case }}s", tags=["{{ name | snake_case }}s"])
+
+@{{ name | snake_case }}_router.get("/", response_model=List[{{ name }}])
+async def get_all_{{ name | snake_case }}s(db: Session = Depends(get_db)):
+    crud = {{ name }}CRUD(db)
+    return crud.get_all()
+
+@{{ name | snake_case }}_router.get("/{id}", response_model={{ name }})
+async def get_{{ name | snake_case }}(id: str, db: Session = Depends(get_db)):
+    crud = {{ name }}CRUD(db)
+    {{ name | snake_case }} = crud.get(id)
+    if {{ name | snake_case }} is None:
+        raise HTTPException(status_code=404, detail="{{ name }} not found")
+    return {{ name | snake_case }}
+
+@{{ name | snake_case }}_router.post("/", response_model={{ name }}, status_code=status.HTTP_201_CREATED)
+async def create_{{ name | snake_case }}({{ name | snake_case }}: {{ name }}Create, db: Session = Depends(get_db)):
+    crud = {{ name }}CRUD(db)
+    return crud.create({{ name | snake_case }}.dict())
+
+@{{ name | snake_case }}_router.put("/{id}", response_model={{ name }})
+async def update_{{ name | snake_case }}(id: str, {{ name | snake_case }}: {{ name }}Update, db: Session = Depends(get_db)):
+    crud = {{ name }}CRUD(db)
+    updated_{{ name | snake_case }} = crud.update(id, {{ name | snake_case }}.dict(exclude_unset=True))
+    if updated_{{ name | snake_case }} is None:
+        raise HTTPException(status_code=404, detail="{{ name }} not found")
+    return updated_{{ name | snake_case }}
+
+@{{ name | snake_case }}_router.delete("/{id}")
+async def delete_{{ name | snake_case }}(id: str, db: Session = Depends(get_db)):
+    crud = {{ name }}CRUD(db)
+    {{ name | snake_case }} = crud.delete(id)
+    if {{ name | snake_case }} is None:
+        raise HTTPException(status_code=404, detail="{{ name }} not found")
+    return {"message": "{{ name }} deleted successfully"}
+
+{% endfor %}
+
+# Custom endpoint routers for serve statements
+{% for endpoint in serve_endpoints %}
+{{ endpoint.router_name }} = APIRouter()
+
+@{{ endpoint.router_name }}.{{ endpoint.method.lower() }}("{{ endpoint.endpoint }}")
+async def {{ endpoint.handler_name }}({% if endpoint.params %}{% for param in endpoint.params %}{{ param }}: str, {% endfor %}{% endif %}{% if endpoint.accept_type %}payload: {{ endpoint.accept_type }}, {% endif %}db: Session = Depends(get_db)):
+    # Handler implementation
+    {% if endpoint.response_action %}
+    # Call action and return response
+    {% endif %}
+    return {"message": "Endpoint not fully implemented"}
+
+{% endfor %}

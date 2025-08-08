@@ -1,0 +1,54 @@
+@target roe
+@database postgres
+
+module UserAPI
+
+data User
+    id is text key auto
+    name is text required
+    email is text required unique
+    created_at is datetime auto
+end data
+
+data Post
+    id is text key auto
+    title is text required
+    content is text
+    author_id is text required
+    created_at is datetime auto
+end data
+
+serve get /users
+    db find all User
+    expect users
+    respond with users
+end serve
+
+serve get /users/:id
+    params id which is text
+    db find User where id equals id
+    expect user
+    respond with user
+end serve
+
+serve post /users
+    accept UserData
+    db create User from request
+    return id into user_id
+    respond with User with id is user_id
+end serve
+
+serve put /users/:id
+    params id which is text
+    accept UserUpdate
+    db update User where id equals id set name is "Updated Name"
+    respond with updated_user
+end serve
+
+serve delete /users/:id
+    params id which is text
+    db delete User where id equals id
+    respond with success
+end serve
+
+end module

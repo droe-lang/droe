@@ -634,10 +634,17 @@ db delete User where active equals false and age is less than 18
 
 ### Complete Database Example
 
-```roe
-@target java
-@framework spring
+`roeconfig.json`:
+```json
+{
+    "target": "java",
+    "framework": "spring",
+    "database": {"type": "postgres"}
+}
+```
 
+`src/user_management.roe`:
+```roe
 module user_management
 
     // Define User entity
@@ -1305,7 +1312,7 @@ Roelang compiles to multiple target languages and frameworks:
 
 ### Framework-Specific Generation
 
-When using `@framework` metadata or `--framework` CLI option:
+When using framework configuration in `roeconfig.json`:
 
 | Framework | Target | Generated Output |
 |-----------|--------|------------------|
@@ -1649,52 +1656,128 @@ This single Roelang file generates:
 
 Roelang provides framework adapters that automatically generate idiomatic code for popular frameworks.
 
-### Spring Boot Adapter (Java)
+### Backend Framework Adapters
+
+#### Spring Boot Adapter (Java)
 
 The Spring Boot adapter generates a complete, production-ready Spring Boot application:
 
-#### Features
+**Features:**
 - **JPA Entities**: Automatic generation from `data` definitions with proper annotations
-- **REST Controllers**: Full CRUD endpoints from `api` definitions
+- **REST Controllers**: Full CRUD endpoints from `serve` statements
 - **Service Layer**: Business logic separation
 - **Repository Layer**: Spring Data JPA repositories
 - **Configuration**: `application.properties` with database configuration
 - **Build System**: Maven `pom.xml` with all required dependencies
 
-#### Usage
-```roe
-@target java
-@framework spring
-
-module user_service
-    
-    data User
-        id is text key auto
-        email is text required unique
-        name is text required
-    end data
-    
-    serve get /users
-        set users from db find all User
-        respond 200 with users
-    end serve
-    
-    serve post /users
-        db create User from request.body
-        respond 201 with created_user
-    end serve
-    
-end module
+**Configuration:**
+```json
+{
+    "target": "java",
+    "framework": "spring",
+    "package": "com.example.api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/mydb"
+    }
+}
 ```
 
-This generates:
-- `User.java` - JPA entity with annotations
-- `UserRepository.java` - Spring Data repository
-- `UserService.java` - Service layer
-- `UserController.java` - REST controller
-- `Application.java` - Spring Boot main class
-- `pom.xml` - Maven configuration
-- `application.properties` - Database configuration
+#### FastAPI Adapter (Python)
+
+The FastAPI adapter generates a modern, async Python web API:
+
+**Features:**
+- **SQLAlchemy Models**: ORM models from `data` definitions
+- **Pydantic Schemas**: Request/response validation
+- **REST Endpoints**: Async CRUD APIs from `serve` statements
+- **Database Integration**: SQLAlchemy session management
+- **Dependencies**: `requirements.txt` with FastAPI, SQLAlchemy, and database drivers
+
+**Configuration:**
+```json
+{
+    "target": "python",
+    "framework": "fastapi",
+    "package": "my_api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/mydb"
+    }
+}
+```
+
+#### Axum Adapter (Rust)
+
+The Axum adapter generates a high-performance Rust web server:
+
+**Features:**
+- **SQLx Models**: Compile-time checked database queries
+- **Axum Handlers**: Type-safe HTTP handlers
+- **REST Endpoints**: Async CRUD APIs from `serve` statements
+- **Database Pool**: Connection pooling with SQLx
+- **Build System**: `Cargo.toml` with Axum, SQLx, and database drivers
+
+**Configuration:**
+```json
+{
+    "target": "rust",
+    "framework": "axum",
+    "package": "my-api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/mydb"
+    }
+}
+```
+
+#### Fiber Adapter (Go)
+
+The Fiber adapter generates a fast Go web API with GORM:
+
+**Features:**
+- **GORM Models**: Go structs with database tags from `data` definitions
+- **Fiber Handlers**: High-performance HTTP handlers
+- **REST Endpoints**: Complete CRUD APIs from `serve` statements
+- **Database Integration**: GORM ORM with auto-migration
+- **Go Module**: `go.mod` with Fiber, GORM, and database drivers
+
+**Configuration:**
+```json
+{
+    "target": "go",
+    "framework": "fiber",
+    "package": "my_api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/mydb"
+    }
+}
+```
+
+#### Fastify Adapter (Node.js)
+
+The Fastify adapter generates a Node.js web API with Prisma:
+
+**Features:**
+- **Prisma Schema**: Type-safe database schema from `data` definitions
+- **Fastify Routes**: Fast HTTP routing from `serve` statements
+- **REST Endpoints**: Complete CRUD APIs with validation
+- **Database Integration**: Prisma ORM with type generation
+- **Package System**: `package.json` with Fastify, Prisma, and database drivers
+
+**Configuration:**
+```json
+{
+    "target": "node",
+    "framework": "fastify",
+    "package": "my-api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/mydb"
+    }
+}
+```
 
 ### Mobile Framework Adapters
 
@@ -1716,86 +1799,170 @@ Generates a complete Xcode project:
 - **Project Structure**: Standard iOS app structure
 - **Components**: Native iOS components from Roelang UI DSL
 
-### Framework Configuration
+### Supported Framework Features
 
-#### Project-Level Configuration (roeconfig.json)
+| Target | Framework | Database ORM | API Type | Generated Files | Status |
+|--------|-----------|--------------|----------|-----------------|--------|
+| Java | Spring Boot | JPA/Hibernate | REST Controllers | Maven project | ✅ Implemented |
+| Python | FastAPI | SQLAlchemy | REST + Async | Python package | ✅ Implemented |
+| Rust | Axum | SQLx | REST + Async | Cargo project | ✅ Implemented |
+| Go | Fiber | GORM | REST + Fast HTTP | Go module | ✅ Implemented |
+| Node.js | Fastify | Prisma | REST + TypeScript | npm package | ✅ Implemented |
+| HTML | None | N/A | Client-side JS | Static HTML/CSS | ✅ Implemented |
+| Mobile | Kotlin/Swift | Room/CoreData* | Retrofit/URLSession* | Native projects* | 🚧 Partial |
+
+### Database Support by Framework
+
+| Framework | PostgreSQL | MySQL | SQLite | In-Memory |
+|-----------|------------|-------|--------|-----------|
+| Spring Boot | ✅ | ✅ | ✅ | ✅ (H2) |
+| FastAPI | ✅ | ✅ | ✅ | ❌ |
+| Axum | ✅ | ✅ | ✅ | ❌ |
+| Fiber | ✅ | ✅ | ✅ | ❌ |
+| Fastify | ✅ | ✅ | ✅ | ❌ |
+
+**Note**: Framework selection is configured in `roeconfig.json`, not as file-level annotations. HTML target generates static frontend code without framework dependencies.
+
+### Framework Usage Examples
+
+#### Example: User Management API
+
+**Shared Roelang Code (`src/api.roe`):**
+```roe
+data User
+    id is text key auto
+    name is text required
+    email is text unique required
+    created_at is date auto
+end data
+
+serve get /api/users
+end serve
+
+serve post /api/users
+end serve
+
+serve get /api/users/:id
+end serve
+
+serve put /api/users/:id
+end serve
+
+serve delete /api/users/:id
+end serve
+```
+
+**Java Spring Boot Configuration:**
 ```json
 {
-  "framework": "spring",
-  "spring": {
-    "group_id": "com.example",
-    "artifact_id": "myapp",
-    "package": "com.example.myapp",
-    "java_version": "11",
-    "spring_boot_version": "2.7.0",
+    "target": "java",
+    "framework": "spring",
+    "package": "com.example.userapi",
     "database": {
-      "type": "postgresql",
-      "host": "localhost",
-      "port": 5432,
-      "name": "mydb",
-      "username": "dbuser"
+        "type": "postgres",
+        "url": "postgresql://localhost/userdb"
     }
-  }
 }
 ```
 
-#### File-Level Configuration
-```roe
-@framework spring
-@metadata(framework="spring", package="com.example.api")
+**Python FastAPI Configuration:**
+```json
+{
+    "target": "python",
+    "framework": "fastapi",
+    "package": "user_api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/userdb"
+    }
+}
 ```
 
-### Supported Framework Features
+**Go Fiber Configuration:**
+```json
+{
+    "target": "go",
+    "framework": "fiber",
+    "package": "user_api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/userdb"
+    }
+}
+```
 
-| Framework | Database | API | UI | Authentication | Testing |
-|-----------|----------|-----|-----|----------------|---------|
-| Spring Boot | JPA/Hibernate | REST | Thymeleaf | Spring Security* | JUnit* |
-| Android | Room* | Retrofit* | XML/Compose | Firebase* | Espresso* |
-| iOS | Core Data* | URLSession* | SwiftUI | Sign in with Apple* | XCTest* |
+**Rust Axum Configuration:**
+```json
+{
+    "target": "rust",
+    "framework": "axum",
+    "package": "user-api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/userdb"
+    }
+}
+```
 
-*Planned or partial support
+**Node.js Fastify Configuration:**
+```json
+{
+    "target": "node",
+    "framework": "fastify",
+    "package": "user-api",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/userdb"
+    }
+}
+```
 
 ### Best Practices
 
-1. **Use Configuration Files**: Define framework settings in `roeconfig.json` for consistency
-2. **Leverage Annotations**: Use Roelang field annotations for proper database mapping
-3. **HTTP Endpoints**: Define clear REST endpoints using serve statements with proper HTTP methods and status codes
-4. **Type Safety**: Roelang's strong typing ensures type-safe framework code generation
-5. **Modular Design**: Organize code into modules for better framework integration
+1. **Consistent Configuration**: Use the same database URL format across all frameworks
+2. **Type Safety**: Leverage Roelang's strong typing for database mapping
+3. **REST Conventions**: Use standard HTTP methods in serve statements
+4. **Database Support**: Choose appropriate database types for your framework
+5. **Package Naming**: Follow language conventions for package names (snake_case for Python, kebab-case for Rust, etc.)
 
-### Example: Full-Stack Application
+### Generated Project Structure
 
-```roe
-@targets "java, html"
-@framework spring
+Each framework adapter generates a complete, production-ready project:
 
-module blog_platform
+**Java Spring Boot:**
+```
+src/main/java/com/example/userapi/
+├── Application.java          # Main application class
+├── model/User.java           # JPA entity
+├── repository/UserRepository.java  # Spring Data repository  
+├── service/UserService.java # Business logic
+└── controller/UserController.java  # REST endpoints
+src/main/resources/
+├── application.properties    # Database configuration
+pom.xml                      # Maven dependencies
+```
 
-    // Shared data model
-    data BlogPost
-        id is text key auto
-        title is text required
-        content is text required
-        author is text required
-        published_at is date auto
-        tags is list of text
-    end data
-    
-    // Backend API
-    serve get /api/posts
-        set posts from db find all BlogPost
-        respond 200 with posts
-    end serve
-    
-    serve post /api/posts
-        db create BlogPost from request.body
-        respond 201 with created_post
-    end serve
-    
-    // Frontend UI (HTML/JavaScript)
-    layout BlogView
-        column class "container"
-            title "Blog Posts" class "page-title"
+**Python FastAPI:**
+```
+user_api/
+├── main.py                  # FastAPI application
+├── models.py                # SQLAlchemy models
+├── database.py              # Database session
+├── routers.py               # API endpoints  
+└── __init__.py
+requirements.txt             # Dependencies
+```
+
+**Go Fiber:**
+```
+├── main.go                  # Fiber server
+├── models.go                # GORM models
+├── database.go              # Database connection
+├── routes.go                # CRUD routes
+├── handlers.go              # Custom handlers
+├── go.mod                   # Go module
+└── .env                     # Environment variables
+```
             
             for each post in posts
                 column class "post-card"

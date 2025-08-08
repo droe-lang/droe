@@ -1,0 +1,72 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.ext.declarative import declarative_base
+import os
+from typing import Generator
+
+{% if db_type == 'postgres' %}
+DATABASE_URL = os.getenv("DATABASE_URL", "{{ default_db_url }}")
+{% elif db_type == 'mysql' %}
+DATABASE_URL = os.getenv("DATABASE_URL", "{{ default_db_url }}")
+{% elif db_type == 'sqlite' %}
+DATABASE_URL = os.getenv("DATABASE_URL", "{{ default_db_url }}")
+{% endif %}
+
+{% if db_type == 'sqlite' %}
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+{% else %}
+engine = create_engine(DATABASE_URL)
+{% endif %}
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+
+def get_db() -> Generator[Session, None, None]:
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+{% for name, data_def in data_structures.items() %}
+class {{ name }}CRUD:
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def get(self, {{ name | snake_case }}_id: str):
+        from .models import {{ name }}DB
+        return self.db.query({{ name }}DB).filter({{ name }}DB.id == {{ name | snake_case }}_id).first()
+    
+    def get_all(self):
+        from .models import {{ name }}DB
+        return self.db.query({{ name }}DB).all()
+    
+    def create(self, {{ name | snake_case }}: dict):
+        from .models import {{ name }}DB
+        db_{{ name | snake_case }} = {{ name }}DB(**{{ name | snake_case }})
+        self.db.add(db_{{ name | snake_case }})
+        self.db.commit()
+        self.db.refresh(db_{{ name | snake_case }})
+        return db_{{ name | snake_case }}
+    
+    def update(self, {{ name | snake_case }}_id: str, {{ name | snake_case }}: dict):
+        from .models import {{ name }}DB
+        db_{{ name | snake_case }} = self.db.query({{ name }}DB).filter({{ name }}DB.id == {{ name | snake_case }}_id).first()
+        if db_{{ name | snake_case }}:
+            for key, value in {{ name | snake_case }}.items():
+                if hasattr(db_{{ name | snake_case }}, key):
+                    setattr(db_{{ name | snake_case }}, key, value)
+            self.db.commit()
+            self.db.refresh(db_{{ name | snake_case }})
+        return db_{{ name | snake_case }}
+    
+    def delete(self, {{ name | snake_case }}_id: str):
+        from .models import {{ name }}DB
+        db_{{ name | snake_case }} = self.db.query({{ name }}DB).filter({{ name }}DB.id == {{ name | snake_case }}_id).first()
+        if db_{{ name | snake_case }}:
+            self.db.delete(db_{{ name | snake_case }})
+            self.db.commit()
+        return db_{{ name | snake_case }}
+
+{% endfor %}

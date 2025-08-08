@@ -1,0 +1,24 @@
+@target roe
+
+module UserAPI
+
+data User
+    id is text key auto
+    name is text required
+    email is text required unique
+    created_at is datetime auto
+end data
+
+serve get /users
+    db find all User
+end serve
+
+serve get /users/:id
+    db find User where id equals "123"
+end serve
+
+serve post /users
+    db create User with name is "test", email is "test@example.com"
+end serve
+
+end module

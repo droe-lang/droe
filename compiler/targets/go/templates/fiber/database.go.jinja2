@@ -1,0 +1,52 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"gorm.io/gorm"
+{% if database.type == 'postgres' %}
+	"gorm.io/driver/postgres"
+{% elif database.type == 'mysql' %}
+	"gorm.io/driver/mysql"
+{% else %}
+	"gorm.io/driver/sqlite"
+{% endif %}
+)
+
+// InitDB initializes the database connection
+func InitDB() (*gorm.DB, error) {
+{% if database.type == 'postgres' %}
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "{{ database.url | default('postgresql://localhost/test_db') }}"
+	}
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+{% elif database.type == 'mysql' %}
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "{{ database.url | default('root:password@tcp(localhost:3306)/test_db?charset=utf8mb4&parseTime=True&loc=Local') }}"
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+{% else %}
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "{{ database.url | default('./database.db') }}"
+	}
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+{% endif %}
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
+	}
+
+	return db, nil
+}
+
+// AutoMigrate runs database migrations
+func AutoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(
+{% for data in data_definitions %}
+		&{{ data.name }}{},
+{% endfor %}
+	)
+}

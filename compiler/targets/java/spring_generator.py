@@ -93,19 +93,52 @@ class SpringBootGenerator:
     def _build_project_context(self, program: Program, project_name: str, package_name: str, database_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Build template context from program AST."""
         
-        # Merge database config with defaults
+        # Use standardized database config format: {"type": "postgres", "url": "postgresql://..."}
         db_config = {
             'type': 'h2',
-            'host': 'localhost',
-            'port': 5432,
-            'name': f"{project_name.lower().replace('-', '_')}_db",
+            'url': f"jdbc:h2:mem:{project_name.lower().replace('-', '_')}_db",
             'username': 'sa',
             'password': '',
             'ddl_auto': 'update',
             'show_sql': True
         }
-        if database_config:
-            db_config.update(database_config)
+        
+        if database_config and isinstance(database_config, dict):
+            db_type = database_config.get('type', 'h2')
+            db_url = database_config.get('url', '')
+            
+            # Map database types and URLs
+            if db_type == 'postgres' and db_url:
+                # Convert postgresql://localhost/mydb to jdbc:postgresql://localhost:5432/mydb
+                if db_url.startswith('postgresql://'):
+                    jdbc_url = db_url.replace('postgresql://', 'jdbc:postgresql://')
+                    if ':' not in jdbc_url.split('//')[1].split('/')[0]:  # No port specified
+                        jdbc_url = jdbc_url.replace('localhost/', 'localhost:5432/')
+                    db_config.update({
+                        'type': 'postgresql',
+                        'url': jdbc_url,
+                        'username': 'postgres',
+                        'password': ''
+                    })
+            elif db_type == 'mysql' and db_url:
+                # Convert mysql://localhost/mydb to jdbc:mysql://localhost:3306/mydb
+                if db_url.startswith('mysql://'):
+                    jdbc_url = db_url.replace('mysql://', 'jdbc:mysql://')
+                    if ':' not in jdbc_url.split('//')[1].split('/')[0]:  # No port specified
+                        jdbc_url = jdbc_url.replace('localhost/', 'localhost:3306/')
+                    db_config.update({
+                        'type': 'mysql', 
+                        'url': jdbc_url,
+                        'username': 'root',
+                        'password': ''
+                    })
+            elif db_type == 'sqlite' and db_url:
+                db_config.update({
+                    'type': 'sqlite',
+                    'url': f"jdbc:sqlite:{db_url}",
+                    'username': '',
+                    'password': ''
+                })
         
         # Base project context
         context = {
@@ -118,9 +151,7 @@ class SpringBootGenerator:
             'java_version': '17',
             'server_port': 8080,
             'database': db_config['type'],
-            'db_host': db_config['host'],
-            'db_port': db_config['port'],
-            'db_name': db_config['name'],
+            'database_url': db_config['url'],
             'db_username': db_config['username'],
             'db_password': db_config['password'],
             'ddl_auto': db_config['ddl_auto'],

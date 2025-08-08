@@ -1,0 +1,9 @@
+{
+  "src": "src",
+  "build": "build",
+  "dist": "dist",
+  "modules": "modules",
+  "main": "src/main.roe",
+  "target": "rust",
+  "framework": "axum"
+}

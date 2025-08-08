@@ -1,0 +1,113 @@
+{% for name, data_def in data_structures.items() %}
+// {{ name }} CRUD routes
+export async function {{ name | lower }}Routes(fastify, options) {
+  const { prisma } = fastify;
+
+  // Get all {{ name | lower }}s
+  fastify.get('/', async (request, reply) => {
+    try {
+      const {{ name | lower }}s = await prisma.{{ name | lower }}.findMany();
+      return {{ name | lower }}s;
+    } catch (error) {
+      reply.status(500);
+      return { error: 'Failed to fetch {{ name | lower }}s' };
+    }
+  });
+
+  // Get {{ name | lower }} by ID
+  fastify.get('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      const {{ name | lower }} = await prisma.{{ name | lower }}.findUnique({
+        where: { id }
+      });
+      
+      if (!{{ name | lower }}) {
+        reply.status(404);
+        return { error: '{{ name }} not found' };
+      }
+      
+      return {{ name | lower }};
+    } catch (error) {
+      reply.status(500);
+      return { error: 'Failed to fetch {{ name | lower }}' };
+    }
+  });
+
+  // Create new {{ name | lower }}
+  fastify.post('/', {
+    schema: {
+      body: {
+        type: 'object',
+        required: [{% for field in data_def.fields %}{% if 'required' in field.annotations and 'auto' not in field.annotations %}'{{ field.name | snake_case }}'{% if not loop.last %}, {% endif %}{% endif %}{% endfor %}],
+        properties: {
+{% for field in data_def.fields %}
+  {% if 'auto' not in field.annotations %}
+          {{ field.name | snake_case }}: { 
+            {% if field.type == 'text' %}type: 'string'{% elif field.type == 'int' %}type: 'integer'{% elif field.type == 'decimal' %}type: 'number'{% elif field.type == 'flag' %}type: 'boolean'{% elif field.type in ['date', 'datetime'] %}type: 'string', format: 'date-time'{% endif %}
+          }{% if not loop.last %},{% endif %}
+  {% endif %}
+{% endfor %}
+        }
+      }
+    }
+  }, async (request, reply) => {
+    try {
+      const {{ name | lower }} = await prisma.{{ name | lower }}.create({
+        data: request.body
+      });
+      
+      reply.status(201);
+      return {{ name | lower }};
+    } catch (error) {
+      reply.status(500);
+      return { error: 'Failed to create {{ name | lower }}' };
+    }
+  });
+
+  // Update {{ name | lower }}
+  fastify.put('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      
+      const {{ name | lower }} = await prisma.{{ name | lower }}.update({
+        where: { id },
+        data: request.body
+      });
+      
+      return {{ name | lower }};
+    } catch (error) {
+      if (error.code === 'P2025') {
+        reply.status(404);
+        return { error: '{{ name }} not found' };
+      }
+      
+      reply.status(500);
+      return { error: 'Failed to update {{ name | lower }}' };
+    }
+  });
+
+  // Delete {{ name | lower }}
+  fastify.delete('/:id', async (request, reply) => {
+    try {
+      const { id } = request.params;
+      
+      await prisma.{{ name | lower }}.delete({
+        where: { id }
+      });
+      
+      reply.status(204);
+      return;
+    } catch (error) {
+      if (error.code === 'P2025') {
+        reply.status(404);
+        return { error: '{{ name }} not found' };
+      }
+      
+      reply.status(500);
+      return { error: 'Failed to delete {{ name | lower }}' };
+    }
+  });
+}
+
+{% endfor %}

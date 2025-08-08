@@ -49,7 +49,12 @@
       "Bash(../roe compile src/html_api_demo.roe --target html)",
       "Bash(../roe compile src/showcase_all_components.roe --target html)",
       "Bash(../roe compile src/simple_api_test.roe --target html)",
-      "Bash(../../sync-dev.sh)"
+      "Bash(../../sync-dev.sh)",
+      "Bash(../roe compile:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo:*)",
+      "Bash(../../roe init my_roe_app)",
+      "Bash(../roe clean)"
     ],
     "deny": []
   }

@@ -58,9 +58,9 @@ class PythonTarget(CompilerTarget):
     def __init__(self):
         super().__init__("python", ".py", "Python source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
         from .targets.python.codegen import PythonCodeGenerator
-        return PythonCodeGenerator()
+        return PythonCodeGenerator(source_file_path, is_main_file, framework, package, database)
     
     def get_runtime_files(self) -> List[str]:
         return []  # No runtime files needed - using inline code generation
@@ -114,9 +114,9 @@ class GoTarget(CompilerTarget):
     def __init__(self):
         super().__init__("go", ".go", "Go source code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: str = None, database_config: Dict = None) -> BaseCodeGenerator:
         from .targets.go.codegen import GoCodeGenerator
-        return GoCodeGenerator()
+        return GoCodeGenerator(framework=framework, database_config=database_config, package=package)
     
     def get_runtime_files(self) -> List[str]:
         return []  # No runtime files needed - using inline code generation
@@ -131,9 +131,9 @@ class NodeTarget(CompilerTarget):
     def __init__(self):
         super().__init__("node", ".js", "Node.js JavaScript code")
     
-    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
         from .targets.node.codegen import NodeCodeGenerator
-        return NodeCodeGenerator()
+        return NodeCodeGenerator(source_file_path, is_main_file, framework, package, database)
     
     def get_runtime_files(self) -> List[str]:
         return []  # No runtime files needed - using inline code generation
@@ -191,22 +191,22 @@ class MobileTarget(CompilerTarget):
         return ["android-sdk", "xcode"]  # Development environment dependencies
 
 
-class RoeTarget(CompilerTarget):
-    """Native RoeVM compilation target - generates Rust code with Axum and database support."""
+class RustTarget(CompilerTarget):
+    """Rust compilation target - generates standard Rust code with Axum and database support."""
     
     def __init__(self):
-        super().__init__("roe", ".rs", "Native RoeVM with Rust/Axum")
+        super().__init__("rust", ".rs", "Rust with Axum/database support")
     
     def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, 
                       framework: str = "axum", package: Optional[str] = None, 
                       database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
-        from .targets.roe.codegen import RoeCodeGenerator
+        from .targets.rust.codegen import RustCodeGenerator
         
         # Load database config from roeconfig.json if available
         if source_file_path and not database:
             database = self._load_database_config(source_file_path)
             
-        return RoeCodeGenerator(source_file_path, is_main_file, framework, package, database)
+        return RustCodeGenerator(source_file_path, is_main_file, framework, package, database)
     
     def _load_database_config(self, source_file_path: str) -> Dict[str, Any]:
         """Load database configuration from roeconfig.json."""
@@ -237,6 +237,25 @@ class RoeTarget(CompilerTarget):
         return ["cargo", "rustc"]  # Rust toolchain
 
 
+class RoeTarget(CompilerTarget):
+    """Native RoeVM compilation target - generates RoeVM bytecode."""
+    
+    def __init__(self):
+        super().__init__("roe", ".roebc", "Native RoeVM bytecode")
+    
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, 
+                      framework: str = "plain", package: Optional[str] = None, 
+                      database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
+        from .targets.bytecode.codegen import BytecodeGenerator
+        return BytecodeGenerator()
+    
+    def get_runtime_files(self) -> List[str]:
+        return []  # RoeVM handles bytecode execution
+    
+    def get_dependencies(self) -> List[str]:
+        return ["roevm"]  # Requires the RoeVM runtime
+
+
 class TargetFactory:
     """Factory for creating compilation targets."""
     
@@ -250,6 +269,7 @@ class TargetFactory:
             "node": NodeTarget,
             "bytecode": BytecodeTarget,
             "mobile": MobileTarget,
+            "rust": RustTarget,
             "roe": RoeTarget
         }
     
@@ -298,9 +318,15 @@ def compile_to_target(program: Program, target_name: str, source_file_path: str 
     target = target_factory.create_target(target_name)
     
     # Special handling for targets that need database config
-    if target_name == 'roe':
+    if target_name == 'rust':
         codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
     elif target_name == 'java':
+        codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    elif target_name == 'python':
+        codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    elif target_name == 'node':
+        codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    elif target_name == 'go':
         codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
     else:
         codegen = target.create_codegen(source_file_path, is_main_file, framework)

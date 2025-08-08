@@ -1,0 +1,36 @@
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List
+import uvicorn
+
+from .models import *
+from .routers import *
+{% if has_database_ops %}
+from .database import get_db, engine, Base
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+{% endif %}
+
+app = FastAPI(title="{{ package_name }}", version="0.1.0")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+{% for endpoint in serve_endpoints %}
+# {{ endpoint.method }} {{ endpoint.endpoint }}
+app.include_router({{ endpoint.router_name }}, prefix="/api")
+{% endfor %}
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to {{ package_name }} API"}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

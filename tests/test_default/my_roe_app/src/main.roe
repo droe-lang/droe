@@ -1,0 +1,2 @@
+set projectName which is text to "my_roe_app"
+display "Hello from [projectName]!"

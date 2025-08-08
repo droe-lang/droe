@@ -1,6 +1,8 @@
-"""Python code generator for Roelang compiler."""
+"""Python code generator for Roelang compiler with FastAPI and SQLAlchemy support."""
 
-from typing import List, Dict, Any
+import os
+from typing import List, Dict, Any, Optional
+from jinja2 import Environment, FileSystemLoader
 from ...ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
@@ -8,24 +10,108 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
 
 
 class PythonCodeGenerator(BaseCodeGenerator):
-    """Generates Python code from Roelang AST."""
+    """Generates Python code with FastAPI for HTTP server and SQLAlchemy for database support."""
     
-    def __init__(self):
+    def __init__(self, source_file_path: str = None, is_main_file: bool = False, 
+                 framework: str = "fastapi", package: Optional[str] = None, 
+                 database: Optional[Dict[str, Any]] = None):
         super().__init__()
+        self.source_file_path = source_file_path
+        self.is_main_file = is_main_file
+        self.framework = framework
+        self.package = package or "roelang_app"
+        self.database = database or {}
+        
+        # Track discovered features
+        self.has_serve_endpoints = False
+        self.has_database_ops = False
+        self.data_structures = {}
+        self.serve_endpoints = []
+        self.modules = {}
+        
+        # Database configuration
+        self.db_type = self.database.get('type', 'postgres')  # Default to postgres
+        self.db_url = self.database.get('url', '')
+        
+        # Legacy support for direct code generation
         self.imports = set()
         self.class_definitions = []
         self.function_definitions = []
         self.main_code = []
+        
+        # Setup Jinja2 environment for FastAPI templates
+        if framework == "fastapi":
+            template_dir = os.path.join(os.path.dirname(__file__), 'templates', 'fastapi')
+            self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
+            self._setup_jinja_filters()
     
-    def generate(self, program: Program) -> str:
+    def _setup_jinja_filters(self):
+        """Setup custom Jinja2 filters."""
+        self.jinja_env.filters['snake_case'] = self._to_snake_case
+        self.jinja_env.filters['python_type'] = self._roe_type_to_python_filter
+        
+    def _roe_type_to_python_filter(self, roe_type: str) -> str:
+        """Jinja2 filter version of type conversion."""
+        return self._roe_type_to_python(roe_type, [])
+    
+    def generate(self, node: ASTNode) -> Dict[str, Any]:
         """Generate Python code from AST."""
+        if isinstance(node, Program):
+            # For FastAPI framework, generate project structure
+            if self.framework == "fastapi":
+                return self._generate_fastapi_project(node)
+            else:
+                # Legacy single-file generation
+                return self._generate_legacy_python(node)
+        
+        return {'files': {}, 'project_root': self.package}
+    
+    def _generate_fastapi_project(self, program: Program) -> Dict[str, Any]:
+        """Generate complete FastAPI project structure."""
+        # Analyze the program to understand what features are used
+        self._analyze_program(program)
+        
+        # Generate project structure
+        files = {}
+        
+        # Prepare template context
+        context = self._get_template_context()
+        
+        # Generate requirements.txt
+        files['requirements.txt'] = self._generate_from_template('requirements.txt.jinja2', context)
+        
+        # Generate main.py
+        files[f'{self.package}/main.py'] = self._generate_from_template('main.py.jinja2', context)
+        
+        # Generate models if data structures exist
+        if self.data_structures:
+            files[f'{self.package}/models.py'] = self._generate_from_template('models.py.jinja2', context)
+            
+        # Generate database module if database operations exist
+        if self.has_database_ops:
+            files[f'{self.package}/database.py'] = self._generate_from_template('database.py.jinja2', context)
+            
+        # Generate routers for endpoints
+        if self.serve_endpoints or self.data_structures:
+            files[f'{self.package}/routers.py'] = self._generate_from_template('routers.py.jinja2', context)
+            
+        # Generate __init__.py
+        files[f'{self.package}/__init__.py'] = self._generate_from_template('__init__.py.jinja2', context)
+        
+        return {
+            'files': files,
+            'project_root': self.package
+        }
+    
+    def _generate_legacy_python(self, program: Program) -> str:
+        """Generate legacy single-file Python code."""
         self.clear_output()
         self.imports.clear()
         self.class_definitions.clear()
@@ -50,15 +136,132 @@ class PythonCodeGenerator(BaseCodeGenerator):
             self.emit_statement(stmt)
         
         # Generate final Python code
-        return self._build_python_file()
+        return {'files': {'main.py': self._build_python_file()}, 'project_root': 'main'}
     
+    def _analyze_program(self, program: Program):
+        """Analyze the program to discover features and structures."""
+        for stmt in program.statements:
+            self._analyze_statement(stmt)
+            
+    def _analyze_statement(self, stmt: ASTNode):
+        """Recursively analyze statements to discover features."""
+        if isinstance(stmt, DataDefinition):
+            self.data_structures[stmt.name] = stmt
+            self.has_database_ops = True  # Assume data structures will be persisted
+            
+        elif isinstance(stmt, ServeStatement):
+            self.has_serve_endpoints = True
+            self.serve_endpoints.append(stmt)
+            # Check serve body for database operations
+            for body_stmt in stmt.body:
+                self._analyze_statement(body_stmt)
+            
+        elif isinstance(stmt, DatabaseStatement):
+            self.has_database_ops = True
+            
+        elif isinstance(stmt, ModuleDefinition):
+            self.modules[stmt.name] = stmt
+            # Recursively analyze module body
+            for module_stmt in stmt.body:
+                self._analyze_statement(module_stmt)
+                
+    def _get_template_context(self) -> Dict[str, Any]:
+        """Prepare template context with all necessary data."""
+        # Process serve endpoints to add handler and router names
+        processed_endpoints = []
+        for endpoint in self.serve_endpoints:
+            endpoint_data = {
+                'method': endpoint.method,
+                'endpoint': endpoint.endpoint,
+                'handler_name': self._get_handler_name(endpoint),
+                'router_name': self._get_router_name(endpoint),
+                'params': getattr(endpoint, 'params', []),
+                'accept_type': getattr(endpoint, 'accept_type', None),
+                'response_action': getattr(endpoint, 'response_action', None)
+            }
+            processed_endpoints.append(endpoint_data)
+        
+        return {
+            'package_name': self.package.replace('.', '_').replace('-', '_'),
+            'has_serve_endpoints': self.has_serve_endpoints,
+            'has_database_ops': self.has_database_ops,
+            'data_structures': self.data_structures,
+            'serve_endpoints': processed_endpoints,
+            'modules': self.modules,
+            'db_type': self.db_type,
+            'default_db_url': self._get_default_db_url(),
+        }
+    
+    def _generate_from_template(self, template_name: str, context: Dict[str, Any]) -> str:
+        """Generate content from Jinja2 template."""
+        template = self.jinja_env.get_template(template_name)
+        return template.render(**context)
+    
+    def _get_handler_name(self, endpoint: ServeStatement) -> str:
+        """Generate a handler function name from endpoint."""
+        method = endpoint.method.lower()
+        path_parts = endpoint.endpoint.strip('/').split('/')
+        
+        # Filter out parameter parts
+        path_parts = [p for p in path_parts if not p.startswith(':')]
+        
+        if path_parts:
+            return f'{method}_{"_".join(path_parts)}'
+        else:
+            return f'{method}_root'
+    
+    def _get_router_name(self, endpoint: ServeStatement) -> str:
+        """Generate a router name from endpoint."""
+        path_parts = endpoint.endpoint.strip('/').split('/')
+        path_parts = [p for p in path_parts if not p.startswith(':')]
+        
+        if path_parts:
+            return f'{"_".join(path_parts)}_router'
+        else:
+            return 'root_router'
+            
+    def _roe_type_to_python(self, roe_type: str, annotations: List[str]) -> str:
+        """Convert Roe type to Python type."""
+        type_map = {
+            'text': 'str',
+            'int': 'int',
+            'decimal': 'float',
+            'flag': 'bool',
+            'date': 'datetime',
+            'datetime': 'datetime',
+        }
+        
+        # Handle auto-generated IDs
+        if 'key' in annotations and 'auto' in annotations:
+            return 'UUID'
+            
+        return type_map.get(roe_type, 'str')
+    
+    def _to_snake_case(self, name: str) -> str:
+        """Convert CamelCase to snake_case."""
+        result = []
+        for i, char in enumerate(name):
+            if char.isupper() and i > 0:
+                result.append('_')
+            result.append(char.lower())
+        return ''.join(result)
+    
+    def _get_default_db_url(self) -> str:
+        """Get default database URL based on database type."""
+        urls = {
+            'postgres': 'postgresql://localhost/roelang_db',
+            'mysql': 'mysql://localhost/roelang_db',
+            'sqlite': 'sqlite:///./roelang.db',
+        }
+        return urls.get(self.db_type, 'postgresql://localhost/roelang_db')
+    
+    # Legacy methods for backward compatibility
     def _build_python_file(self) -> str:
         """Build the complete Python file."""
         lines = []
         
         # Add imports
         lines.extend(sorted(self.imports))
-        # No runtime import needed - using inline code generation
         lines.append("")
         
         # Add class definitions
@@ -85,9 +288,8 @@ class PythonCodeGenerator(BaseCodeGenerator):
         
         return "\n".join(lines)
     
-    
     def emit_statement(self, stmt: ASTNode):
-        """Emit code for a statement."""
+        """Emit code for a statement (legacy compatibility)."""
         if isinstance(stmt, DisplayStatement):
             self.emit_display_statement(stmt)
         elif isinstance(stmt, Assignment):
@@ -107,7 +309,7 @@ class PythonCodeGenerator(BaseCodeGenerator):
             self.main_code.append(f"# TODO: Implement {type(stmt).__name__}")
     
     def emit_expression(self, expr: ASTNode) -> str:
-        """Emit code for an expression and return the expression string."""
+        """Emit code for an expression and return the expression string (legacy compatibility)."""
         if isinstance(expr, Literal):
             if isinstance(expr.value, str):
                 return f'"{expr.value}"'

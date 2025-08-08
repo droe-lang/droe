@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+{% if db_type == 'postgres' %}
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+{% elif db_type == 'mysql' %}
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+{% elif db_type == 'sqlite' %}
+  provider = "sqlite"
+  url      = "file:./dev.db"
+{% endif %}
+}
+
+{% for name, data_def in data_structures.items() %}
+model {{ name }} {
+{% for field in data_def.fields %}
+  {% if 'key' in field.annotations and 'auto' in field.annotations %}
+  {{ field.name | snake_case }} String @id @default(uuid())
+  {% elif field.type == 'text' %}
+  {{ field.name | snake_case }} String{% if 'unique' in field.annotations %} @unique{% endif %}{% if 'optional' not in field.annotations and 'auto' not in field.annotations %} @default(""){% endif %}
+  {% elif field.type == 'int' %}
+  {{ field.name | snake_case }} Int{% if 'optional' not in field.annotations and 'auto' not in field.annotations %} @default(0){% endif %}
+  {% elif field.type == 'decimal' %}
+  {{ field.name | snake_case }} Float{% if 'optional' not in field.annotations and 'auto' not in field.annotations %} @default(0.0){% endif %}
+  {% elif field.type == 'flag' %}
+  {{ field.name | snake_case }} Boolean{% if 'optional' not in field.annotations and 'auto' not in field.annotations %} @default(false){% endif %}
+  {% elif field.type in ['date', 'datetime'] %}
+  {% if 'auto' in field.annotations %}
+  {{ field.name | snake_case }} DateTime @default(now())
+  {% else %}
+  {{ field.name | snake_case }} DateTime{% if 'optional' not in field.annotations %} @default(now()){% endif %}
+  {% endif %}
+  {% endif %}
+{% endfor %}
+
+  @@map("{{ name | snake_case }}s")
+}
+
+{% endfor %}

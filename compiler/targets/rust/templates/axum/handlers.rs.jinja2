@@ -1,0 +1,31 @@
+use axum::{
+    response::{Json, Response, IntoResponse},
+    extract::{Path, State, Query},
+    http::StatusCode,
+};
+use serde_json::json;
+use crate::{AppState, models::*};
+{% if has_database_ops %}
+use crate::db::Database;
+{% endif %}
+
+{% for endpoint in serve_endpoints %}
+pub async fn {{ endpoint.handler_name }}(
+{% if endpoint.params %}
+{% for param in endpoint.params %}
+    Path({{ param }}): Path<String>,
+{% endfor %}
+{% endif %}
+{% if endpoint.accept_type %}
+    Json(payload): Json<{{ endpoint.accept_type }}>,
+{% endif %}
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    // Handler implementation
+{% if endpoint.response_action %}
+    // Call action and return response
+{% endif %}
+    Json(json!({"message": "Endpoint not fully implemented"}))
+}
+
+{% endfor %}

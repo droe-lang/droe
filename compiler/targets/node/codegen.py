@@ -1,6 +1,8 @@
-"""Node.js code generator for Roelang compiler."""
+"""Node.js code generator for Roelang compiler with Fastify and Prisma support."""
 
-from typing import List, Dict, Any
+import os
+from typing import List, Dict, Any, Optional
+from jinja2 import Environment, FileSystemLoader
 from ...ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
     Literal, Identifier, BinaryOp, PropertyAccess,
@@ -8,24 +10,102 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
 
 
 class NodeCodeGenerator(BaseCodeGenerator):
-    """Generates Node.js JavaScript code from Roelang AST."""
+    """Generates Node.js code with Fastify for HTTP server and Prisma for database support."""
     
-    def __init__(self):
+    def __init__(self, source_file_path: str = None, is_main_file: bool = False, 
+                 framework: str = "fastify", package: Optional[str] = None, 
+                 database: Optional[Dict[str, Any]] = None):
         super().__init__()
+        self.source_file_path = source_file_path
+        self.is_main_file = is_main_file
+        self.framework = framework
+        self.package = package or "roelang_app"
+        self.database = database or {}
+        
+        # Track discovered features
+        self.has_serve_endpoints = False
+        self.has_database_ops = False
+        self.data_structures = {}
+        self.serve_endpoints = []
+        self.modules = {}
+        
+        # Database configuration
+        self.db_type = self.database.get('type', 'postgres')  # Default to postgres
+        self.db_url = self.database.get('url', '')
+        
+        # Legacy support for direct code generation
         self.requires = set()
         self.class_definitions = []
         self.function_definitions = []
         self.main_code = []
+        
+        # Setup Jinja2 environment for Fastify templates
+        if framework == "fastify":
+            template_dir = os.path.join(os.path.dirname(__file__), 'templates', 'fastify')
+            self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
+            self._setup_jinja_filters()
     
-    def generate(self, program: Program) -> str:
+    def _setup_jinja_filters(self):
+        """Setup custom Jinja2 filters."""
+        self.jinja_env.filters['snake_case'] = self._to_snake_case
+        self.jinja_env.filters['lower'] = str.lower
+        
+    def generate(self, node: ASTNode) -> Dict[str, Any]:
         """Generate Node.js code from AST."""
+        if isinstance(node, Program):
+            # For Fastify framework, generate project structure
+            if self.framework == "fastify":
+                return self._generate_fastify_project(node)
+            else:
+                # Legacy single-file generation
+                return self._generate_legacy_node(node)
+        
+        return {'files': {}, 'project_root': self.package}
+    
+    def _generate_fastify_project(self, program: Program) -> Dict[str, Any]:
+        """Generate complete Fastify project structure."""
+        # Analyze the program to understand what features are used
+        self._analyze_program(program)
+        
+        # Generate project structure
+        files = {}
+        
+        # Prepare template context
+        context = self._get_template_context()
+        
+        # Generate package.json
+        files['package.json'] = self._generate_from_template('package.json.jinja2', context)
+        
+        # Generate main server file
+        files['src/server.js'] = self._generate_from_template('server.js.jinja2', context)
+        
+        # Generate Prisma schema if database operations exist
+        if self.has_database_ops:
+            files['prisma/schema.prisma'] = self._generate_from_template('schema.prisma.jinja2', context)
+            files['.env'] = self._generate_from_template('.env.jinja2', context)
+            
+        # Generate routes for data structures
+        if self.data_structures:
+            files['src/routes/index.js'] = self._generate_from_template('routes.js.jinja2', context)
+            
+        # Generate handlers for custom endpoints
+        if self.serve_endpoints:
+            files['src/handlers/index.js'] = self._generate_from_template('handlers.js.jinja2', context)
+        
+        return {
+            'files': files,
+            'project_root': self.package
+        }
+    
+    def _generate_legacy_node(self, program: Program) -> Dict[str, Any]:
+        """Generate legacy single-file Node.js code."""
         self.clear_output()
         self.requires.clear()
         self.class_definitions.clear()
@@ -42,8 +122,98 @@ class NodeCodeGenerator(BaseCodeGenerator):
             self.emit_statement(stmt)
         
         # Generate final JavaScript code
-        return self._build_js_file()
+        return {'files': {'main.js': self._build_js_file()}, 'project_root': 'main'}
     
+    def _analyze_program(self, program: Program):
+        """Analyze the program to discover features and structures."""
+        for stmt in program.statements:
+            self._analyze_statement(stmt)
+            
+    def _analyze_statement(self, stmt: ASTNode):
+        """Recursively analyze statements to discover features."""
+        if isinstance(stmt, DataDefinition):
+            self.data_structures[stmt.name] = stmt
+            self.has_database_ops = True  # Assume data structures will be persisted
+            
+        elif isinstance(stmt, ServeStatement):
+            self.has_serve_endpoints = True
+            self.serve_endpoints.append(stmt)
+            # Check serve body for database operations
+            for body_stmt in stmt.body:
+                self._analyze_statement(body_stmt)
+            
+        elif isinstance(stmt, DatabaseStatement):
+            self.has_database_ops = True
+            
+        elif isinstance(stmt, ModuleDefinition):
+            self.modules[stmt.name] = stmt
+            # Recursively analyze module body
+            for module_stmt in stmt.body:
+                self._analyze_statement(module_stmt)
+                
+    def _get_template_context(self) -> Dict[str, Any]:
+        """Prepare template context with all necessary data."""
+        # Process serve endpoints to add handler names
+        processed_endpoints = []
+        for endpoint in self.serve_endpoints:
+            endpoint_data = {
+                'method': endpoint.method,
+                'endpoint': endpoint.endpoint,
+                'handler_name': self._get_handler_name(endpoint),
+                'params': getattr(endpoint, 'params', []),
+                'accept_type': getattr(endpoint, 'accept_type', None),
+                'response_action': getattr(endpoint, 'response_action', None)
+            }
+            processed_endpoints.append(endpoint_data)
+        
+        return {
+            'package_name': self.package.replace('.', '_').replace('-', '_'),
+            'has_serve_endpoints': self.has_serve_endpoints,
+            'has_database_ops': self.has_database_ops,
+            'data_structures': self.data_structures,
+            'serve_endpoints': processed_endpoints,
+            'modules': self.modules,
+            'db_type': self.db_type,
+            'default_db_url': self._get_default_db_url(),
+        }
+    
+    def _generate_from_template(self, template_name: str, context: Dict[str, Any]) -> str:
+        """Generate content from Jinja2 template."""
+        template = self.jinja_env.get_template(template_name)
+        return template.render(**context)
+    
+    def _get_handler_name(self, endpoint: ServeStatement) -> str:
+        """Generate a handler function name from endpoint."""
+        method = endpoint.method.lower()
+        path_parts = endpoint.endpoint.strip('/').split('/')
+        
+        # Filter out parameter parts
+        path_parts = [p for p in path_parts if not p.startswith(':')]
+        
+        if path_parts:
+            return f'{method}_{"_".join(path_parts)}'
+        else:
+            return f'{method}_root'
+    
+    def _to_snake_case(self, name: str) -> str:
+        """Convert CamelCase to snake_case."""
+        result = []
+        for i, char in enumerate(name):
+            if char.isupper() and i > 0:
+                result.append('_')
+            result.append(char.lower())
+        return ''.join(result)
+    
+    def _get_default_db_url(self) -> str:
+        """Get default database URL based on database type."""
+        urls = {
+            'postgres': 'postgresql://localhost:5432/roelang_db',
+            'mysql': 'mysql://localhost:3306/roelang_db',
+            'sqlite': 'file:./dev.db',
+        }
+        return urls.get(self.db_type, 'postgresql://localhost:5432/roelang_db')
+    
+    # Legacy methods for backward compatibility
     def _build_js_file(self) -> str:
         """Build the complete JavaScript file."""
         lines = []
@@ -79,9 +249,8 @@ class NodeCodeGenerator(BaseCodeGenerator):
         
         return "\n".join(lines)
     
-    
     def emit_statement(self, stmt: ASTNode):
-        """Emit code for a statement."""
+        """Emit code for a statement (legacy compatibility)."""
         if isinstance(stmt, DisplayStatement):
             self.emit_display_statement(stmt)
         elif isinstance(stmt, Assignment):
@@ -100,7 +269,7 @@ class NodeCodeGenerator(BaseCodeGenerator):
             self.main_code.append(f"// TODO: Implement {type(stmt).__name__}")
     
     def emit_expression(self, expr: ASTNode) -> str:
-        """Emit code for an expression and return the expression string."""
+        """Emit code for an expression and return the expression string (legacy compatibility)."""
         if isinstance(expr, Literal):
             if isinstance(expr.value, str):
                 # Escape quotes and newlines
@@ -183,14 +352,14 @@ class NodeCodeGenerator(BaseCodeGenerator):
             for then_stmt in stmt.then_body:
                 if isinstance(then_stmt, DisplayStatement):
                     expr_str = self.emit_expression(then_stmt.expression)
-                    self.main_code.append(f"  RoelangRuntime.display({expr_str});")
+                    self.main_code.append(f"  console.log({expr_str});")
         
         if stmt.else_body:
             self.main_code.append("} else {")
             for else_stmt in stmt.else_body:
                 if isinstance(else_stmt, DisplayStatement):
                     expr_str = self.emit_expression(else_stmt.expression)
-                    self.main_code.append(f"  RoelangRuntime.display({expr_str});")
+                    self.main_code.append(f"  console.log({expr_str});")
         
         self.main_code.append("}")
     

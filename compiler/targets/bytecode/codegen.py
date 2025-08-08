@@ -144,6 +144,14 @@ class BytecodeGenerator(BaseCodeGenerator):
                 result.append({"DefineTask": [args[0], args[1], args[2]]})
             elif op == "RunTask" and len(args) >= 2:
                 result.append({"RunTask": [args[0], args[1]]})
+            elif op == "DefineData" and args:
+                result.append({"DefineData": args[0]})
+            elif op == "DefineEndpoint" and args:
+                result.append({"DefineEndpoint": args[0]})
+            elif op == "DatabaseOp" and args:
+                result.append({"DatabaseOp": args[0]})
+            elif op == "EndHandler":
+                result.append("EndHandler")
             else:
                 # Fallback for unknown instructions
                 result.append(op)
@@ -409,7 +417,7 @@ class BytecodeGenerator(BaseCodeGenerator):
         # The included module's code is already part of the AST
         pass
     
-    def visit_module_definition(self, node: ModuleDefinition):
+    def visit_moduledefinition(self, node: ModuleDefinition):
         """Visit module definition."""
         # For now, just process the body
         # In a real implementation, we'd create module scope
@@ -434,10 +442,70 @@ class BytecodeGenerator(BaseCodeGenerator):
             body=node.body
         ))
     
-    def visit_data_definition(self, node: DataDefinition):
+    def visit_datadefinition(self, node: DataDefinition):
         """Visit data definition."""
-        # Data definitions are compile-time only in bytecode
-        # The VM doesn't need them explicitly
+        # Store data definition metadata for VM
+        data_def = {
+            "name": node.name,
+            "fields": [{"name": f.name, "type": f.type, "annotations": f.annotations} for f in node.fields]
+        }
+        self.emit("DefineData", data_def)
+    
+    def visit_servestatement(self, node: ServeStatement):
+        """Visit serve statement (HTTP endpoint definition)."""
+        # Define HTTP endpoint
+        endpoint_def = {
+            "method": node.method.upper(),
+            "path": node.endpoint,
+            "handler_start": len(self.instructions) + 1
+        }
+        
+        # Emit endpoint definition
+        self.emit("DefineEndpoint", endpoint_def)
+        
+        # Generate handler body
+        for stmt in node.body:
+            self.visit(stmt)
+            
+        # End handler
+        self.emit("EndHandler")
+    
+    def visit_databasestatement(self, node: DatabaseStatement):
+        """Visit database statement."""
+        operation = {
+            "op": node.operation,
+            "entity": node.entity_name,
+            "conditions": [],
+            "fields": []
+        }
+        
+        # Convert conditions to bytecode-friendly format
+        for condition in node.conditions:
+            if isinstance(condition, BinaryOp):
+                operation["conditions"].append({
+                    "field": condition.left.name if isinstance(condition.left, Identifier) else str(condition.left),
+                    "operator": condition.operator,
+                    "value": condition.right.value if isinstance(condition.right, Literal) else str(condition.right)
+                })
+        
+        # Convert fields for update operations
+        for field in node.fields:
+            if isinstance(field, BinaryOp):
+                operation["fields"].append({
+                    "field": field.left.name if isinstance(field.left, Identifier) else str(field.left),
+                    "value": field.right.value if isinstance(field.right, Literal) else str(field.right)
+                })
+        
+        # Store return variable if specified
+        if node.return_var:
+            operation["return_var"] = node.return_var
+            
+        self.emit("DatabaseOp", operation)
+    
+    def visit_metadataannotation(self, node: MetadataAnnotation):
+        """Visit metadata annotation."""
+        # Metadata annotations are compile-time only
+        # Store them for VM configuration if needed
         pass
 
 

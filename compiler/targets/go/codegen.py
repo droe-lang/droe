@@ -1,5 +1,7 @@
 """Go code generator for Roelang compiler."""
 
+import os
+from jinja2 import Environment, FileSystemLoader
 from typing import List, Dict, Any
 from ...ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
@@ -8,7 +10,7 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -17,16 +19,31 @@ from ...codegen_base import BaseCodeGenerator, CodeGenError
 class GoCodeGenerator(BaseCodeGenerator):
     """Generates Go code from Roelang AST."""
     
-    def __init__(self):
+    def __init__(self, framework=None, database_config=None, package=None):
         super().__init__()
+        self.framework = framework
+        self.database_config = database_config or {}
+        self.package = package
         self.imports = set()
         self.type_definitions = []
         self.function_definitions = []
         self.main_code = []
         self.variables = {}  # Track variable types for Go typing
+        
+        # Setup Jinja2 environment for templates
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates', self.framework or 'fiber')
+        self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
+        
+        # Collect data for template context
+        self.data_definitions = []
+        self.serve_actions = []
     
     def generate(self, program: Program) -> str:
         """Generate Go code from AST."""
+        if self.framework == 'fiber':
+            return self._generate_fiber_project(program)
+        
+        # Fallback to original Go generation for non-framework mode
         self.clear_output()
         self.imports.clear()
         self.type_definitions.clear()
@@ -51,6 +68,118 @@ class GoCodeGenerator(BaseCodeGenerator):
         
         # Generate final Go code
         return self._build_go_file()
+    
+    def _generate_fiber_project(self, program: Program) -> str:
+        """Generate Fiber web framework project."""
+        # Parse AST to extract data definitions and serve actions
+        self._parse_ast_for_fiber(program)
+        
+        # Prepare template context
+        context = {
+            'package_name': self.package or 'go_fiber_app',  # Use configured package name
+            'data_definitions': self.data_definitions,
+            'actions': self.serve_actions,
+            'database': self.database_config
+        }
+        
+        # Generate project files
+        project_files = {}
+        
+        # Go module file
+        template = self.jinja_env.get_template('go.mod.jinja2')
+        project_files['go.mod'] = template.render(context)
+        
+        # Main server file
+        template = self.jinja_env.get_template('main.go.jinja2')
+        project_files['main.go'] = template.render(context)
+        
+        # Models file
+        template = self.jinja_env.get_template('models.go.jinja2')
+        project_files['models.go'] = template.render(context)
+        
+        # Database file
+        template = self.jinja_env.get_template('database.go.jinja2')
+        project_files['database.go'] = template.render(context)
+        
+        # Routes file
+        template = self.jinja_env.get_template('routes.go.jinja2')
+        project_files['routes.go'] = template.render(context)
+        
+        # Handlers file
+        template = self.jinja_env.get_template('handlers.go.jinja2')
+        project_files['handlers.go'] = template.render(context)
+        
+        # Environment file
+        template = self.jinja_env.get_template('.env.jinja2')
+        project_files['.env'] = template.render(context)
+        
+        # Return in the format expected by the target factory
+        return {
+            'files': project_files,
+            'project_root': context['package_name'],
+            'language': 'go',
+            'framework': self.framework
+        }
+    
+    def _parse_ast_for_fiber(self, program: Program):
+        """Parse AST to extract data definitions and serve actions."""
+        for stmt in program.statements:
+            if isinstance(stmt, DataDefinition):
+                # Convert DataDefinition to template-friendly format
+                data_def = {
+                    'name': stmt.name,
+                    'fields': []
+                }
+                
+                for field in stmt.fields:
+                    field_info = {
+                        'name': field.name,
+                        'type': str(field.type).lower(),
+                        'required': 'required' in getattr(field, 'annotations', [])
+                    }
+                    data_def['fields'].append(field_info)
+                
+                self.data_definitions.append(data_def)
+            
+            elif isinstance(stmt, ServeStatement):
+                # Convert ServeStatement to template-friendly format
+                # Generate action name from method and endpoint
+                action_name = self._generate_action_name(stmt.method, stmt.endpoint)
+                action = {
+                    'name': action_name,
+                    'method': stmt.method.upper(),
+                    'path': stmt.endpoint
+                }
+                self.serve_actions.append(action)
+    
+    def _generate_action_name(self, method: str, endpoint: str) -> str:
+        """Generate action name from HTTP method and endpoint."""
+        # Convert /api/users -> GetUsers, /api/users/:id -> GetUser
+        path_parts = [part for part in endpoint.strip('/').split('/') if not part.startswith(':')]
+        if path_parts:
+            resource = path_parts[-1].title()  # 'users' -> 'Users'
+            if method.lower() == 'get' and ':id' in endpoint:
+                # GET /api/users/:id -> GetUser (singular)
+                resource = resource.rstrip('s') if resource.endswith('s') else resource
+                return f"Get{resource}"
+            elif method.lower() == 'get':
+                # GET /api/users -> GetUsers (plural)
+                return f"Get{resource}"
+            elif method.lower() == 'post':
+                # POST /api/users -> CreateUser
+                resource = resource.rstrip('s') if resource.endswith('s') else resource
+                return f"Create{resource}"
+            elif method.lower() == 'put':
+                # PUT /api/users/:id -> UpdateUser
+                resource = resource.rstrip('s') if resource.endswith('s') else resource
+                return f"Update{resource}"
+            elif method.lower() == 'delete':
+                # DELETE /api/users/:id -> DeleteUser
+                resource = resource.rstrip('s') if resource.endswith('s') else resource
+                return f"Delete{resource}"
+        
+        # Fallback
+        return f"{method.title()}Handler"
     
     def _build_go_file(self) -> str:
         """Build the complete Go file."""

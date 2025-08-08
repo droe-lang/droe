@@ -1,0 +1,11 @@
+{
+    "src": ".",
+    "build": "../build",
+    "target": "go",
+    "framework": "fiber",
+    "package": "go_fiber_app",
+    "database": {
+        "type": "postgres",
+        "url": "postgresql://localhost/go_test_db"
+    }
+}
