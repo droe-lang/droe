@@ -10,7 +10,7 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression, ServeStatement
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement, ApiCallStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -250,6 +250,12 @@ class GoCodeGenerator(BaseCodeGenerator):
             self.emit_foreach_loop(stmt)
         elif isinstance(stmt, ActionDefinition):
             self.emit_action_definition(stmt)
+        elif isinstance(stmt, ApiCallStatement):
+            self.emit_api_call(stmt)
+        elif isinstance(stmt, DatabaseStatement):
+            self.emit_database_statement(stmt)
+        elif isinstance(stmt, ServeStatement):
+            self.emit_serve_statement(stmt)
         elif isinstance(stmt, ModuleDefinition):
             self.emit_module_definition(stmt)
         else:
@@ -457,3 +463,214 @@ class GoCodeGenerator(BaseCodeGenerator):
         elif pattern == "bin":
             return f'fmt.Sprintf("0b%b", {expr_str})'
         return f'fmt.Sprintf("%d", {expr_str})'
+    
+    def emit_api_call(self, stmt: ApiCallStatement):
+        """Emit API call statement with framework or native HTTP."""
+        if self.framework == "plain":
+            self._emit_native_http_call(stmt)
+        else:
+            # Fiber framework - not implemented for client calls yet
+            self.main_code.append(f"// TODO: Implement Fiber client call for {stmt.method} {stmt.url}")
+    
+    def emit_database_statement(self, stmt: DatabaseStatement):
+        """Emit database statement with framework or native database access."""
+        if self.framework == "plain":
+            self._emit_native_database_operation(stmt)
+        else:
+            # Fiber framework with GORM - not implemented yet
+            self.main_code.append(f"// TODO: Implement GORM operation for {stmt.operation}")
+    
+    def emit_serve_statement(self, stmt: ServeStatement):
+        """Emit serve statement with framework or native HTTP server."""
+        if self.framework == "plain":
+            self._emit_native_http_server(stmt)
+        else:
+            # Fiber framework - handled by template generation
+            self.main_code.append(f"// Serve {stmt.method} {stmt.endpoint} handled by Fiber")
+    
+    def _emit_native_http_call(self, stmt: ApiCallStatement):
+        """Generate native Go HTTP client call using net/http."""
+        # Add required imports
+        self.imports.add("net/http")
+        self.imports.add("io")
+        self.imports.add("encoding/json")
+        self.imports.add("bytes")
+        self.imports.add("fmt")
+        
+        # Generate HTTP request code
+        self.main_code.append(f"// HTTP {stmt.method.upper()} request to {stmt.url}")
+        
+        if stmt.body:
+            body_str = self.emit_expression(stmt.body)
+            self.main_code.append(f"requestData, err := json.Marshal({body_str})")
+            self.main_code.append("if err != nil {")
+            self.main_code.append("\tlog.Fatal(err)")
+            self.main_code.append("}")
+            self.main_code.append(f'req, err := http.NewRequest("{stmt.method.upper()}", "{stmt.url}", bytes.NewBuffer(requestData))')
+            self.main_code.append("req.Header.Set(\"Content-Type\", \"application/json\")")
+        else:
+            self.main_code.append(f'req, err := http.NewRequest("{stmt.method.upper()}", "{stmt.url}", nil)')
+        
+        self.main_code.append("if err != nil {")
+        self.main_code.append("\tlog.Fatal(err)")
+        self.main_code.append("}")
+        
+        # Make the request
+        self.main_code.append("client := &http.Client{}")
+        self.main_code.append("resp, err := client.Do(req)")
+        self.main_code.append("if err != nil {")
+        self.main_code.append("\tlog.Fatal(err)")
+        self.main_code.append("}")
+        self.main_code.append("defer resp.Body.Close()")
+        
+        # Handle response
+        self.main_code.append("body, err := io.ReadAll(resp.Body)")
+        self.main_code.append("if err != nil {")
+        self.main_code.append("\tlog.Fatal(err)")
+        self.main_code.append("}")
+        
+        if hasattr(stmt, 'response_var') and stmt.response_var:
+            self.main_code.append(f"var {stmt.response_var} interface{{}}")
+            self.main_code.append(f"json.Unmarshal(body, &{stmt.response_var})")
+        else:
+            self.main_code.append('fmt.Printf("Response Status: %s\\n", resp.Status)')
+            self.main_code.append('fmt.Printf("Response Body: %s\\n", string(body))')
+    
+    def _emit_native_database_operation(self, stmt: DatabaseStatement):
+        """Generate native Go database operation using database/sql."""
+        # Add required imports
+        self.imports.add("database/sql")
+        self.imports.add("fmt")
+        self.imports.add("log")
+        # Add driver import based on database type
+        if hasattr(self, 'database') and self.database.get('type') == 'postgres':
+            self.imports.add('_ "github.com/lib/pq"')
+        elif hasattr(self, 'database') and self.database.get('type') == 'mysql':
+            self.imports.add('_ "github.com/go-sql-driver/mysql"')
+        else:
+            self.imports.add('_ "github.com/mattn/go-sqlite3"')
+        
+        # Database connection
+        if hasattr(self, 'database') and self.database.get('url'):
+            db_url = self.database['url']
+        else:
+            db_url = "roelang.db"
+        
+        self.main_code.append(f"// Database operation: {stmt.operation}")
+        self.main_code.append(f'db, err := sql.Open("sqlite3", "{db_url}")')
+        self.main_code.append("if err != nil {")
+        self.main_code.append("\tlog.Fatal(err)")
+        self.main_code.append("}")
+        self.main_code.append("defer db.Close()")
+        
+        if stmt.operation == 'CREATE':
+            # Create table operation
+            table_name = getattr(stmt, 'table', 'data')
+            self.main_code.append(f'_, err = db.Exec("CREATE TABLE IF NOT EXISTS {table_name} (id INTEGER PRIMARY KEY)")')
+        elif stmt.operation == 'INSERT':
+            # Insert operation
+            table_name = getattr(stmt, 'table', 'data')
+            self.main_code.append(f'_, err = db.Exec("INSERT INTO {table_name} DEFAULT VALUES")')
+        elif stmt.operation == 'SELECT':
+            # Select operation
+            table_name = getattr(stmt, 'table', 'data')
+            if hasattr(stmt, 'where') and stmt.where:
+                where_str = self.emit_expression(stmt.where)
+                self.main_code.append(f'rows, err := db.Query("SELECT * FROM {table_name} WHERE {where_str}")')
+            else:
+                self.main_code.append(f'rows, err := db.Query("SELECT * FROM {table_name}")')
+            
+            self.main_code.append("if err != nil {")
+            self.main_code.append("\tlog.Fatal(err)")
+            self.main_code.append("}")
+            self.main_code.append("defer rows.Close()")
+            
+            if hasattr(stmt, 'result_var') and stmt.result_var:
+                self.main_code.append(f"var {stmt.result_var} []interface{{}}")
+                self.main_code.append("for rows.Next() {")
+                self.main_code.append("\tvar row interface{}")
+                self.main_code.append("\trows.Scan(&row)")
+                self.main_code.append(f"\t{stmt.result_var} = append({stmt.result_var}, row)")
+                self.main_code.append("}")
+            else:
+                self.main_code.append("for rows.Next() {")
+                self.main_code.append("\tvar row interface{}")
+                self.main_code.append("\trows.Scan(&row)")
+                self.main_code.append("\tfmt.Println(row)")
+                self.main_code.append("}")
+            return  # Skip the general error check since we handled it
+        elif stmt.operation == 'UPDATE':
+            # Update operation
+            table_name = getattr(stmt, 'table', 'data')
+            self.main_code.append(f'_, err = db.Exec("UPDATE {table_name} SET data = data")')
+        elif stmt.operation == 'DELETE':
+            # Delete operation
+            table_name = getattr(stmt, 'table', 'data')
+            if hasattr(stmt, 'where') and stmt.where:
+                where_str = self.emit_expression(stmt.where)
+                self.main_code.append(f'_, err = db.Exec("DELETE FROM {table_name} WHERE {where_str}")')
+            else:
+                self.main_code.append(f'_, err = db.Exec("DELETE FROM {table_name}")')
+        
+        self.main_code.append("if err != nil {")
+        self.main_code.append("\tlog.Fatal(err)")
+        self.main_code.append("}")
+    
+    def _emit_native_http_server(self, stmt: ServeStatement):
+        """Generate native Go HTTP server using net/http."""
+        # Add required imports
+        self.imports.add("net/http")
+        self.imports.add("fmt")
+        self.imports.add("log")
+        self.imports.add("encoding/json")
+        self.imports.add("io")
+        
+        # Generate handler function
+        handler_name = f"{stmt.method.lower()}{stmt.endpoint.replace('/', '_').replace(':', '')}_handler"
+        
+        handler_lines = [
+            f"func {handler_name}(w http.ResponseWriter, r *http.Request) {{",
+            "\t// Set content type",
+            "\tw.Header().Set(\"Content-Type\", \"application/json\")",
+            "\t",
+            f"\t// Check method",
+            f"\tif r.Method != \"{stmt.method.upper()}\" {{",
+            "\t\thttp.Error(w, \"Method not allowed\", http.StatusMethodNotAllowed)",
+            "\t\treturn",
+            "\t}",
+            "\t",
+            "\t// Read request body",
+            "\tbody, err := io.ReadAll(r.Body)",
+            "\tif err != nil {",
+            "\t\thttp.Error(w, \"Error reading body\", http.StatusBadRequest)",
+            "\t\treturn",
+            "\t}",
+            "\t",
+            "\t// Process request (placeholder)",
+            "\tvar requestData interface{}",
+            "\tif len(body) > 0 {",
+            "\t\tjson.Unmarshal(body, &requestData)",
+            "\t}",
+            "\t",
+            "\t// Generate response",
+            '\tresponse := map[string]interface{}{',
+            '\t\t"message": "Hello from Roelang server",',
+            f'\t\t"method": "{stmt.method.upper()}",',
+            f'\t\t"path": "{stmt.endpoint}",',
+            "\t\t\"data\": requestData,",
+            "\t}",
+            "\t",
+            "\t// Send JSON response",
+            "\tjsonResponse, _ := json.Marshal(response)",
+            "\tw.Write(jsonResponse)",
+            "}"
+        ]
+        
+        self.function_definitions.append(handler_lines)
+        
+        # Add server startup code
+        port = getattr(stmt, 'port', 8080)
+        self.main_code.append(f"// Start HTTP server for {stmt.method.upper()} {stmt.endpoint}")
+        self.main_code.append(f'http.HandleFunc("{stmt.endpoint}", {handler_name})')
+        self.main_code.append(f'fmt.Println("Server starting on http://localhost:{port}{stmt.endpoint}")')
+        self.main_code.append(f'log.Fatal(http.ListenAndServe(":{port}", nil))')

@@ -10,7 +10,7 @@ from ...ast import (
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
     DataInstance, FieldAssignment, FormatExpression, ServeStatement, AcceptStatement,
-    RespondStatement, ParamsStatement, DatabaseStatement
+    RespondStatement, ParamsStatement, DatabaseStatement, ApiCallStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -391,6 +391,10 @@ class JavaCodeGenerator(BaseCodeGenerator):
         elif isinstance(stmt, ActionDefinitionWithParams):
             # Parameterized actions become methods
             self._add_method_from_parameterized_action(stmt)
+        elif isinstance(stmt, ApiCallStatement):
+            self.emit_api_call(stmt)
+        elif isinstance(stmt, DatabaseStatement):
+            self.emit_database_statement(stmt)
         elif isinstance(stmt, ModuleDefinition):
             # Modules are handled separately
             pass
@@ -792,6 +796,175 @@ class JavaCodeGenerator(BaseCodeGenerator):
                 lines.append(f"{indent_str}}}")
         
         return lines
+    
+    def emit_api_call(self, stmt: ApiCallStatement):
+        """Generate native Java HTTP client call."""
+        if self.framework == "plain":
+            self._emit_native_http_call(stmt)
+        else:
+            # Framework mode uses different approach
+            self.constructor_code.append(f"// TODO: Framework HTTP call for {stmt.verb} {stmt.endpoint}")
+    
+    def _emit_native_http_call(self, stmt: ApiCallStatement):
+        """Generate native Java HTTP client call using HttpClient."""
+        self.imports.add("java.net.http.*")
+        self.imports.add("java.net.URI")
+        self.imports.add("java.time.Duration")
+        self.imports.add("java.io.IOException")
+        self.imports.add("java.util.concurrent.CompletableFuture")
+        
+        # Generate HTTP client code
+        endpoint_url = stmt.endpoint
+        method = stmt.method.upper()
+        
+        lines = []
+        lines.append("try {")
+        lines.append("    HttpClient client = HttpClient.newHttpClient();")
+        lines.append(f"    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()")
+        lines.append(f"        .uri(URI.create(\"{endpoint_url}\"))")
+        lines.append(f"        .timeout(Duration.ofSeconds(30))")
+        
+        # Add headers
+        for header in stmt.headers:
+            lines.append(f"        .header(\"{header.name}\", \"{header.value}\")")
+        
+        # Add method and body
+        if method in ["POST", "PUT", "PATCH"] and stmt.payload:
+            lines.append(f"        .{method.lower()}(HttpRequest.BodyPublishers.ofString({stmt.payload}));")
+        else:
+            lines.append(f"        .{method.lower()}(HttpRequest.BodyPublishers.noBody());")
+        
+        lines.append("    HttpRequest request = requestBuilder.build();")
+        lines.append("    HttpResponse<String> response = client.send(request,")
+        lines.append("        HttpResponse.BodyHandlers.ofString());")
+        
+        # Store response if variable specified
+        if stmt.response_variable:
+            lines.append(f"    String {stmt.response_variable} = response.body();")
+            lines.append(f"    int {stmt.response_variable}Status = response.statusCode();")
+        
+        lines.append("} catch (IOException | InterruptedException e) {")
+        lines.append("    System.err.println(\"HTTP request failed: \" + e.getMessage());")
+        lines.append("}")
+        
+        for line in lines:
+            self.constructor_code.append("        " + line)
+    
+    def emit_database_statement(self, stmt: DatabaseStatement):
+        """Generate database operation using native JDBC or framework."""
+        if self.framework == "plain":
+            self._emit_native_database_operation(stmt)
+        else:
+            # Use existing framework method
+            lines = self._generate_database_operation(stmt, 2)
+            for line in lines:
+                self.constructor_code.append("        " + line)
+    
+    def _emit_native_database_operation(self, stmt: DatabaseStatement):
+        """Generate native JDBC database operation."""
+        self.imports.add("java.sql.*")
+        self.imports.add("javax.sql.DataSource")
+        
+        # Add database connection setup if not already present
+        if not any("Connection connection" in line for line in self.constructor_code):
+            self.constructor_code.extend([
+                "        // Database setup",
+                "        String dbUrl = \"jdbc:h2:mem:testdb\";",
+                "        String dbUser = \"sa\";", 
+                "        String dbPassword = \"\";",
+                "        ",
+                "        try {",
+                "            Class.forName(\"org.h2.Driver\");",
+                "            Connection connection = DriverManager.getConnection(dbUrl, dbUser, dbPassword);",
+                "            ",
+                "            // Create table if not exists",
+                f"            String createTableSQL = \"CREATE TABLE IF NOT EXISTS {stmt.entity_name.lower()} (id BIGINT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255))\";",
+                "            Statement createStmt = connection.createStatement();", 
+                "            createStmt.execute(createTableSQL);",
+                "            "
+            ])
+        
+        entity_name = stmt.entity_name.lower()
+        
+        if stmt.operation == "find":
+            if stmt.conditions:
+                # Find by condition
+                condition_field = stmt.conditions[0].left.name if hasattr(stmt.conditions[0], 'left') else "id"
+                condition_value = stmt.conditions[0].right.value if hasattr(stmt.conditions[0], 'right') else "1"
+                
+                self.constructor_code.extend([
+                    f"            // Find {stmt.entity_name} by {condition_field}",
+                    f"            String selectSQL = \"SELECT * FROM {entity_name} WHERE {condition_field} = ?\";",
+                    "            PreparedStatement selectStmt = connection.prepareStatement(selectSQL);",
+                    f"            selectStmt.setObject(1, {condition_value});",
+                    "            ResultSet resultSet = selectStmt.executeQuery();",
+                    "            ",
+                    "            if (resultSet.next()) {",
+                    f"                System.out.println(\"Found {stmt.entity_name}: \" + resultSet.getString(\"name\"));",
+                    "            } else {",
+                    f"                System.out.println(\"No {stmt.entity_name} found\");",
+                    "            }",
+                    ""
+                ])
+            else:
+                # Find all
+                self.constructor_code.extend([
+                    f"            // Find all {stmt.entity_name}",
+                    f"            String selectAllSQL = \"SELECT * FROM {entity_name}\";",
+                    "            Statement selectStmt = connection.createStatement();",
+                    "            ResultSet resultSet = selectStmt.executeQuery(selectAllSQL);",
+                    "            ",
+                    "            while (resultSet.next()) {",
+                    f"                System.out.println(\"{stmt.entity_name}: \" + resultSet.getString(\"name\"));",
+                    "            }",
+                    ""
+                ])
+        
+        elif stmt.operation == "create":
+            # Insert operation
+            self.constructor_code.extend([
+                f"            // Create new {stmt.entity_name}",
+                f"            String insertSQL = \"INSERT INTO {entity_name} (name) VALUES (?)\";",
+                "            PreparedStatement insertStmt = connection.prepareStatement(insertSQL);",
+                f"            insertStmt.setString(1, \"Sample {stmt.entity_name}\");",
+                "            int rowsAffected = insertStmt.executeUpdate();",
+                f"            System.out.println(\"Created {stmt.entity_name}, rows affected: \" + rowsAffected);",
+                ""
+            ])
+        
+        elif stmt.operation == "update":
+            # Update operation
+            self.constructor_code.extend([
+                f"            // Update {stmt.entity_name}",
+                f"            String updateSQL = \"UPDATE {entity_name} SET name = ? WHERE id = ?\";",
+                "            PreparedStatement updateStmt = connection.prepareStatement(updateSQL);",
+                f"            updateStmt.setString(1, \"Updated {stmt.entity_name}\");",
+                "            updateStmt.setLong(2, 1);",
+                "            int rowsAffected = updateStmt.executeUpdate();",
+                f"            System.out.println(\"Updated {stmt.entity_name}, rows affected: \" + rowsAffected);",
+                ""
+            ])
+        
+        elif stmt.operation == "delete":
+            # Delete operation
+            self.constructor_code.extend([
+                f"            // Delete {stmt.entity_name}",
+                f"            String deleteSQL = \"DELETE FROM {entity_name} WHERE id = ?\";",
+                "            PreparedStatement deleteStmt = connection.prepareStatement(deleteSQL);",
+                "            deleteStmt.setLong(1, 1);",
+                "            int rowsAffected = deleteStmt.executeUpdate();",
+                f"            System.out.println(\"Deleted {stmt.entity_name}, rows affected: \" + rowsAffected);",
+                ""
+            ])
+        
+        # Close the try block if this is the first database operation
+        if stmt.operation == "find" and not stmt.conditions:  # Simple way to detect first operation
+            self.constructor_code.extend([
+                "            connection.close();",
+                "        } catch (ClassNotFoundException | SQLException e) {",
+                "            System.err.println(\"Database operation failed: \" + e.getMessage());",
+                "        }"
+            ])
     
     def _generate_rest_controller(self, module: ModuleDefinition) -> List[str]:
         """Generate a REST controller from module with serve statements."""

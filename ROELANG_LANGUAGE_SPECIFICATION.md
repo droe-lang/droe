@@ -1299,16 +1299,17 @@ Roelang compiles to multiple target languages and frameworks:
 
 ### Core Compilation Targets
 
-| Target | Extension | Description | Framework Support |
-|--------|-----------|-------------|-------------------|
-| `wasm` | `.wat`/`.wasm` | WebAssembly Text and Binary formats | - |
-| `python` | `.py` | Python 3.x source code | Django (planned) |
-| `java` | `.java` | Java 11+ source code | Spring Boot |
-| `node` | `.js` | Node.js JavaScript ES6+ | Express (planned) |  
-| `go` | `.go` | Go 1.18+ source code | Gin (planned) |
-| `html` | `.html` | HTML5 with embedded JavaScript | Vue.js integration |
-| `bytecode` | `.roebc` | Roelang VM bytecode format | - |
-| `mobile` | Multiple | Android (Kotlin) + iOS (Swift) projects | Native SDKs |
+| Target | Extension | Description | Framework Support | Native Support |
+|--------|-----------|-------------|-------------------|----------------|
+| `wasm` | `.wat`/`.wasm` | WebAssembly Text and Binary formats | - | - |
+| `python` | `.py` | Python 3.x source code | FastAPI + SQLAlchemy | `http.client`, `http.server`, `sqlite3` |
+| `java` | `.java` | Java 11+ source code | Spring Boot + JPA | `HttpClient`, `HttpServer`, JDBC |
+| `node` | `.js` | Node.js JavaScript ES6+ | Fastify + Prisma | `http`, `https` (no native DB) |  
+| `go` | `.go` | Go 1.18+ source code | Fiber + GORM | `net/http`, `database/sql` |
+| `rust` | `.rs` | Rust source code | Axum + SQLx | Framework-only |
+| `html` | `.html` | HTML5 with embedded JavaScript | Vue.js integration | - |
+| `bytecode` | `.roebc` | Roelang VM bytecode format | - | - |
+| `mobile` | Multiple | Android (Kotlin) + iOS (Swift) projects | Native SDKs | - |
 
 ### Framework-Specific Generation
 
@@ -1317,8 +1318,40 @@ When using framework configuration in `roeconfig.json`:
 | Framework | Target | Generated Output |
 |-----------|--------|------------------|
 | **Spring Boot** | `java` | Complete Spring Boot project with JPA entities, REST controllers, services, repositories, `pom.xml`, `application.properties` |
+| **FastAPI** | `python` | FastAPI project with SQLAlchemy models, database configuration, routers, `requirements.txt`, `main.py` |
+| **Fiber** | `go` | Go Fiber project with GORM models, handlers, routes, database connection, `go.mod` |
+| **Fastify** | `node` | Node.js Fastify project with Prisma schema, handlers, routes, server configuration, `package.json` |
+| **Axum** | `rust` | Rust Axum project with SQLx models, handlers, routes, `Cargo.toml` |
 | **Android** | `mobile` | Android Studio project with Kotlin activities, XML layouts, Gradle build files, `AndroidManifest.xml` |
 | **iOS** | `mobile` | Xcode project with SwiftUI views, `Info.plist`, project configuration |
+
+### Native vs Framework Mode
+
+Roelang supports both framework-based and native standard library code generation:
+
+#### Framework Mode (Default)
+Uses web frameworks and ORMs for full-featured applications:
+```bash
+roe compile api.roe --target java --framework spring
+roe compile api.roe --target python --framework fastapi
+roe compile api.roe --target go --framework fiber
+```
+
+#### Native Mode
+Uses only standard library features for lightweight applications:
+```bash
+roe compile api.roe --target java --framework plain
+roe compile api.roe --target python --framework plain  
+roe compile api.roe --target go --framework plain
+```
+
+| Feature | Framework Mode | Native Mode |
+|---------|----------------|-------------|
+| **Java** | Spring Boot + JPA/Hibernate | `HttpClient` + `HttpServer` + JDBC |
+| **Python** | FastAPI + SQLAlchemy | `http.client` + `http.server` + `sqlite3` |
+| **Go** | Fiber + GORM | `net/http` + `database/sql` |
+| **Node.js** | Fastify + Prisma | `http`/`https` modules |
+| **Rust** | Axum + SQLx | Not supported |
 
 ### Compilation Commands
 
@@ -1343,22 +1376,90 @@ roe run program.roe                        # Compile and execute
 
 ```json
 {
-  "project_name": "MyProject",
-  "src_dir": "src",
-  "build_dir": "dist",
+  "src": "src",
+  "build": "build", 
+  "dist": "dist",
+  "modules": "modules",
+  "main": "src/main.roe",
   "target": "java",
   "framework": "spring",
-  "main_file": "src/main.roe",
-  "spring": {
-    "group_id": "com.example",
-    "artifact_id": "myproject",
-    "package": "com.example.myproject",
-    "database": {
-      "type": "postgresql",
-      "host": "localhost",
-      "port": 5432,
-      "name": "mydb"
-    }
+  "package": "com.example.myproject",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/myproject_db"
+  }
+}
+```
+
+#### Database Configuration
+
+All frameworks use a standardized database configuration format:
+
+```json
+{
+  "database": {
+    "type": "postgres|mysql|sqlite|h2",
+    "url": "database_connection_url"
+  }
+}
+```
+
+**Examples:**
+- PostgreSQL: `"url": "postgresql://localhost/mydb"`
+- MySQL: `"url": "mysql://localhost/mydb"` 
+- SQLite: `"url": "sqlite:///path/to/db.sqlite"`
+- H2 (in-memory): `"url": "jdbc:h2:mem:testdb"`
+
+#### Framework-Specific Examples
+
+**Spring Boot (Java):**
+```json
+{
+  "target": "java",
+  "framework": "spring", 
+  "package": "com.example.api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/springapi_db"
+  }
+}
+```
+
+**FastAPI (Python):**
+```json
+{
+  "target": "python",
+  "framework": "fastapi",
+  "package": "my_api",
+  "database": {
+    "type": "postgres", 
+    "url": "postgresql://localhost/fastapi_db"
+  }
+}
+```
+
+**Fiber (Go):**
+```json
+{
+  "target": "go",
+  "framework": "fiber",
+  "package": "myapi",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/fiber_db" 
+  }
+}
+```
+
+**Native Mode:**
+```json
+{
+  "target": "python",
+  "framework": "plain",
+  "package": "simple_app",
+  "database": {
+    "type": "sqlite",
+    "url": "sqlite:///app.db"
   }
 }
 ```

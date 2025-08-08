@@ -10,7 +10,7 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement, ApiCallStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -302,6 +302,12 @@ class PythonCodeGenerator(BaseCodeGenerator):
             self.emit_foreach_loop(stmt)
         elif isinstance(stmt, ActionDefinition):
             self.emit_action_definition(stmt)
+        elif isinstance(stmt, ApiCallStatement):
+            self.emit_api_call(stmt)
+        elif isinstance(stmt, DatabaseStatement):
+            self.emit_database_statement(stmt)
+        elif isinstance(stmt, ServeStatement):
+            self.emit_serve_statement(stmt)
         elif isinstance(stmt, ModuleDefinition):
             self.emit_module_definition(stmt)
         else:
@@ -501,3 +507,171 @@ class PythonCodeGenerator(BaseCodeGenerator):
         elif pattern == "bin":
             return f"f'0b{{{expr_str}:b}}'"
         return f"str({expr_str})"
+    
+    def emit_api_call(self, stmt: ApiCallStatement):
+        """Emit API call statement with framework or native HTTP."""
+        if self.framework == "plain":
+            self._emit_native_http_call(stmt)
+        else:
+            # FastAPI framework - not implemented for client calls yet
+            self.main_code.append(f"# TODO: Implement FastAPI client call for {stmt.method} {stmt.url}")
+    
+    def emit_database_statement(self, stmt: DatabaseStatement):
+        """Emit database statement with framework or native database access."""
+        if self.framework == "plain":
+            self._emit_native_database_operation(stmt)
+        else:
+            # FastAPI framework with SQLAlchemy - not implemented yet
+            self.main_code.append(f"# TODO: Implement SQLAlchemy operation for {stmt.operation}")
+    
+    def emit_serve_statement(self, stmt: ServeStatement):
+        """Emit serve statement with framework or native HTTP server."""
+        if self.framework == "plain":
+            self._emit_native_http_server(stmt)
+        else:
+            # FastAPI framework - handled by template generation
+            self.main_code.append(f"# Serve {stmt.method} {stmt.endpoint} handled by FastAPI")
+    
+    def _emit_native_http_call(self, stmt: ApiCallStatement):
+        """Generate native Python HTTP client call using http.client."""
+        # Add imports
+        if stmt.url.startswith('https://'):
+            self.imports.add("import http.client")
+            self.imports.add("import ssl")
+        else:
+            self.imports.add("import http.client")
+        self.imports.add("import json")
+        self.imports.add("from urllib.parse import urlparse")
+        
+        # Parse URL components
+        self.main_code.append(f"# HTTP {stmt.method.upper()} request to {stmt.url}")
+        self.main_code.append(f"url_parts = urlparse('{stmt.url}')")
+        
+        # Create connection
+        if stmt.url.startswith('https://'):
+            self.main_code.append("conn = http.client.HTTPSConnection(url_parts.netloc)")
+        else:
+            self.main_code.append("conn = http.client.HTTPConnection(url_parts.netloc)")
+        
+        # Prepare headers and body
+        headers = {'Content-Type': 'application/json'} if stmt.body else {}
+        self.main_code.append(f"headers = {headers}")
+        
+        if stmt.body:
+            body_str = self.emit_expression(stmt.body)
+            self.main_code.append(f"body = json.dumps({body_str})")
+        else:
+            self.main_code.append("body = None")
+        
+        # Make request
+        self.main_code.append(f"conn.request('{stmt.method.upper()}', url_parts.path or '/', body, headers)")
+        self.main_code.append("response = conn.getresponse()")
+        self.main_code.append("response_data = response.read().decode('utf-8')")
+        self.main_code.append("conn.close()")
+        
+        # Handle response
+        if hasattr(stmt, 'response_var') and stmt.response_var:
+            self.main_code.append(f"{stmt.response_var} = json.loads(response_data) if response_data else None")
+        else:
+            self.main_code.append("print(f'Response: {response.status} {response.reason}')")
+            self.main_code.append("if response_data: print(response_data)")
+    
+    def _emit_native_database_operation(self, stmt: DatabaseStatement):
+        """Generate native SQLite database operation."""
+        self.imports.add("import sqlite3")
+        self.imports.add("import os")
+        
+        # Database connection
+        db_file = self.database.get('url', 'roelang.db').replace('sqlite:///', '')
+        self.main_code.append(f"# Database operation: {stmt.operation}")
+        self.main_code.append(f"conn = sqlite3.connect('{db_file}')")
+        self.main_code.append("cursor = conn.cursor()")
+        
+        if stmt.operation == 'CREATE':
+            # Create table operation
+            table_name = getattr(stmt, 'table', 'data')
+            self.main_code.append(f"cursor.execute('CREATE TABLE IF NOT EXISTS {table_name} (id INTEGER PRIMARY KEY)')")
+        elif stmt.operation == 'INSERT':
+            # Insert operation
+            table_name = getattr(stmt, 'table', 'data')
+            if hasattr(stmt, 'data') and stmt.data:
+                data_str = self.emit_expression(stmt.data)
+                self.main_code.append(f"cursor.execute('INSERT INTO {table_name} DEFAULT VALUES')")
+            else:
+                self.main_code.append(f"cursor.execute('INSERT INTO {table_name} DEFAULT VALUES')")
+        elif stmt.operation == 'SELECT':
+            # Select operation
+            table_name = getattr(stmt, 'table', 'data')
+            if hasattr(stmt, 'where') and stmt.where:
+                where_str = self.emit_expression(stmt.where)
+                self.main_code.append(f"cursor.execute('SELECT * FROM {table_name} WHERE {where_str}')")
+            else:
+                self.main_code.append(f"cursor.execute('SELECT * FROM {table_name}')")
+            self.main_code.append("results = cursor.fetchall()")
+            if hasattr(stmt, 'result_var') and stmt.result_var:
+                self.main_code.append(f"{stmt.result_var} = results")
+            else:
+                self.main_code.append("for row in results: print(row)")
+        elif stmt.operation == 'UPDATE':
+            # Update operation
+            table_name = getattr(stmt, 'table', 'data')
+            self.main_code.append(f"cursor.execute('UPDATE {table_name} SET data = data')")
+        elif stmt.operation == 'DELETE':
+            # Delete operation
+            table_name = getattr(stmt, 'table', 'data')
+            if hasattr(stmt, 'where') and stmt.where:
+                where_str = self.emit_expression(stmt.where)
+                self.main_code.append(f"cursor.execute('DELETE FROM {table_name} WHERE {where_str}')")
+            else:
+                self.main_code.append(f"cursor.execute('DELETE FROM {table_name}')")
+        
+        self.main_code.append("conn.commit()")
+        self.main_code.append("conn.close()")
+    
+    def _emit_native_http_server(self, stmt: ServeStatement):
+        """Generate native Python HTTP server using http.server."""
+        self.imports.add("import http.server")
+        self.imports.add("import socketserver")
+        self.imports.add("import json")
+        self.imports.add("from urllib.parse import parse_qs, urlparse")
+        
+        # Create handler class
+        handler_name = f"{stmt.method.capitalize()}{stmt.endpoint.replace('/', '_').replace(':', '')}Handler"
+        
+        handler_lines = [
+            f"class {handler_name}(http.server.BaseHTTPRequestHandler):",
+            f"    def do_{stmt.method.upper()}(self):",
+            "        # Parse request path and query",
+            "        parsed_path = urlparse(self.path)",
+            "        query_params = parse_qs(parsed_path.query)",
+            "        ",
+            "        # Set response headers",
+            "        self.send_response(200)",
+            "        self.send_header('Content-Type', 'application/json')",
+            "        self.end_headers()",
+            "        ",
+            "        # Process request body if present",
+            "        if hasattr(self, 'headers') and 'Content-Length' in self.headers:",
+            "            content_length = int(self.headers['Content-Length'])",
+            "            request_body = self.rfile.read(content_length).decode('utf-8')",
+            "            try:",
+            "                request_data = json.loads(request_body) if request_body else {}",
+            "            except json.JSONDecodeError:",
+            "                request_data = {}",
+            "        else:",
+            "            request_data = {}",
+            "        ",
+            "        # Generate response",
+            "        response_data = {'message': 'Hello from Roelang server', 'method': self.command, 'path': self.path}",
+            "        self.wfile.write(json.dumps(response_data).encode('utf-8'))"
+        ]
+        
+        self.class_definitions.append(handler_lines)
+        
+        # Add server startup code
+        port = getattr(stmt, 'port', 8080)
+        self.main_code.append(f"# Start HTTP server for {stmt.method.upper()} {stmt.endpoint}")
+        self.main_code.append(f"PORT = {port}")
+        self.main_code.append(f"with socketserver.TCPServer(('', PORT), {handler_name}) as httpd:")
+        self.main_code.append(f"    print(f'Server running on http://localhost:{port}{stmt.endpoint}')")
+        self.main_code.append("    httpd.serve_forever()")

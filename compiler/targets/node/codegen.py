@@ -10,7 +10,7 @@ from ...ast import (
     TaskAction, TaskInvocation, ActionDefinition, ReturnStatement, ActionInvocation,
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
-    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement
+    DataInstance, FieldAssignment, FormatExpression, ServeStatement, DatabaseStatement, ApiCallStatement
 )
 from ...symbols import SymbolTable, VariableType
 from ...codegen_base import BaseCodeGenerator, CodeGenError
@@ -263,6 +263,12 @@ class NodeCodeGenerator(BaseCodeGenerator):
             self.emit_foreach_loop(stmt)
         elif isinstance(stmt, ActionDefinition):
             self.emit_action_definition(stmt)
+        elif isinstance(stmt, ApiCallStatement):
+            self.emit_api_call(stmt)
+        elif isinstance(stmt, DatabaseStatement):
+            self.emit_database_statement(stmt)
+        elif isinstance(stmt, ServeStatement):
+            self.emit_serve_statement(stmt)
         elif isinstance(stmt, ModuleDefinition):
             self.emit_module_definition(stmt)
         else:
@@ -468,3 +474,160 @@ class NodeCodeGenerator(BaseCodeGenerator):
         elif pattern == "bin":
             return f'`0b${{parseInt({expr_str}).toString(2)}}`'
         return f'parseInt({expr_str}).toString()'
+    
+    def emit_api_call(self, stmt: ApiCallStatement):
+        """Emit API call statement with framework or native HTTP."""
+        if self.framework == "plain":
+            self._emit_native_http_call(stmt)
+        else:
+            # Fastify framework - not implemented for client calls yet
+            self.main_code.append(f"// TODO: Implement Fastify client call for {stmt.method} {stmt.url}")
+    
+    def emit_database_statement(self, stmt: DatabaseStatement):
+        """Emit database statement - Node.js has no native database support."""
+        # Note: Node.js has no native database support, only third-party modules
+        self.main_code.append(f"// TODO: Node.js has no native database support. Use Prisma or another ORM for {stmt.operation}")
+    
+    def emit_serve_statement(self, stmt: ServeStatement):
+        """Emit serve statement with framework or native HTTP server."""
+        if self.framework == "plain":
+            self._emit_native_http_server(stmt)
+        else:
+            # Fastify framework - handled by template generation
+            self.main_code.append(f"// Serve {stmt.method} {stmt.endpoint} handled by Fastify")
+    
+    def _emit_native_http_call(self, stmt: ApiCallStatement):
+        """Generate native Node.js HTTP client call using http/https modules."""
+        # Determine which module to use based on URL
+        if stmt.url.startswith('https://'):
+            self.imports.add("const https = require('https');")
+            module_name = "https"
+        else:
+            self.imports.add("const http = require('http');")
+            module_name = "http"
+        
+        self.imports.add("const url = require('url');")
+        
+        # Generate HTTP request code
+        self.main_code.append(f"// HTTP {stmt.method.upper()} request to {stmt.url}")
+        self.main_code.append(f"const requestUrl = new URL('{stmt.url}');")
+        
+        # Prepare request options
+        self.main_code.append("const requestOptions = {")
+        self.main_code.append("  hostname: requestUrl.hostname,")
+        self.main_code.append("  port: requestUrl.port,")
+        self.main_code.append("  path: requestUrl.pathname + requestUrl.search,")
+        self.main_code.append(f"  method: '{stmt.method.upper()}',")
+        
+        if stmt.body:
+            self.main_code.append("  headers: {")
+            self.main_code.append("    'Content-Type': 'application/json'")
+            self.main_code.append("  }")
+        
+        self.main_code.append("};")
+        
+        # Create request
+        self.main_code.append(f"const req = {module_name}.request(requestOptions, (res) => {{")
+        self.main_code.append("  let data = '';")
+        self.main_code.append("  res.on('data', (chunk) => {")
+        self.main_code.append("    data += chunk;")
+        self.main_code.append("  });")
+        self.main_code.append("  res.on('end', () => {")
+        
+        if hasattr(stmt, 'response_var') and stmt.response_var:
+            self.main_code.append("    try {")
+            self.main_code.append(f"      const {stmt.response_var} = JSON.parse(data);")
+            self.main_code.append("    } catch (e) {")
+            self.main_code.append(f"      const {stmt.response_var} = data;")
+            self.main_code.append("    }")
+        else:
+            self.main_code.append("    console.log(`Response Status: ${res.statusCode}`);")
+            self.main_code.append("    console.log(`Response Body: ${data}`);")
+        
+        self.main_code.append("  });")
+        self.main_code.append("});")
+        
+        # Handle request errors
+        self.main_code.append("req.on('error', (error) => {")
+        self.main_code.append("  console.error('Request error:', error);")
+        self.main_code.append("});")
+        
+        # Send request body if present
+        if stmt.body:
+            body_str = self.emit_expression(stmt.body)
+            self.main_code.append(f"const requestData = JSON.stringify({body_str});")
+            self.main_code.append("req.write(requestData);")
+        
+        self.main_code.append("req.end();")
+    
+    def _emit_native_http_server(self, stmt: ServeStatement):
+        """Generate native Node.js HTTP server using http module."""
+        self.imports.add("const http = require('http');")
+        self.imports.add("const url = require('url');")
+        
+        # Generate request handler function
+        handler_name = f"{stmt.method.lower()}_{stmt.endpoint.replace('/', '_').replace(':', '')}_handler"
+        
+        handler_lines = [
+            f"function {handler_name}(req, res) {{",
+            "  // Set CORS headers",
+            "  res.setHeader('Access-Control-Allow-Origin', '*');",
+            "  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');",
+            "  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');",
+            "  ",
+            f"  // Check method",
+            f"  if (req.method !== '{stmt.method.upper()}') {{",
+            "    res.writeHead(405, {'Content-Type': 'application/json'});",
+            "    res.end(JSON.stringify({error: 'Method not allowed'}));",
+            "    return;",
+            "  }",
+            "  ",
+            "  // Parse request body",
+            "  let requestBody = '';",
+            "  req.on('data', (chunk) => {",
+            "    requestBody += chunk;",
+            "  });",
+            "  ",
+            "  req.on('end', () => {",
+            "    let requestData = {};",
+            "    try {",
+            "      if (requestBody) {",
+            "        requestData = JSON.parse(requestBody);",
+            "      }",
+            "    } catch (e) {",
+            "      // Handle non-JSON data",
+            "      requestData = {body: requestBody};",
+            "    }",
+            "    ",
+            "    // Generate response",
+            "    const response = {",
+            "      message: 'Hello from Roelang server',",
+            f"      method: '{stmt.method.upper()}',",
+            f"      path: '{stmt.endpoint}',",
+            "      data: requestData",
+            "    };",
+            "    ",
+            "    // Send JSON response",
+            "    res.writeHead(200, {'Content-Type': 'application/json'});",
+            "    res.end(JSON.stringify(response));",
+            "  });",
+            "}"
+        ]
+        
+        self.function_definitions.append(handler_lines)
+        
+        # Add server startup code
+        port = getattr(stmt, 'port', 8080)
+        self.main_code.append(f"// Start HTTP server for {stmt.method.upper()} {stmt.endpoint}")
+        self.main_code.append("const server = http.createServer((req, res) => {")
+        self.main_code.append("  const parsedUrl = url.parse(req.url, true);")
+        self.main_code.append(f"  if (parsedUrl.pathname === '{stmt.endpoint}') {{")
+        self.main_code.append(f"    {handler_name}(req, res);")
+        self.main_code.append("  } else {")
+        self.main_code.append("    res.writeHead(404, {'Content-Type': 'application/json'});")
+        self.main_code.append("    res.end(JSON.stringify({error: 'Not found'}));")
+        self.main_code.append("  }")
+        self.main_code.append("});")
+        self.main_code.append(f"server.listen({port}, () => {{")
+        self.main_code.append(f"  console.log(`Server running on http://localhost:{port}{stmt.endpoint}`);")
+        self.main_code.append("});")
