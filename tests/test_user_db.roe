@@ -42,31 +42,28 @@ end action
 
 end module
 
-api UserAPI
-    endpoint GET /users
-        return from getAllUsers
-    end
-    
-    endpoint GET /users/{id}
-        input id which is text from path
-        return from getUser with id
-    end
-    
-    endpoint POST /users
-        input name which is text from body
-        input email which is text from body
-        return from createUser with name, email
-    end
-    
-    endpoint PUT /users/{id}
-        input id which is text from path
-        input name which is text from body
-        return from updateUser with id, name
-    end
-    
-    endpoint DELETE /users/{id}
-        input id which is text from path
-        run deleteUser with id
-        return success
-    end
-end
+serve get /users
+    return from getAllUsers
+end serve
+
+serve get /users/:id
+    params id which is text
+    return from getUser with id
+end serve
+
+serve post /users
+    accept UserData
+    return from createUser with name, email
+end serve
+
+serve put /users/:id
+    params id which is text
+    accept UserUpdate
+    return from updateUser with id, name
+end serve
+
+serve delete /users/:id
+    params id which is text
+    run deleteUser with id
+    return success
+end serve

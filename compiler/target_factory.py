@@ -191,6 +191,52 @@ class MobileTarget(CompilerTarget):
         return ["android-sdk", "xcode"]  # Development environment dependencies
 
 
+class RoeTarget(CompilerTarget):
+    """Native RoeVM compilation target - generates Rust code with Axum and database support."""
+    
+    def __init__(self):
+        super().__init__("roe", ".rs", "Native RoeVM with Rust/Axum")
+    
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, 
+                      framework: str = "axum", package: Optional[str] = None, 
+                      database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
+        from .targets.roe.codegen import RoeCodeGenerator
+        
+        # Load database config from roeconfig.json if available
+        if source_file_path and not database:
+            database = self._load_database_config(source_file_path)
+            
+        return RoeCodeGenerator(source_file_path, is_main_file, framework, package, database)
+    
+    def _load_database_config(self, source_file_path: str) -> Dict[str, Any]:
+        """Load database configuration from roeconfig.json."""
+        import json
+        from pathlib import Path
+        
+        current_dir = Path(source_file_path).parent
+        for _ in range(10):  # Search up to 10 levels
+            config_path = current_dir / "roeconfig.json"
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        config = json.load(f)
+                        return config.get('database', {})
+                except Exception:
+                    pass
+            parent = current_dir.parent
+            if parent == current_dir:
+                break
+            current_dir = parent
+        
+        return {}
+    
+    def get_runtime_files(self) -> List[str]:
+        return []  # Rust projects are standalone
+    
+    def get_dependencies(self) -> List[str]:
+        return ["cargo", "rustc"]  # Rust toolchain
+
+
 class TargetFactory:
     """Factory for creating compilation targets."""
     
@@ -203,7 +249,8 @@ class TargetFactory:
             "go": GoTarget,
             "node": NodeTarget,
             "bytecode": BytecodeTarget,
-            "mobile": MobileTarget
+            "mobile": MobileTarget,
+            "roe": RoeTarget
         }
     
     def get_available_targets(self) -> List[str]:
@@ -249,7 +296,15 @@ target_factory = TargetFactory()
 def compile_to_target(program: Program, target_name: str, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None):
     """Compile a program to a specific target."""
     target = target_factory.create_target(target_name)
-    codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    
+    # Special handling for targets that need database config
+    if target_name == 'roe':
+        codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    elif target_name == 'java':
+        codegen = target.create_codegen(source_file_path, is_main_file, framework, package, database)
+    else:
+        codegen = target.create_codegen(source_file_path, is_main_file, framework)
+    
     result = codegen.generate(program)
     
     # Handle Spring Boot projects and other multi-file results

@@ -43,7 +43,7 @@ Roelang is a domain-specific language designed for business logic, process autom
 - **Modern**: Support for collections, string interpolation, and format expressions
 - **Metadata-Driven**: Built-in support for metadata annotations for compilation control and documentation
 - **Database-Native**: Built-in DSL for database operations with ORM generation
-- **API-First**: Native support for API calls and REST endpoint definitions
+- **HTTP-First**: Native support for API calls and HTTP server endpoints
 - **Framework Integration**: Automatic generation of Spring Boot, Android, and iOS projects
 - **Cross-Platform UI**: Single DSL syntax generates web, Android, and iOS applications
 - **Mobile-First**: Built-in support for mobile-specific features like camera, GPS, sensors, and notifications
@@ -686,9 +686,9 @@ end module
 
 ---
 
-## API DSL
+## HTTP and API DSL
 
-Roelang provides native support for making API calls and defining REST endpoints.
+Roelang provides native support for making API calls and defining HTTP server endpoints.
 
 ### Making API Calls
 
@@ -762,50 +762,43 @@ set data from response.body
 display "User name: " + data.name
 ```
 
-### Defining API Endpoints (Spring Boot)
+### Defining HTTP Endpoints
 
-When targeting Spring Boot, you can define REST API endpoints:
+You can define REST HTTP endpoints using the `serve` statement:
 
 ```roe
-@framework spring
+// GET endpoint
+serve get /users/:id
+    set user from db find User where id equals id
+    when user is empty then
+        respond 404 with "User not found"
+    end when
+    respond 200 with user
+end serve
 
-api UserAPI
-    
-    // GET endpoint
-    endpoint GET "/users/{id}" gives User
-        set user from db find User where id equals id
-        when user is empty then
-            respond 404 with "User not found"
-        end when
-        respond 200 with user
-    end endpoint
-    
-    // POST endpoint
-    endpoint POST "/users" accepts User gives User
-        db create User from request.body
-        respond 201 with created_user
-    end endpoint
-    
-    // PUT endpoint
-    endpoint PUT "/users/{id}" accepts User gives User
-        db update User where id equals id from request.body
-        respond 200 with updated_user
-    end endpoint
-    
-    // DELETE endpoint
-    endpoint DELETE "/users/{id}"
-        db delete User where id equals id
-        respond 204
-    end endpoint
-    
-end api
+// POST endpoint  
+serve post /users
+    db create User from request.body
+    respond 201 with created_user
+end serve
+
+// PUT endpoint
+serve put /users/:id
+    db update User where id equals id set name is request.name
+    respond 200 with updated_user
+end serve
+
+// DELETE endpoint
+serve delete /users/:id
+    db delete User where id equals id
+    respond 204
+end serve
 ```
 
-### Complete API Example
+### Complete HTTP API Example
 
 ```roe
-@target java
-@framework spring
+@target roe
 
 module blog_api
 
@@ -818,53 +811,49 @@ module blog_api
         created_at is date auto
     end data
     
-    api ArticleAPI
-        
-        // List all articles
-        endpoint GET "/articles" gives list of Article
-            set articles from db find all Article where published equals true
-            respond 200 with articles
-        end endpoint
-        
-        // Get single article
-        endpoint GET "/articles/{id}" gives Article
-            set article from db find Article where id equals id
-            when article is empty then
-                respond 404 with '{"error": "Article not found"}'
-            end when
-            respond 200 with article
-        end endpoint
-        
-        // Create article
-        endpoint POST "/articles" accepts Article gives Article
-            set new_article from request.body
-            db create Article from new_article
-            respond 201 with new_article
-        end endpoint
-        
-        // Update article
-        endpoint PUT "/articles/{id}" accepts Article gives Article
-            set article from db find Article where id equals id
-            when article is empty then
-                respond 404 with '{"error": "Article not found"}'
-            end when
-            db update Article where id equals id from request.body
-            respond 200 with updated_article
-        end endpoint
-        
-        // Delete article
-        endpoint DELETE "/articles/{id}"
-            db delete Article where id equals id
-            respond 204
-        end endpoint
-        
-        // Publish article
-        endpoint POST "/articles/{id}/publish"
-            db update Article where id equals id set published is true
-            respond 200 with '{"message": "Article published"}'
-        end endpoint
-        
-    end api
+    // List all articles
+    serve get /articles
+        set articles from db find all Article where published equals true
+        respond 200 with articles
+    end serve
+    
+    // Get single article
+    serve get /articles/:id
+        set article from db find Article where id equals id
+        when article is empty then
+            respond 404 with '{"error": "Article not found"}'
+        end when
+        respond 200 with article
+    end serve
+    
+    // Create article
+    serve post /articles
+        set new_article from request.body
+        db create Article from new_article
+        respond 201 with new_article
+    end serve
+    
+    // Update article
+    serve put /articles/:id
+        set article from db find Article where id equals id
+        when article is empty then
+            respond 404 with '{"error": "Article not found"}'
+        end when
+        db update Article where id equals id set title is request.title
+        respond 200 with updated_article
+    end serve
+    
+    // Delete article
+    serve delete /articles/:id
+        db delete Article where id equals id
+        respond 204
+    end serve
+    
+    // Publish article
+    serve post /articles/:id/publish
+        db update Article where id equals id set published is true
+        respond 200 with '{"message": "Article published"}'
+    end serve
 
 end module
 ```
@@ -1279,7 +1268,7 @@ set value which is int to 42
 | **Comparisons** | `equals`, `greater`, `less`, `than`, `equal`, `does` |
 | **Format** | `format`, `as` |
 | **Database** | `db`, `find`, `create`, `update`, `delete`, `where`, `all`, `key`, `auto`, `required`, `optional`, `unique` |
-| **API** | `api`, `call`, `method`, `GET`, `POST`, `PUT`, `DELETE`, `using`, `headers`, `into`, `endpoint`, `accepts`, `respond`, `serve`, `accept`, `request`, `body`, `status` |
+| **HTTP/API** | `call`, `method`, `GET`, `POST`, `PUT`, `DELETE`, `using`, `headers`, `into`, `respond`, `serve`, `accept`, `request`, `body`, `status` |
 | **UI Components** | `layout`, `form`, `column`, `title`, `text`, `input`, `button`, `toggle`, `dropdown`, `radio`, `image`, `option` |
 | **UI Attributes** | `id`, `class`, `placeholder`, `bind`, `validate`, `default`, `enabled`, `action`, `type`, `permissions`, `accuracy` |
 | **Mobile** | `camera`, `location`, `notification`, `native`, `device`, `sensor`, `storage`, `cloud`, `vibration`, `audio` |
@@ -1685,17 +1674,15 @@ module user_service
         name is text required
     end data
     
-    api UserAPI
-        endpoint GET "/users" gives list of User
-            set users from db find all User
-            respond 200 with users
-        end endpoint
-        
-        endpoint POST "/users" accepts User gives User
-            db create User from request.body
-            respond 201 with created_user
-        end endpoint
-    end api
+    serve get /users
+        set users from db find all User
+        respond 200 with users
+    end serve
+    
+    serve post /users
+        db create User from request.body
+        respond 201 with created_user
+    end serve
     
 end module
 ```
@@ -1772,7 +1759,7 @@ Generates a complete Xcode project:
 
 1. **Use Configuration Files**: Define framework settings in `roeconfig.json` for consistency
 2. **Leverage Annotations**: Use Roelang field annotations for proper database mapping
-3. **API Design**: Define clear REST endpoints with proper HTTP methods and status codes
+3. **HTTP Endpoints**: Define clear REST endpoints using serve statements with proper HTTP methods and status codes
 4. **Type Safety**: Roelang's strong typing ensures type-safe framework code generation
 5. **Modular Design**: Organize code into modules for better framework integration
 
@@ -1794,18 +1781,16 @@ module blog_platform
         tags is list of text
     end data
     
-    // Backend API (Spring Boot)
-    api BlogAPI
-        endpoint GET "/api/posts" gives list of BlogPost
-            set posts from db find all BlogPost
-            respond 200 with posts
-        end endpoint
-        
-        endpoint POST "/api/posts" accepts BlogPost gives BlogPost
-            db create BlogPost from request.body
-            respond 201 with created_post
-        end endpoint
-    end api
+    // Backend API
+    serve get /api/posts
+        set posts from db find all BlogPost
+        respond 200 with posts
+    end serve
+    
+    serve post /api/posts
+        db create BlogPost from request.body
+        respond 201 with created_post
+    end serve
     
     // Frontend UI (HTML/JavaScript)
     layout BlogView

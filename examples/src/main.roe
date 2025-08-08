@@ -1,28 +1,30 @@
-# Spring Boot API Example
-@target java
-@framework spring
+# HTTP Server Example
+@target roe
 @package com.example.app
 
-api UserAPI
-    model User
-        id which is int key auto
-        username which is text unique required
-        email which is text unique required
-        password which is text required
-        createdAt which is datetime auto
-    end
-    
-    endpoint GET /users
-        return all User
-    end
-    
-    endpoint POST /users
-        input User data
-        return created User with data
-    end
-    
-    endpoint GET /users/{id}
-        input id which is int from path
-        return one User where id = id
-    end
-end
+module UserAPI
+
+data User
+    id is text key auto
+    username is text unique required
+    email is text unique required
+    password is text required
+    createdAt is datetime auto
+end data
+
+serve get /users
+    db find all User
+    respond with users
+end serve
+
+serve post /users
+    db create User from request
+    respond with created_user
+end serve
+
+serve get /users/:id
+    db find User where id equals id  
+    respond with user
+end serve
+
+end module

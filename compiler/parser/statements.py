@@ -7,7 +7,7 @@ from ..ast import (
     ForEachLoop, TaskAction, TaskInvocation, ActionDefinition,
     ReturnStatement, ActionInvocationWithArgs, IncludeStatement,
     DataInstance, FieldAssignment, Identifier, Literal,
-    ApiCallStatement, ApiHeader, ApiEndpointDefinition, DatabaseStatement,
+    ApiCallStatement, ApiHeader, DatabaseStatement, ServeStatement,
     BinaryOp
 )
 from .expressions import ExpressionParser
@@ -32,6 +32,10 @@ class StatementParser(ExpressionParser):
         # Database statements
         if line.startswith('db '):
             return self.parse_database_statement(line)
+        
+        # Serve statements
+        if line.startswith('serve '):
+            return self.parse_serve_statement(line)
         
         # Display statements
         if line.startswith('Display ') or line.startswith('display '):
@@ -682,3 +686,46 @@ class StatementParser(ExpressionParser):
             )
         else:
             raise ParseError(f"Delete operation requires where clause: {line}")
+    
+    def parse_serve_statement(self, line: str) -> Optional[ServeStatement]:
+        """Parse serve statement like 'serve get /users'."""
+        line = line.strip()
+        
+        # Remove 'serve ' prefix
+        if not line.startswith('serve '):
+            return None
+        
+        line = line[6:].strip()  # Remove 'serve ' prefix
+        
+        # Parse method and endpoint
+        parts = line.split(' ', 1)
+        if len(parts) != 2:
+            raise ParseError(f"Invalid serve syntax: {line}")
+        
+        method = parts[0].lower()
+        endpoint = parts[1].strip()
+        
+        # Parse serve body until 'end serve'
+        body = []
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end serve':
+                self.consume_line()  # consume 'end serve'
+                break
+            
+            if next_line.startswith('    '):  # Indented content
+                self.consume_line()
+                stmt_line = next_line.strip()
+                if stmt_line:
+                    # Parse the statement inside serve block
+                    stmt = self.parse_statement(stmt_line)
+                    if stmt:
+                        body.append(stmt)
+            else:
+                break
+        
+        return ServeStatement(method, endpoint, body)

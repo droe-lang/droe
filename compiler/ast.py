@@ -403,15 +403,6 @@ class ApiHeader(ASTNode):
     value: str  # '"Bearer Token"', '"application/json"', etc.
 
 
-@dataclass
-class ApiEndpointDefinition(ASTNode):
-    """Represents an API endpoint definition for type-safe calls."""
-    name: str  # endpoint identifier
-    path: str  # '/api/users/{id}'
-    method: str  # 'GET', 'POST', etc.
-    request_type: Optional[str] = None  # Data type for request body
-    response_type: Optional[str] = None  # Data type for response
-    headers: List[ApiHeader] = field(default_factory=list)
 
 
 @dataclass

@@ -284,8 +284,8 @@ class StructureParser(UIComponentParser):
                 self.consume_line()  # consume 'end data'
                 break
                 
-            # Parse indented field definitions
-            if next_line.startswith('        ') and ' is ' in next_line:  # 8 spaces for nested
+            # Parse indented field definitions (4 spaces for top-level, 8 for module-nested)
+            if (next_line.startswith('    ') or next_line.startswith('        ')) and ' is ' in next_line:
                 self.consume_line()
                 field_line = next_line.strip()
                 field = self.parse_data_field(field_line)

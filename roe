@@ -131,7 +131,8 @@ def init_project(name=None, author=None, target=None, framework=None):
             "node": ["fastify"],
             "wasm": [],
             "html": [],
-            "mobile": []
+            "mobile": [],
+            "roe": ["axum"]
         }
         
         target_key = target or "wasm"
@@ -145,7 +146,7 @@ def init_project(name=None, author=None, target=None, framework=None):
                 exit(1)
         
         # Add framework if specified and applicable (ignore for targets that don't support frameworks)
-        if framework != "plain" and target_key in ["java", "python", "go", "node"]:
+        if framework != "plain" and target_key in ["java", "python", "go", "node", "roe"]:
             config_data["framework"] = framework
         
     # Add package name for Java Spring projects
@@ -649,7 +650,8 @@ def build_distribution(project_root, clean=False, release=False):
             "java": "*.java",
             "go": "*.go",
             "node": "*.js",
-            "html": "*.html"
+            "html": "*.html",
+            "roe": "*.rs"
         }
         
         pattern = target_extensions.get(target, "*.wasm")
@@ -722,8 +724,8 @@ def main():
     init_parser.add_argument('project_name', nargs='?', help='Project name (creates directory if specified)')
     init_parser.add_argument('--name', help='Project name (deprecated, use positional argument)')
     init_parser.add_argument('--author', help='Project author')
-    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile'], help='Compilation target')
-    init_parser.add_argument('--framework', choices=['plain', 'spring', 'fastapi', 'fiber', 'fastify'], help='Framework to use with target')
+    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile', 'roe'], help='Compilation target')
+    init_parser.add_argument('--framework', choices=['plain', 'spring', 'fastapi', 'fiber', 'fastify', 'axum'], help='Framework to use with target')
     
     # Install command
     install_parser = subparsers.add_parser('install', help='Install package dependencies')
@@ -743,7 +745,7 @@ def main():
     compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
     compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
-    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile'], help='Compilation target (overrides roeconfig.json)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'roe'], help='Compilation target (overrides roeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
@@ -912,9 +914,9 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             # Use new multi-target compiler if available
             if hasattr(compiler, 'compile_file') and hasattr(compiler, 'CompilerError'):
                 try:
-                    # For mobile targets, don't create individual output paths
-                    if target == 'mobile':
-                        # Mobile projects handle their own directory structure
+                    # For mobile and roe targets, don't create individual output paths
+                    if target in ['mobile', 'roe']:
+                        # These projects handle their own directory structure
                         output_file = compiler.compile_file(str(roe_file), target=target, framework=config.get("framework", "plain"), package=config.get("package"), database=config.get("database"))
                     else:
                         # Calculate output path for build directory if not specified
@@ -929,7 +931,8 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
                                 'html': '.html',
                                 'kotlin': '.kt',
                                 'swift': '.swift',
-                                'bytecode': '.roebc'
+                                'bytecode': '.roebc',
+                                'roe': '.rs'
                             }
                             extension = target_extensions.get(target, '.txt')
                             computed_output_path = build_dir / f"{basename}{extension}"
