@@ -1,7 +1,7 @@
 # Roelang Language Specification
 
-**Version:** 2.0  
-**Date:** August 2024  
+**Version:** 3.0  
+**Date:** January 2025  
 **Authors:** Roelang Development Team
 
 ## Table of Contents
@@ -16,20 +16,23 @@
 8. [Functions and Actions](#functions-and-actions)
 9. [Modules](#modules)
 10. [Data Structures](#data-structures)
-11. [UI Components and Layouts](#ui-components-and-layouts)
-12. [Mobile Platform Features](#mobile-platform-features)
-13. [String Operations](#string-operations)
-14. [Format Expressions](#format-expressions)
-15. [Include System](#include-system)
-16. [Comments](#comments)
-17. [Keywords](#keywords)
-18. [Compilation Targets](#compilation-targets)
+11. [Database DSL](#database-dsl)
+12. [API DSL](#api-dsl)
+13. [UI Components and Layouts](#ui-components-and-layouts)
+14. [Mobile Platform Features](#mobile-platform-features)
+15. [String Operations](#string-operations)
+16. [Format Expressions](#format-expressions)
+17. [Include System](#include-system)
+18. [Comments](#comments)
+19. [Keywords](#keywords)
+20. [Compilation Targets](#compilation-targets)
+21. [Framework Adapters](#framework-adapters)
 
 ---
 
 ## Overview
 
-Roelang is a domain-specific language designed for business logic, process automation, and cross-platform application development. It features a readable, English-like syntax with strong typing, modern language constructs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java, JavaScript, HTML, and mobile platforms (Android/iOS).
+Roelang is a domain-specific language designed for business logic, process automation, API development, database operations, and cross-platform application development. It features a readable, English-like syntax with strong typing, modern language constructs, built-in DSLs for databases and APIs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java (with Spring Boot support), JavaScript, HTML, and mobile platforms (Android/iOS).
 
 ### Design Principles
 
@@ -39,6 +42,9 @@ Roelang is a domain-specific language designed for business logic, process autom
 - **Modular**: Support for modules and code reuse
 - **Modern**: Support for collections, string interpolation, and format expressions
 - **Metadata-Driven**: Built-in support for metadata annotations for compilation control and documentation
+- **Database-Native**: Built-in DSL for database operations with ORM generation
+- **API-First**: Native support for API calls and REST endpoint definitions
+- **Framework Integration**: Automatic generation of Spring Boot, Android, and iOS projects
 - **Cross-Platform UI**: Single DSL syntax generates web, Android, and iOS applications
 - **Mobile-First**: Built-in support for mobile-specific features like camera, GPS, sensors, and notifications
 
@@ -538,6 +544,333 @@ end module
 
 ---
 
+## Database DSL
+
+Roelang provides a native Database DSL for defining data models and performing database operations with automatic ORM generation for target frameworks.
+
+### Data Definitions with Annotations
+
+Define data structures with field annotations for database schema generation:
+
+```roe
+data User
+    id is text key auto                    // Primary key with auto-generation
+    name is text required                   // Required field
+    email is text required unique           // Unique constraint
+    age is int optional                     // Nullable field
+    active is flag default true             // Default value
+    created_at is date auto                 // Auto-timestamp
+end data
+
+data Post
+    id is text key auto
+    title is text required
+    content is text required
+    author_id is text required              // Foreign key reference
+    published is flag default false
+    created_at is date auto
+end data
+```
+
+### Field Annotations
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| `key` | Primary key field | `id is text key` |
+| `auto` | Auto-generated value | `id is text key auto` |
+| `required` | Non-nullable field | `name is text required` |
+| `optional` | Nullable field | `age is int optional` |
+| `unique` | Unique constraint | `email is text unique` |
+| `default <value>` | Default value | `active is flag default true` |
+
+### Database Operations
+
+#### Create (INSERT)
+```roe
+// Create new record
+db create User with name is "Alice", email is "alice@example.com", age is 25
+
+// Create with variable
+set new_user which is User
+set new_user.name to "Bob"
+set new_user.email to "bob@example.com"
+db create User from new_user
+```
+
+#### Read (SELECT)
+```roe
+// Find single record
+set user from db find User where id equals "user123"
+
+// Find with multiple conditions
+set active_user from db find User where email equals "alice@example.com" and active equals true
+
+// Find all records
+set all_users from db find all User
+
+// Find with conditions
+set adult_users from db find all User where age is greater than 18
+```
+
+#### Update
+```roe
+// Update single record
+db update User where id equals "user123" set name is "Alice Smith", age is 26
+
+// Update with variables
+set user_id which is text to "user123"
+set new_name which is text to "Alice Johnson"
+db update User where id equals user_id set name is new_name
+```
+
+#### Delete
+```roe
+// Delete single record
+db delete User where id equals "user123"
+
+// Delete with conditions
+db delete User where active equals false and age is less than 18
+```
+
+### Complete Database Example
+
+```roe
+@target java
+@framework spring
+
+module user_management
+
+    // Define User entity
+    data User
+        id is text key auto
+        username is text required unique
+        email is text required unique
+        password is text required
+        active is flag default true
+        created_at is date auto
+    end data
+    
+    // User registration
+    action register_user with username which is text, email which is text, password which is text
+        // Check if user exists
+        set existing from db find User where email equals email
+        when existing is not empty then
+            display "User already exists"
+            give false
+        end when
+        
+        // Create new user
+        db create User with username is username, email is email, password is password
+        display "User registered successfully"
+        give true
+    end action
+    
+    // User authentication
+    action authenticate with email which is text, password which is text gives User
+        set user from db find User where email equals email and password equals password
+        when user is empty then
+            display "Invalid credentials"
+            give empty
+        end when
+        give user
+    end action
+    
+    // Update user profile
+    action update_profile with user_id which is text, new_email which is text
+        db update User where id equals user_id set email is new_email
+        display "Profile updated"
+    end action
+
+end module
+```
+
+---
+
+## API DSL
+
+Roelang provides native support for making API calls and defining REST endpoints.
+
+### Making API Calls
+
+#### Basic API Call Syntax
+```roe
+call <endpoint> method <HTTP_METHOD> [with <data>] [using headers <headers>] into <response_variable>
+```
+
+#### GET Request
+```roe
+// Simple GET request
+call "https://api.example.com/users" method GET into response
+display response
+
+// GET with headers
+call "https://api.example.com/profile" method GET using headers
+    Authorization: "Bearer token123"
+    Accept: "application/json"
+end headers into profile_data
+```
+
+#### POST Request
+```roe
+// POST with JSON data
+set user_data which is text to '{"name": "Alice", "email": "alice@example.com"}'
+call "https://api.example.com/users" method POST with user_data using headers
+    Content-Type: "application/json"
+    Authorization: "Bearer token123"
+end headers into create_response
+
+// POST with form data
+set form_data which is text to "username=alice&password=secret"
+call "https://api.example.com/login" method POST with form_data using headers
+    Content-Type: "application/x-www-form-urlencoded"
+end headers into login_response
+```
+
+#### PUT Request
+```roe
+set update_data which is text to '{"name": "Alice Smith"}'
+call "https://api.example.com/users/123" method PUT with update_data using headers
+    Content-Type: "application/json"
+    Authorization: "Bearer token123"
+end headers into update_response
+```
+
+#### DELETE Request
+```roe
+call "https://api.example.com/users/123" method DELETE using headers
+    Authorization: "Bearer token123"
+end headers into delete_response
+```
+
+### API Response Handling
+
+```roe
+// Make API call
+call "https://api.example.com/data" method GET into response
+
+// Check response status
+when response.status equals 200 then
+    display "Success: " + response.body
+otherwise when response.status equals 404 then
+    display "Not found"
+otherwise
+    display "Error: " + response.status
+end when
+
+// Parse JSON response (automatic in supported targets)
+set data from response.body
+display "User name: " + data.name
+```
+
+### Defining API Endpoints (Spring Boot)
+
+When targeting Spring Boot, you can define REST API endpoints:
+
+```roe
+@framework spring
+
+api UserAPI
+    
+    // GET endpoint
+    endpoint GET "/users/{id}" gives User
+        set user from db find User where id equals id
+        when user is empty then
+            respond 404 with "User not found"
+        end when
+        respond 200 with user
+    end endpoint
+    
+    // POST endpoint
+    endpoint POST "/users" accepts User gives User
+        db create User from request.body
+        respond 201 with created_user
+    end endpoint
+    
+    // PUT endpoint
+    endpoint PUT "/users/{id}" accepts User gives User
+        db update User where id equals id from request.body
+        respond 200 with updated_user
+    end endpoint
+    
+    // DELETE endpoint
+    endpoint DELETE "/users/{id}"
+        db delete User where id equals id
+        respond 204
+    end endpoint
+    
+end api
+```
+
+### Complete API Example
+
+```roe
+@target java
+@framework spring
+
+module blog_api
+
+    data Article
+        id is text key auto
+        title is text required
+        content is text required
+        author is text required
+        published is flag default false
+        created_at is date auto
+    end data
+    
+    api ArticleAPI
+        
+        // List all articles
+        endpoint GET "/articles" gives list of Article
+            set articles from db find all Article where published equals true
+            respond 200 with articles
+        end endpoint
+        
+        // Get single article
+        endpoint GET "/articles/{id}" gives Article
+            set article from db find Article where id equals id
+            when article is empty then
+                respond 404 with '{"error": "Article not found"}'
+            end when
+            respond 200 with article
+        end endpoint
+        
+        // Create article
+        endpoint POST "/articles" accepts Article gives Article
+            set new_article from request.body
+            db create Article from new_article
+            respond 201 with new_article
+        end endpoint
+        
+        // Update article
+        endpoint PUT "/articles/{id}" accepts Article gives Article
+            set article from db find Article where id equals id
+            when article is empty then
+                respond 404 with '{"error": "Article not found"}'
+            end when
+            db update Article where id equals id from request.body
+            respond 200 with updated_article
+        end endpoint
+        
+        // Delete article
+        endpoint DELETE "/articles/{id}"
+            db delete Article where id equals id
+            respond 204
+        end endpoint
+        
+        // Publish article
+        endpoint POST "/articles/{id}/publish"
+            db update Article where id equals id set published is true
+            respond 200 with '{"message": "Article published"}'
+        end endpoint
+        
+    end api
+
+end module
+```
+
+---
+
 ## UI Components and Layouts
 
 Roelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript), Android (Kotlin), and iOS (Swift) applications using a single, consistent syntax.
@@ -942,9 +1275,11 @@ set value which is int to 42
 | **Modules** | `module`, `include`, `data` |
 | **Display** | `display`, `show` |  
 | **Types** | `int`, `decimal`, `text`, `flag`, `yesno`, `date`, `file`, `list`, `group`, `of` |
-| **Logic** | `true`, `false`, `and`, `or`, `not` |
+| **Logic** | `true`, `false`, `and`, `or`, `not`, `empty` |
 | **Comparisons** | `equals`, `greater`, `less`, `than`, `equal`, `does` |
 | **Format** | `format`, `as` |
+| **Database** | `db`, `find`, `create`, `update`, `delete`, `where`, `all`, `key`, `auto`, `required`, `optional`, `unique` |
+| **API** | `api`, `call`, `method`, `GET`, `POST`, `PUT`, `DELETE`, `using`, `headers`, `into`, `endpoint`, `accepts`, `respond`, `serve`, `accept`, `request`, `body`, `status` |
 | **UI Components** | `layout`, `form`, `column`, `title`, `text`, `input`, `button`, `toggle`, `dropdown`, `radio`, `image`, `option` |
 | **UI Attributes** | `id`, `class`, `placeholder`, `bind`, `validate`, `default`, `enabled`, `action`, `type`, `permissions`, `accuracy` |
 | **Mobile** | `camera`, `location`, `notification`, `native`, `device`, `sensor`, `storage`, `cloud`, `vibration`, `audio` |
@@ -964,86 +1299,155 @@ set value which is int to 42
 
 ## Compilation Targets
 
-Roelang compiles to multiple target languages:
+Roelang compiles to multiple target languages and frameworks:
 
-### Supported Targets
+### Core Compilation Targets
 
-| Target | Extension | Description |
-|--------|-----------|-------------|
-| `wasm` | `.wat` | WebAssembly Text format |
-| `python` | `.py` | Python source code |
-| `java` | `.java` | Java source code |
-| `node` | `.js` | Node.js JavaScript |  
-| `go` | `.go` | Go source code |
-| `html` | `.html` | HTML with embedded JavaScript |
-| `bytecode` | `.roebc` | Roelang VM bytecode |
+| Target | Extension | Description | Framework Support |
+|--------|-----------|-------------|-------------------|
+| `wasm` | `.wat`/`.wasm` | WebAssembly Text and Binary formats | - |
+| `python` | `.py` | Python 3.x source code | Django (planned) |
+| `java` | `.java` | Java 11+ source code | Spring Boot |
+| `node` | `.js` | Node.js JavaScript ES6+ | Express (planned) |  
+| `go` | `.go` | Go 1.18+ source code | Gin (planned) |
+| `html` | `.html` | HTML5 with embedded JavaScript | Vue.js integration |
+| `bytecode` | `.roebc` | Roelang VM bytecode format | - |
+| `mobile` | Multiple | Android (Kotlin) + iOS (Swift) projects | Native SDKs |
 
-### Mobile Platform Targets
+### Framework-Specific Generation
 
-When using `@metadata(platform="mobile")` or `@targets "android, ios"`, Roelang generates complete mobile projects:
+When using `@framework` metadata or `--framework` CLI option:
 
-| Platform | Generated Files | Description |
-|----------|----------------|-------------|
-| **Android** | Project folder with Kotlin | Complete Android Studio project with `MainActivity.kt`, XML layouts, `AndroidManifest.xml`, Gradle build files |
-| **iOS** | Project folder with Swift | Complete Xcode project with SwiftUI `ContentView.swift`, `Info.plist`, project configuration |
+| Framework | Target | Generated Output |
+|-----------|--------|------------------|
+| **Spring Boot** | `java` | Complete Spring Boot project with JPA entities, REST controllers, services, repositories, `pom.xml`, `application.properties` |
+| **Android** | `mobile` | Android Studio project with Kotlin activities, XML layouts, Gradle build files, `AndroidManifest.xml` |
+| **iOS** | `mobile` | Xcode project with SwiftUI views, `Info.plist`, project configuration |
 
 ### Compilation Commands
+
 ```bash
-# Compile to specific target
-roe compile program.roe --target java
-roe compile program.roe --target python
-roe compile program.roe --target wasm
+# Basic compilation
+roe compile program.roe                    # Uses default or metadata target
+roe compile program.roe --target python    # Compile to Python
+roe compile program.roe --target java      # Compile to Java
 
-# Compile to HTML (web application)
-roe compile webapp.roe --target html
+# Framework-specific compilation
+roe compile api.roe --target java --framework spring    # Spring Boot project
+roe compile app.roe --target mobile                     # Android + iOS apps
 
-# Compile mobile application (generates both Android and iOS)
-roe compile mobile_app.roe --target mobile
+# Project-based compilation (uses roeconfig.json)
+roe compile                                # Uses settings from roeconfig.json
 
 # Compile and run
-roe run program.roe
+roe run program.roe                        # Compile and execute
+```
+
+### Configuration File (roeconfig.json)
+
+```json
+{
+  "project_name": "MyProject",
+  "src_dir": "src",
+  "build_dir": "dist",
+  "target": "java",
+  "framework": "spring",
+  "main_file": "src/main.roe",
+  "spring": {
+    "group_id": "com.example",
+    "artifact_id": "myproject",
+    "package": "com.example.myproject",
+    "database": {
+      "type": "postgresql",
+      "host": "localhost",
+      "port": 5432,
+      "name": "mydb"
+    }
+  }
+}
+```
+
+### Spring Boot Project Structure
+
+When compiling with `--framework spring`:
+
+```
+dist/
+├── pom.xml
+├── src/
+│   └── main/
+│       ├── java/
+│       │   └── com/example/myproject/
+│       │       ├── Application.java
+│       │       ├── entities/
+│       │       │   └── User.java
+│       │       ├── repositories/
+│       │       │   └── UserRepository.java
+│       │       ├── services/
+│       │       │   └── UserService.java
+│       │       └── controllers/
+│       │           └── UserController.java
+│       └── resources/
+│           └── application.properties
 ```
 
 ### Mobile Project Structure
 
-Mobile compilation creates complete, buildable projects:
-
-**Android Project Structure:**
+**Android Project (Kotlin):**
 ```
 dist/android/
 ├── app/
 │   ├── src/main/
 │   │   ├── java/com/example/myapp/
-│   │   │   └── MainActivity.kt
+│   │   │   ├── MainActivity.kt
+│   │   │   └── components/
 │   │   ├── res/
-│   │   │   └── layout/
-│   │   │       └── activity_main.xml
+│   │   │   ├── layout/
+│   │   │   │   └── activity_main.xml
+│   │   │   └── values/
+│   │   │       └── strings.xml
 │   │   └── AndroidManifest.xml
 │   └── build.gradle
 ├── build.gradle
 └── settings.gradle
 ```
 
-**iOS Project Structure:**
+**iOS Project (Swift):**
 ```
 dist/ios/
 ├── MyApp.xcodeproj/
-├── ContentView.swift
-├── MainscreenView.swift
-├── Info.plist
+├── MyApp/
+│   ├── ContentView.swift
+│   ├── MainscreenView.swift
+│   ├── Models/
+│   ├── Views/
+│   └── Info.plist
 └── Assets.xcassets/
 ```
 
-### Type Mapping
+### Type Mapping Across Targets
 
-| Roelang Type | Python | Java | JavaScript | Go |
-|--------------|--------|------|------------|----| 
-| `int` | `int` | `int` | `number` | `int` |
-| `decimal` | `float` | `double` | `number` | `float64` |
-| `text` | `str` | `String` | `string` | `string` |
-| `flag` | `bool` | `boolean` | `boolean` | `bool` |
-| `list of int` | `List[int]` | `List<Integer>` | `number[]` | `[]int` |
-| `group of text` | `List[str]` | `List<String>` | `string[]` | `[]string` |
+| Roelang Type | Python | Java | JavaScript | Go | Kotlin | Swift |
+|--------------|--------|------|------------|-------|--------|-------|
+| `int` | `int` | `int` | `number` | `int` | `Int` | `Int` |
+| `decimal` | `float` | `double` | `number` | `float64` | `Double` | `Double` |
+| `text` | `str` | `String` | `string` | `string` | `String` | `String` |
+| `flag` | `bool` | `boolean` | `boolean` | `bool` | `Boolean` | `Bool` |
+| `date` | `datetime` | `LocalDate` | `Date` | `time.Time` | `LocalDate` | `Date` |
+| `list of T` | `List[T]` | `List<T>` | `T[]` | `[]T` | `List<T>` | `[T]` |
+
+### Database Type Mapping (Spring Boot)
+
+| Roelang Annotation | JPA Annotation | SQL Type |
+|--------------------|----------------|----------|
+| `key auto` | `@Id @GeneratedValue` | `SERIAL/UUID` |
+| `required` | `@Column(nullable=false)` | `NOT NULL` |
+| `unique` | `@Column(unique=true)` | `UNIQUE` |
+| `text` | `@Column(columnDefinition="TEXT")` | `TEXT/VARCHAR` |
+| `int` | `@Column` | `INTEGER` |
+| `decimal` | `@Column` | `DECIMAL` |
+| `flag` | `@Column` | `BOOLEAN` |
+| `date auto` | `@CreatedDate` | `TIMESTAMP` |
 
 ---
 
@@ -1252,4 +1656,188 @@ This single Roelang file generates:
 
 ---
 
-*This specification covers Roelang version 2.0 with mobile DSL support. For updates and examples, visit the official Roelang documentation.*
+## Framework Adapters
+
+Roelang provides framework adapters that automatically generate idiomatic code for popular frameworks.
+
+### Spring Boot Adapter (Java)
+
+The Spring Boot adapter generates a complete, production-ready Spring Boot application:
+
+#### Features
+- **JPA Entities**: Automatic generation from `data` definitions with proper annotations
+- **REST Controllers**: Full CRUD endpoints from `api` definitions
+- **Service Layer**: Business logic separation
+- **Repository Layer**: Spring Data JPA repositories
+- **Configuration**: `application.properties` with database configuration
+- **Build System**: Maven `pom.xml` with all required dependencies
+
+#### Usage
+```roe
+@target java
+@framework spring
+
+module user_service
+    
+    data User
+        id is text key auto
+        email is text required unique
+        name is text required
+    end data
+    
+    api UserAPI
+        endpoint GET "/users" gives list of User
+            set users from db find all User
+            respond 200 with users
+        end endpoint
+        
+        endpoint POST "/users" accepts User gives User
+            db create User from request.body
+            respond 201 with created_user
+        end endpoint
+    end api
+    
+end module
+```
+
+This generates:
+- `User.java` - JPA entity with annotations
+- `UserRepository.java` - Spring Data repository
+- `UserService.java` - Service layer
+- `UserController.java` - REST controller
+- `Application.java` - Spring Boot main class
+- `pom.xml` - Maven configuration
+- `application.properties` - Database configuration
+
+### Mobile Framework Adapters
+
+#### Android Adapter (Kotlin)
+Generates a complete Android Studio project:
+
+- **Activities**: Kotlin activities with lifecycle management
+- **Layouts**: XML layouts with Material Design
+- **Permissions**: Automatic `AndroidManifest.xml` configuration
+- **Build System**: Gradle with dependencies
+- **Components**: Native Android components from Roelang UI DSL
+
+#### iOS Adapter (Swift)
+Generates a complete Xcode project:
+
+- **SwiftUI Views**: Modern declarative UI
+- **Navigation**: Automatic navigation setup
+- **Permissions**: `Info.plist` with usage descriptions
+- **Project Structure**: Standard iOS app structure
+- **Components**: Native iOS components from Roelang UI DSL
+
+### Framework Configuration
+
+#### Project-Level Configuration (roeconfig.json)
+```json
+{
+  "framework": "spring",
+  "spring": {
+    "group_id": "com.example",
+    "artifact_id": "myapp",
+    "package": "com.example.myapp",
+    "java_version": "11",
+    "spring_boot_version": "2.7.0",
+    "database": {
+      "type": "postgresql",
+      "host": "localhost",
+      "port": 5432,
+      "name": "mydb",
+      "username": "dbuser"
+    }
+  }
+}
+```
+
+#### File-Level Configuration
+```roe
+@framework spring
+@metadata(framework="spring", package="com.example.api")
+```
+
+### Supported Framework Features
+
+| Framework | Database | API | UI | Authentication | Testing |
+|-----------|----------|-----|-----|----------------|---------|
+| Spring Boot | JPA/Hibernate | REST | Thymeleaf | Spring Security* | JUnit* |
+| Android | Room* | Retrofit* | XML/Compose | Firebase* | Espresso* |
+| iOS | Core Data* | URLSession* | SwiftUI | Sign in with Apple* | XCTest* |
+
+*Planned or partial support
+
+### Best Practices
+
+1. **Use Configuration Files**: Define framework settings in `roeconfig.json` for consistency
+2. **Leverage Annotations**: Use Roelang field annotations for proper database mapping
+3. **API Design**: Define clear REST endpoints with proper HTTP methods and status codes
+4. **Type Safety**: Roelang's strong typing ensures type-safe framework code generation
+5. **Modular Design**: Organize code into modules for better framework integration
+
+### Example: Full-Stack Application
+
+```roe
+@targets "java, html"
+@framework spring
+
+module blog_platform
+
+    // Shared data model
+    data BlogPost
+        id is text key auto
+        title is text required
+        content is text required
+        author is text required
+        published_at is date auto
+        tags is list of text
+    end data
+    
+    // Backend API (Spring Boot)
+    api BlogAPI
+        endpoint GET "/api/posts" gives list of BlogPost
+            set posts from db find all BlogPost
+            respond 200 with posts
+        end endpoint
+        
+        endpoint POST "/api/posts" accepts BlogPost gives BlogPost
+            db create BlogPost from request.body
+            respond 201 with created_post
+        end endpoint
+    end api
+    
+    // Frontend UI (HTML/JavaScript)
+    layout BlogView
+        column class "container"
+            title "Blog Posts" class "page-title"
+            
+            for each post in posts
+                column class "post-card"
+                    title bind post.title class "post-title"
+                    text bind post.content class "post-content"
+                    text "By: " + post.author class "post-author"
+                end column
+            end for
+            
+            button "Load Posts" action loadPosts class "btn-primary"
+        end column
+    end layout
+    
+    action loadPosts
+        call "/api/posts" method GET into response
+        set posts from response.body
+    end action
+
+end module
+```
+
+This single Roelang file generates:
+- Complete Spring Boot backend with database
+- Responsive HTML/JavaScript frontend
+- Automatic API integration
+- Type-safe data transfer
+
+---
+
+*This specification covers Roelang version 3.0 with Database DSL, API DSL, and Framework Adapter support. For updates and examples, visit the official Roelang documentation.*
