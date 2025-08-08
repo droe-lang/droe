@@ -1,0 +1,99 @@
+name: CI - Build Compiler Bundle
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'compiler/**'
+      - 'roe'
+      - 'run.js'
+      - '*.py'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Create compiler bundle
+      run: |
+        # Create the main compiler bundle
+        tar -czf compiler.tar.gz compiler/ roe run.js *.py
+        echo "✅ Compiler bundle created"
+        ls -lh compiler.tar.gz
+        
+        # Create a lightweight bundle for quick downloads
+        tar -czf compiler-core.tar.gz compiler/
+        echo "✅ Core compiler bundle created"
+        ls -lh compiler-core.tar.gz
+    
+    - name: Generate checksums
+      run: |
+        sha256sum compiler.tar.gz > compiler.tar.gz.sha256
+        sha256sum compiler-core.tar.gz > compiler-core.tar.gz.sha256
+        echo "✅ Checksums generated:"
+        cat *.sha256
+    
+    - name: Upload compiler bundle as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiler-bundle-${{ github.sha }}
+        path: |
+          compiler.tar.gz
+          compiler.tar.gz.sha256
+          compiler-core.tar.gz
+          compiler-core.tar.gz.sha256
+        retention-days: 30
+    
+    - name: Upload latest compiler bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: compiler-bundle-latest
+        path: |
+          compiler.tar.gz
+          compiler.tar.gz.sha256
+        retention-days: 7
+    
+    # Optional: Update a 'latest' release for easy downloading
+    - name: Update latest development build
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: latest
+        name: Latest Development Build
+        body: |
+          # Latest Development Build
+          
+          This is an automated build from the latest commit on the main branch.
+          
+          **⚠️ This is not a stable release!**
+          
+          For stable releases, please check the [releases page](https://github.com/${{ github.repository }}/releases).
+          
+          ## Installation
+          
+          Download `compiler.tar.gz` and extract it to use the latest compiler.
+          
+          ---
+          Built from commit: ${{ github.sha }}
+          Build time: ${{ github.event.head_commit.timestamp }}
+        files: |
+          compiler.tar.gz
+          compiler.tar.gz.sha256
+          compiler-core.tar.gz
+          compiler-core.tar.gz.sha256
+        prerelease: true
+        draft: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
