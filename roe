@@ -185,8 +185,20 @@ def init_project(name=None, author=None, target=None, framework=None):
 @framework spring
 @package {config_data.get("package", "com.example.app")}
 
-set projectName which is text to "{project_name}"
-display "Hello from [projectName]!"
+module IndexModule
+
+action Index gives text
+    set projectName which is text to "{project_name}"
+    give projectName
+end action
+
+end module
+
+api IndexAPI
+    endpoint GET /
+        return from IndexModule.Index
+    end
+end
 '''
         elif target == "html":
             main_content = f'''@target html

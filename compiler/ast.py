@@ -143,6 +143,7 @@ class DataField(ASTNode):
     """Represents a field in a data structure."""
     name: str
     type: str
+    annotations: List[str] = field(default_factory=list)  # e.g., ['required', 'unique', 'key', 'auto']
 
 
 @dataclass

@@ -1,0 +1,21 @@
+import java.text.*;
+import java.time.*;
+import java.time.format.*;
+import java.util.*;
+
+class UserModule {
+}
+
+class TestUserDb {
+    public TestUserDb() {
+        // TODO: Implement MetadataAnnotation
+        // TODO: Implement MetadataAnnotation
+        // TODO: Implement MetadataAnnotation
+        // TODO: Implement DatabaseStatement
+        // TODO: Implement DatabaseStatement
+        // TODO: Implement DatabaseStatement
+        // TODO: Implement DatabaseStatement
+        // TODO: Implement DatabaseStatement
+    }
+
+}

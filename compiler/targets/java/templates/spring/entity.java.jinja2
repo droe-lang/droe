@@ -1,6 +1,7 @@
 package {{ package_name }}.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 {% if has_decimal_fields %}
 import java.math.BigDecimal;
 {% endif %}
@@ -12,35 +13,30 @@ import java.time.LocalDateTime;
 @Table(name = "{{ table_name }}")
 public class {{ class_name }} {
 
-    {% if has_id_field %}
-    {# Use the existing id field from Roe definition as primary key #}
+    {% for field in fields %}
+    {% if field.is_key %}
+    {# Primary key field #}
     @Id
-    {% if id_field_info.java_type == 'Long' %}
+    {% if field.is_auto and field.java_type in ['Long', 'Integer'] %}
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     {% endif %}
-    @Column(name = "{{ id_field_info.name }}")
-    private {{ id_field_info.java_type }} {{ id_field_info.name }};
-
-    {% for field in fields %}
-    {% if field.name != 'id' %}
-    @Column(name = "{{ field.name }}")
+    @Column(name = "{{ field.name }}"
+        {%- if field.is_required and not field.is_auto %}, nullable = false{% endif %}
+        {%- if field.is_unique %}, unique = true{% endif %})
     private {{ field.java_type }} {{ field.name }};
 
-    {% endif %}
-    {% endfor %}
     {% else %}
-    {# No id field defined, add auto-generated Long id #}
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private Long id;
-
-    {% for field in fields %}
-    @Column(name = "{{ field.name }}")
+    {# Regular field #}
+    {% if field.roe_type == 'datetime' and field.is_auto %}
+    @CreationTimestamp
+    {% endif %}
+    @Column(name = "{{ field.name }}"
+        {%- if field.is_required %}, nullable = false{% endif %}
+        {%- if field.is_unique %}, unique = true{% endif %})
     private {{ field.java_type }} {{ field.name }};
 
-    {% endfor %}
     {% endif %}
+    {% endfor %}
 
     // Default constructor
     public {{ class_name }}() {}
@@ -53,36 +49,6 @@ public class {{ class_name }} {
     }
 
     // Getters and Setters
-    {% if has_id_field %}
-    public {{ id_field_info.java_type }} get{{ id_field_info.name | capitalize }}() {
-        return {{ id_field_info.name }};
-    }
-
-    public void set{{ id_field_info.name | capitalize }}({{ id_field_info.java_type }} {{ id_field_info.name }}) {
-        this.{{ id_field_info.name }} = {{ id_field_info.name }};
-    }
-
-    {% for field in fields %}
-    {% if field.name != 'id' %}
-    public {{ field.java_type }} get{{ field.name | capitalize }}() {
-        return {{ field.name }};
-    }
-
-    public void set{{ field.name | capitalize }}({{ field.java_type }} {{ field.name }}) {
-        this.{{ field.name }} = {{ field.name }};
-    }
-
-    {% endif %}
-    {% endfor %}
-    {% else %}
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     {% for field in fields %}
     public {{ field.java_type }} get{{ field.name | capitalize }}() {
         return {{ field.name }};
@@ -93,24 +59,17 @@ public class {{ class_name }} {
     }
 
     {% endfor %}
-    {% endif %}
 
     @Override
     public String toString() {
         return "{{ class_name }}{" +
-                {% if has_id_field %}
-                "{{ id_field_info.name }}=" + {{ id_field_info.name }} +
                 {% for field in fields %}
-                {% if field.name != 'id' %}
-                ", {{ field.name }}=" + {{ field.name }} +
-                {% endif %}
-                {% endfor %}
+                {% if loop.first %}
+                "{{ field.name }}=" + {{ field.name }} +
                 {% else %}
-                "id=" + id +
-                {% for field in fields %}
                 ", {{ field.name }}=" + {{ field.name }} +
-                {% endfor %}
                 {% endif %}
+                {% endfor %}
                 '}';
     }
 }

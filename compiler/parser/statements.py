@@ -7,7 +7,8 @@ from ..ast import (
     ForEachLoop, TaskAction, TaskInvocation, ActionDefinition,
     ReturnStatement, ActionInvocationWithArgs, IncludeStatement,
     DataInstance, FieldAssignment, Identifier, Literal,
-    ApiCallStatement, ApiHeader, ApiEndpointDefinition
+    ApiCallStatement, ApiHeader, ApiEndpointDefinition, DatabaseStatement,
+    BinaryOp
 )
 from .expressions import ExpressionParser
 from .base import ParseError
@@ -27,6 +28,10 @@ class StatementParser(ExpressionParser):
         # Include statements
         if line.startswith('Include '):
             return self.parse_include(line)
+        
+        # Database statements
+        if line.startswith('db '):
+            return self.parse_database_statement(line)
         
         # Display statements
         if line.startswith('Display ') or line.startswith('display '):
@@ -492,3 +497,188 @@ class StatementParser(ExpressionParser):
                     i += 1
                 break
             i += 1
+
+    def parse_database_statement(self, line: str) -> Optional[DatabaseStatement]:
+        """Parse database statements like 'db find User where id equals id'."""
+        line = line.strip()
+        
+        # Remove 'db ' prefix
+        if not line.startswith('db '):
+            return None
+        
+        line = line[3:].strip()  # Remove 'db ' prefix
+        
+        # Parse different database operations
+        if line.startswith('find '):
+            return self._parse_db_find(line[5:])  # Remove 'find '
+        elif line.startswith('create '):
+            return self._parse_db_create(line[7:])  # Remove 'create '
+        elif line.startswith('update '):
+            return self._parse_db_update(line[7:])  # Remove 'update '
+        elif line.startswith('delete '):
+            return self._parse_db_delete(line[7:])  # Remove 'delete '
+        else:
+            raise ParseError(f"Unknown database operation: {line}")
+
+    def _parse_db_find(self, line: str) -> DatabaseStatement:
+        """Parse db find operations like 'User where id equals id' or 'all User'."""
+        line = line.strip()
+        
+        # Handle 'all User' case
+        if line.startswith('all '):
+            entity_name = line[4:].strip()
+            return DatabaseStatement(
+                operation='find_all',
+                entity_name=entity_name,
+                conditions=[],
+                fields=[]
+            )
+        
+        # Handle 'User where ...' case
+        if ' where ' in line:
+            entity_part, condition_part = line.split(' where ', 1)
+            entity_name = entity_part.strip()
+            
+            # Parse conditions (simplified - just handle single condition for now)
+            conditions = []
+            condition_part = condition_part.strip()
+            
+            # Parse condition like "id equals id" or "name equals 'John'"
+            if ' equals ' in condition_part:
+                field_name, value_part = condition_part.split(' equals ', 1)
+                field_name = field_name.strip()
+                value_part = value_part.strip()
+                
+                # Create condition nodes
+                field_node = Identifier(field_name)
+                value_node = self.parse_expression(value_part)
+                conditions.append(BinaryOp(field_node, '==', value_node))
+            
+            return DatabaseStatement(
+                operation='find',
+                entity_name=entity_name,
+                conditions=conditions,
+                fields=[]
+            )
+        else:
+            # Simple find without conditions
+            entity_name = line.strip()
+            return DatabaseStatement(
+                operation='find',
+                entity_name=entity_name,
+                conditions=[],
+                fields=[]
+            )
+
+    def _parse_db_create(self, line: str) -> DatabaseStatement:
+        """Parse db create operations like 'User with name is input.name and email is input.email'."""
+        line = line.strip()
+        
+        if ' with ' in line:
+            entity_part, fields_part = line.split(' with ', 1)
+            entity_name = entity_part.strip()
+            
+            # Parse field assignments
+            fields = []
+            field_assignments = fields_part.split(' and ')
+            
+            for assignment in field_assignments:
+                assignment = assignment.strip()
+                if ' is ' in assignment:
+                    field_name, value_part = assignment.split(' is ', 1)
+                    field_name = field_name.strip()
+                    value_part = value_part.strip()
+                    
+                    value_node = self.parse_expression(value_part)
+                    fields.append(FieldAssignment(field_name, value_node))
+            
+            return DatabaseStatement(
+                operation='create',
+                entity_name=entity_name,
+                conditions=[],
+                fields=fields
+            )
+        else:
+            # Create without fields
+            entity_name = line.strip()
+            return DatabaseStatement(
+                operation='create',
+                entity_name=entity_name,
+                conditions=[],
+                fields=[]
+            )
+
+    def _parse_db_update(self, line: str) -> DatabaseStatement:
+        """Parse db update operations like 'User where id equals id set name to input.name'."""
+        line = line.strip()
+        
+        if ' where ' in line and ' set ' in line:
+            # Split into entity, where clause, and set clause
+            entity_where_part, set_part = line.split(' set ', 1)
+            entity_part, condition_part = entity_where_part.split(' where ', 1)
+            
+            entity_name = entity_part.strip()
+            
+            # Parse conditions (simplified)
+            conditions = []
+            condition_part = condition_part.strip()
+            if ' equals ' in condition_part:
+                field_name, value_part = condition_part.split(' equals ', 1)
+                field_name = field_name.strip()
+                value_part = value_part.strip()
+                
+                field_node = Identifier(field_name)
+                value_node = self.parse_expression(value_part)
+                conditions.append(BinaryOp(field_node, '==', value_node))
+            
+            # Parse set fields
+            fields = []
+            set_assignments = set_part.split(' and ')
+            
+            for assignment in set_assignments:
+                assignment = assignment.strip()
+                if ' to ' in assignment:
+                    field_name, value_part = assignment.split(' to ', 1)
+                    field_name = field_name.strip()
+                    value_part = value_part.strip()
+                    
+                    value_node = self.parse_expression(value_part)
+                    fields.append(FieldAssignment(field_name, value_node))
+            
+            return DatabaseStatement(
+                operation='update',
+                entity_name=entity_name,
+                conditions=conditions,
+                fields=fields
+            )
+        else:
+            raise ParseError(f"Invalid update syntax: {line}")
+
+    def _parse_db_delete(self, line: str) -> DatabaseStatement:
+        """Parse db delete operations like 'User where id equals id'."""
+        line = line.strip()
+        
+        if ' where ' in line:
+            entity_part, condition_part = line.split(' where ', 1)
+            entity_name = entity_part.strip()
+            
+            # Parse conditions (simplified)
+            conditions = []
+            condition_part = condition_part.strip()
+            if ' equals ' in condition_part:
+                field_name, value_part = condition_part.split(' equals ', 1)
+                field_name = field_name.strip()
+                value_part = value_part.strip()
+                
+                field_node = Identifier(field_name)
+                value_node = self.parse_expression(value_part)
+                conditions.append(BinaryOp(field_node, '==', value_node))
+            
+            return DatabaseStatement(
+                operation='delete',
+                entity_name=entity_name,
+                conditions=conditions,
+                fields=[]
+            )
+        else:
+            raise ParseError(f"Delete operation requires where clause: {line}")

@@ -1,0 +1,72 @@
+@target java
+@framework spring
+@package com.example.userapi
+
+module UserModule
+
+data User
+        id is text key auto
+        name is text required
+        email is text required unique
+        createdAt is datetime auto
+end data
+
+action getUser with id which is text gives User
+    db find User where id equals id
+    expect user
+    give user
+end action
+
+action getAllUsers gives list of User
+    db find all User
+    expect users
+    give users
+end action
+
+action createUser with name which is text, email which is text gives User
+    db create User with name is name and email is email
+    return id into userId
+    give User with id is userId, name is name, email is email
+end action
+
+action updateUser with id which is text, name which is text gives User
+    db update User where id equals id set name to name
+    expect user
+    give user
+end action
+
+action deleteUser with id which is text
+    db delete User where id equals id
+    expect success
+end action
+
+end module
+
+api UserAPI
+    endpoint GET /users
+        return from getAllUsers
+    end
+    
+    endpoint GET /users/{id}
+        input id which is text from path
+        return from getUser with id
+    end
+    
+    endpoint POST /users
+        input name which is text from body
+        input email which is text from body
+        return from createUser with name, email
+    end
+    
+    endpoint PUT /users/{id}
+        input id which is text from path
+        input name which is text from body
+        return from updateUser with id, name
+    end
+    
+    endpoint DELETE /users/{id}
+        input id which is text from path
+        run deleteUser with id
+        return success
+    end
+end

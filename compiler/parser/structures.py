@@ -298,7 +298,7 @@ class StructureParser(UIComponentParser):
         return DataDefinition(data_name, fields)
     
     def parse_data_field(self, line: str) -> Optional[DataField]:
-        """Parse a data field with spec syntax: 'fieldName is type'"""
+        """Parse a data field with spec syntax: 'fieldName is type required unique key auto'"""
         if ' is ' not in line:
             return None
         
@@ -307,9 +307,20 @@ class StructureParser(UIComponentParser):
             return None
         
         field_name = parts[0].strip()
-        field_type = parts[1].strip()
+        type_and_annotations = parts[1].strip()
         
-        return DataField(field_name, field_type)
+        # Split type and annotations
+        type_parts = type_and_annotations.split()
+        field_type = type_parts[0]  # First part is always the type
+        
+        # Remaining parts are annotations
+        annotations = []
+        for i in range(1, len(type_parts)):
+            annotation = type_parts[i].lower()
+            if annotation in ['required', 'unique', 'key', 'auto', 'optional']:
+                annotations.append(annotation)
+        
+        return DataField(field_name, field_type, annotations)
     
     def parse_action_spec_syntax(self, line: str) -> Optional[ActionDefinition]:
         """Parse action with spec syntax: 'action actionName'"""

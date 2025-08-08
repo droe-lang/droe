@@ -193,14 +193,29 @@ class SpringBootGenerator:
         for field in data_def.fields:
             java_type = self._get_java_type(field.type)
             
+            # Process database annotations
+            annotations = getattr(field, 'annotations', [])
+            is_key = 'key' in annotations
+            is_auto = 'auto' in annotations
+            is_required = 'required' in annotations
+            is_unique = 'unique' in annotations
+            is_optional = 'optional' in annotations
+            
             field_info = {
                 'name': field.name,
                 'java_type': java_type,
-                'roe_type': field.type
+                'roe_type': field.type,
+                'is_key': is_key,
+                'is_auto': is_auto,
+                'is_required': is_required,
+                'is_unique': is_unique,
+                'is_optional': is_optional,
+                'annotations': annotations
             }
             fields.append(field_info)
             
-            if field.name.lower() == 'id':
+            # Check for ID field (either named 'id' or marked as 'key')
+            if field.name.lower() == 'id' or is_key:
                 has_id_field = True
                 id_field_info = field_info
             if field.name.lower() == 'name':
