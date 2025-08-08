@@ -62,8 +62,187 @@ def load_config(project_root=None):
             exit(1)
     return default_config
 
-# Initialize a Roelang project
+# Interactive guided initialization
+def guided_init():
+    """Interactive project setup with prompts for all configuration."""
+    print("🚀 Welcome to Roelang Project Setup!")
+    print("Let's create your new project step by step.\n")
+    
+    # Project name
+    while True:
+        name = input("📝 Project name (or press Enter for current directory): ").strip()
+        if not name:
+            # Use current directory
+            break
+        if not name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            print("❌ Project name should only contain letters, numbers, hyphens, and underscores")
+            continue
+        break
+    
+    # Author
+    author = input("👤 Author name (optional): ").strip() or None
+    
+    # Target selection
+    print("\n🎯 Choose your target platform:")
+    targets = [
+        ("roe", "Roe VM (Fast bytecode execution)"),
+        ("html", "Web Applications (HTML/CSS/JS)"),
+        ("mobile", "Mobile Apps (Android/iOS)"),
+        ("java", "Java Applications"),
+        ("python", "Python Applications"),
+        ("go", "Go Applications"),
+        ("node", "Node.js Applications"),
+        ("rust", "Rust Applications"),
+        ("wasm", "WebAssembly (Generic)")
+    ]
+    
+    for i, (target_key, description) in enumerate(targets, 1):
+        print(f"  {i}. {target_key:<8} - {description}")
+    
+    while True:
+        try:
+            choice = input(f"\nSelect target (1-{len(targets)}) [1]: ").strip()
+            if not choice:
+                target = "roe"
+                break
+            choice_idx = int(choice) - 1
+            if 0 <= choice_idx < len(targets):
+                target = targets[choice_idx][0]
+                break
+            else:
+                print(f"❌ Please enter a number between 1 and {len(targets)}")
+        except ValueError:
+            print("❌ Please enter a valid number")
+    
+    # Framework selection
+    framework = None
+    framework_options = {
+        "java": [("spring", "Spring Boot Framework")],
+        "python": [("fastapi", "FastAPI Framework")],
+        "go": [("fiber", "Fiber Framework")],
+        "node": [("fastify", "Fastify Framework")],
+        "rust": [("axum", "Axum Framework")],
+        "roe": [("axum", "Axum Framework")]
+    }
+    
+    if target in framework_options:
+        print(f"\n🛠️  Choose framework for {target}:")
+        frameworks = [("plain", "No Framework")] + framework_options[target]
+        
+        for i, (fw_key, description) in enumerate(frameworks, 1):
+            print(f"  {i}. {fw_key:<10} - {description}")
+        
+        while True:
+            try:
+                choice = input(f"Select framework (1-{len(frameworks)}) [1]: ").strip()
+                if not choice:
+                    framework = "plain"
+                    break
+                choice_idx = int(choice) - 1
+                if 0 <= choice_idx < len(frameworks):
+                    framework = frameworks[choice_idx][0]
+                    break
+                else:
+                    print(f"❌ Please enter a number between 1 and {len(frameworks)}")
+            except ValueError:
+                print("❌ Please enter a valid number")
+    
+    # Database configuration for targets that commonly need it
+    database_config = None
+    database_host = None
+    database_port = None
+    database_name = None
+    database_user = None
+    database_password = None
+    
+    if target in ["html", "mobile", "java", "python", "go", "node", "rust", "roe"] and framework != "plain":
+        print(f"\n🗄️  Database Configuration:")
+        needs_db = input("Do you need database support? (y/N): ").strip().lower()
+        
+        if needs_db in ['y', 'yes']:
+            print("\nDatabase options:")
+            db_options = [
+                ("postgresql", "PostgreSQL"),
+                ("mysql", "MySQL/MariaDB"),
+                ("sqlite", "SQLite (local file)"),
+                ("mongodb", "MongoDB")
+            ]
+            
+            for i, (db_key, description) in enumerate(db_options, 1):
+                print(f"  {i}. {db_key:<12} - {description}")
+            
+            while True:
+                try:
+                    choice = input(f"Select database (1-{len(db_options)}) [1]: ").strip()
+                    if not choice:
+                        database_config = "postgresql"
+                        break
+                    choice_idx = int(choice) - 1
+                    if 0 <= choice_idx < len(db_options):
+                        database_config = db_options[choice_idx][0]
+                        break
+                    else:
+                        print(f"❌ Please enter a number between 1 and {len(db_options)}")
+                except ValueError:
+                    print("❌ Please enter a valid number")
+            
+            # Get database connection details for non-SQLite databases
+            if database_config != "sqlite":
+                print(f"\n📡 {database_config.title()} Connection Details:")
+                database_host = input(f"Host [localhost]: ").strip() or "localhost"
+                
+                default_ports = {"postgresql": "5432", "mysql": "3306", "mongodb": "27017"}
+                default_port = default_ports.get(database_config, "5432")
+                database_port = input(f"Port [{default_port}]: ").strip() or default_port
+                
+                database_name = input(f"Database name [{'my' + name.replace('-', '_') if name else 'myapp'}]: ").strip()
+                if not database_name:
+                    database_name = 'my' + name.replace('-', '_') if name else 'myapp'
+                
+                database_user = input(f"Username [postgres]: ").strip() or "postgres"
+                database_password = input(f"Password (optional): ").strip() or None
+    
+    print(f"\n📋 Project Summary:")
+    print(f"   📁 Name: {name or 'current directory'}")
+    if author:
+        print(f"   👤 Author: {author}")
+    print(f"   🎯 Target: {target}")
+    if framework and framework != "plain":
+        print(f"   🛠️  Framework: {framework}")
+    if database_config:
+        print(f"   🗄️  Database: {database_config}")
+        if database_host and database_config != "sqlite":
+            print(f"   📡 DB Host: {database_host}:{database_port}")
+            print(f"   🏷️  DB Name: {database_name}")
+            print(f"   👤 DB User: {database_user}")
+    
+    confirm = input(f"\n✅ Create project? (Y/n): ").strip().lower()
+    if confirm in ['', 'y', 'yes']:
+        # Call the existing init_project with gathered parameters
+        return init_project_with_db(name, author, target, framework, database_config, 
+                                  database_host, database_port, database_name, 
+                                  database_user, database_password)
+    else:
+        print("❌ Project creation cancelled")
+        return False
+
+# Enhanced init_project with database support
+def init_project_with_db(name=None, author=None, target=None, framework=None, 
+                        database=None, db_host=None, db_port=None, db_name=None, 
+                        db_user=None, db_password=None):
+    """Initialize project with database configuration support."""
+    return init_project_enhanced(name, author, target, framework, database, 
+                                db_host, db_port, db_name, db_user, db_password)
+
+# Compatibility wrapper for existing code
 def init_project(name=None, author=None, target=None, framework=None):
+    """Backward compatibility wrapper for init_project."""
+    return init_project_enhanced(name, author, target, framework)
+
+def init_project_enhanced(name=None, author=None, target=None, framework=None,
+                         database=None, db_host=None, db_port=None, db_name=None, 
+                         db_user=None, db_password=None):
+    """Enhanced version of init_project with database support."""
     # If name is provided, create a directory for the project
     if name:
         project_root = Path.cwd() / name
@@ -158,7 +337,19 @@ def init_project(name=None, author=None, target=None, framework=None):
         else:
             package_name = "com.example.app"
         config_data["package"] = package_name
-        config_data["database"] = "postgresql"  # Default database for Spring
+        config_data["database"] = database or "postgresql"  # Use provided or default database for Spring
+    
+    # Add database configuration for other targets if specified
+    if database and target not in ["java"]:  # Java already handled above
+        config_data["database"] = database
+        if db_host:
+            config_data["database_config"] = {
+                "host": db_host,
+                "port": int(db_port) if db_port else None,
+                "name": db_name,
+                "user": db_user,
+                "password": db_password
+            }
 
     # Create roeconfig.json
     if not config_path.exists():
@@ -787,7 +978,12 @@ def main():
     if args.command == 'init':
         # Use positional argument if provided, otherwise fall back to --name flag
         project_name = args.project_name or args.name
-        init_project(project_name, args.author, args.target, args.framework)
+        
+        # If no parameters provided, use guided initialization
+        if not any([project_name, args.author, args.target, args.framework]):
+            guided_init()
+        else:
+            init_project_enhanced(project_name, args.author, args.target, args.framework)
         return
     
     elif args.command == 'install':
