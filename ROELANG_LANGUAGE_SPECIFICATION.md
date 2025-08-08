@@ -104,11 +104,17 @@ Specifies the compilation target, overriding command-line options and project co
 - `bytecode` - Roelang bytecode
 
 #### @targets
-Specifies multiple compilation targets as a comma-separated string.
+**Note: This annotation is not currently implemented in the compiler.**
 
-```roe
-@targets "web, android, ios"
-@targets "python, java"
+Multi-target compilation should be configured in `roeconfig.json` instead:
+
+```json
+{
+    "target": "mobile",
+    "mobile": {
+        "platforms": ["android", "ios"]
+    }
+}
 ```
 
 #### @metadata
@@ -119,14 +125,14 @@ Complex metadata with key-value parameters for advanced configuration.
 @metadata(platform="web", framework="react")
 ```
 
-**Note:** For mobile development, it's recommended to use project-level configuration in `roeconfig.json` rather than file-level metadata annotations.
+**Note:** For mobile development, you must use project-level configuration in `roeconfig.json` rather than file-level metadata annotations.
 
 ```roe
-@target python
+@target roe
 @name user_authentication
 @description "User authentication and authorization module"
 
-display "This will compile to Python"
+display "This will compile to RoeVM bytecode"
 ```
 
 #### @name
@@ -1636,10 +1642,18 @@ Complete example of a Roelang application that compiles to web, Android, and iOS
 
 ```roe
 // Cross-platform photo sharing app
-@name "PhotoShare"
+@name "PhotoShare" 
 @description "Cross-platform photo sharing application"
-@targets "web, android, ios"
 @package "com.example.photoshare"
+
+// Mobile configuration should be in roeconfig.json:
+// {
+//   "target": "mobile",
+//   "mobile": {
+//     "platforms": ["android", "ios"],
+//     "package": "com.example.photoshare"
+//   }
+// }
 
 module photoshare
 

@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Create compiler bundle
+      run: |
+        tar -czf compiler.tar.gz compiler/
+        echo "✅ Compiler bundle created"
+        ls -lh compiler.tar.gz
+    
+    - name: Create platform-specific bundles
+      run: |
+        # Create a release directory
+        mkdir -p release
+        
+        # Bundle for macOS/Linux (shell script installer)
+        tar -czf release/roe-macos-linux.tar.gz roe run.js compiler/
+        
+        # Bundle for all platforms (includes everything)
+        tar -czf release/roe-complete.tar.gz roe run.js compiler/ *.md
+        
+        echo "✅ Platform bundles created:"
+        ls -lh release/
+    
+    - name: Generate checksums
+      run: |
+        sha256sum compiler.tar.gz > compiler.tar.gz.sha256
+        cd release
+        for file in *.tar.gz; do
+          sha256sum "$file" > "$file.sha256"
+        done
+        echo "✅ Checksums generated"
+    
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: Roe Language ${{ steps.version.outputs.version }}
+        body: |
+          # Roe Language ${{ steps.version.outputs.version }}
+          
+          ## Installation
+          
+          ### Quick Install (macOS/Linux)
+          ```bash
+          curl -sSL https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.version }}/install.sh | sh
+          ```
+          
+          ### Manual Installation
+          Download the appropriate bundle for your platform and extract it to your preferred location.
+          
+          ## Downloads
+          
+          - `compiler.tar.gz` - Compiler module only
+          - `roe-macos-linux.tar.gz` - Complete bundle for macOS/Linux
+          - `roe-complete.tar.gz` - Complete bundle with documentation
+          
+          ## Checksums
+          SHA256 checksums are provided for all downloads.
+          
+          ## What's Changed
+          See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          
+          ---
+          Generated from commit: ${{ github.sha }}
+        files: |
+          compiler.tar.gz
+          compiler.tar.gz.sha256
+          release/*.tar.gz
+          release/*.sha256
+          roe
+          run.js
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
