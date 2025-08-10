@@ -38,14 +38,23 @@ if [ -f "run.js" ]; then
     echo "✅ Node.js runtime synced"
 fi
 
-# Sync RoeVM if it exists
-if [ -d "roevm/target/release" ] && [ -f "roevm/target/release/roevm" ]; then
-    echo "🦀 Syncing RoeVM binary..."
-    cp roevm/target/release/roevm ~/.roelang/roevm
-    chmod +x ~/.roelang/roevm
-    echo "✅ RoeVM binary synced"
-elif [ -d "roevm" ]; then
-    echo "⚠️  RoeVM source found but no release binary. Run: cd roevm && cargo build --release"
+# Build and sync RoeVM
+if [ -d "roevm" ]; then
+    # Try to build RoeVM first
+    if [ -f "build-roevm.sh" ]; then
+        echo "🔨 Building RoeVM..."
+        ./build-roevm.sh
+    fi
+    
+    # Now sync the binary if it exists
+    if [ -f "roevm/target/release/roevm" ]; then
+        echo "🦀 Syncing RoeVM binary..."
+        cp roevm/target/release/roevm ~/.roelang/roevm
+        chmod +x ~/.roelang/roevm
+        echo "✅ RoeVM binary synced"
+    else
+        echo "⚠️  RoeVM binary not found. Build may have failed."
+    fi
 fi
 
 # Create bin directory and symlink for PATH usage

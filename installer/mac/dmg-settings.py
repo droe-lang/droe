@@ -11,10 +11,10 @@ files = [
 symlinks = {}
 
 # Set the banner as background (it should be ~600x400 or scale proportionally)
-background = "assets/double_click.png"  # ✅ this will render behind the app icon
+background = "../../assets/double_click.png"  # ✅ this will render behind the app icon
 
 # Volume icon
-icon = "assets/icon.icns"
+icon = "../../assets/icon.icns"
 
 # Position app icon to be visible against the background message
 icon_locations = {
