@@ -3,7 +3,7 @@
   "build": "build",
   "dist": "dist",
   "modules": "modules",
-  "main": "src/main.roe",
+  "main": "src/main.droe",
   "target": "java",
   "framework": "spring",
   "package": "com.example.springtest",

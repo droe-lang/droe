@@ -9,27 +9,27 @@ cd "$SCRIPT_DIR"
 echo "🧹 Cleaning old builds..."
 rm -rf dist build
 
-echo "📦 Packaging Roelang Installer with PyInstaller..."
+echo "📦 Packaging Droelang Installer with PyInstaller..."
 
 # Go to project root to access files
 cd ../..
 PROJECT_ROOT=$(pwd)
 
-# Build RoeVM if build script exists
-if [ -f "$PROJECT_ROOT/build-roevm.sh" ] && [ -d "$PROJECT_ROOT/roevm" ]; then
-    echo "🔨 Building RoeVM..."
-    "$PROJECT_ROOT/build-roevm.sh"
+# Build DroeVM if build script exists
+if [ -f "$PROJECT_ROOT/build-ddroevm.sh" ] && [ -d "$PROJECT_ROOT/droevm" ]; then
+    echo "🔨 Building DroeVM..."
+    "$PROJECT_ROOT/build-ddroevm.sh"
 fi
 
-# Check if RoeVM binary exists and copy it locally to avoid path conflicts
-if [ -f "$PROJECT_ROOT/roevm/target/release/roevm" ]; then
-    echo "🦀 Found RoeVM binary, including in package..."
-    # Copy to installer/mac directory with a different name to avoid conflict with roevm source directory
-    cp "$PROJECT_ROOT/roevm/target/release/roevm" "$PROJECT_ROOT/installer/mac/roevm_binary"
-    ROEVM_DATA="--add-binary $PROJECT_ROOT/installer/mac/roevm_binary:."
+# Check if DroeVM binary exists and copy it locally to avoid path conflicts
+if [ -f "$PROJECT_ROOT/droevm/target/release/droevm" ]; then
+    echo "🦀 Found DroeVM binary, including in package..."
+    # Copy to installer/mac directory with a different name to avoid conflict with droevm source directory
+    cp "$PROJECT_ROOT/droevm/target/release/droevm" "$PROJECT_ROOT/installer/mac/droevm_binary"
+    ROEVM_DATA="--add-binary $PROJECT_ROOT/installer/mac/droevm_binary:."
     CLEANUP_ROEVM=true
 else
-    echo "⚠️  RoeVM binary not found, skipping..."
+    echo "⚠️  DroeVM binary not found, skipping..."
     ROEVM_DATA=""
     CLEANUP_ROEVM=false
 fi
@@ -37,8 +37,8 @@ fi
 # Run PyInstaller from project root with correct paths
 pyinstaller installer/mac/installer_gui.py \
   --windowed \
-  --name "Roelang Installer" \
-  --add-data "$PROJECT_ROOT/roe:." \
+  --name "Droelang Installer" \
+  --add-data "$PROJECT_ROOT/droe:." \
   --add-data "$PROJECT_ROOT/compiler:compiler" \
   --add-data "$PROJECT_ROOT/run.js:." \
   --add-data "$PROJECT_ROOT/assets:assets" \
@@ -48,15 +48,15 @@ pyinstaller installer/mac/installer_gui.py \
   --workpath installer/mac/build \
   --specpath installer/mac
 
-# Clean up temporary roevm_binary if it was created
+# Clean up temporary droevm_binary if it was created
 if [ "$CLEANUP_ROEVM" = true ]; then
-    rm -f "$PROJECT_ROOT/installer/mac/roevm_binary"
+    rm -f "$PROJECT_ROOT/installer/mac/droevm_binary"
 fi
 
 # Go back to installer/mac directory
 cd installer/mac
 
 echo "💿 Building DMG..."
-dmgbuild -s dmg-settings.py "Roelang Installer" dist/RoelangInstaller.dmg
+dmgbuild -s dmg-settings.py "Droelang Installer" dist/DroelangInstaller.dmg
 
-echo "✅ Done: RoelangInstaller.dmg created in installer/mac/dist/"
+echo "✅ Done: DroelangInstaller.dmg created in installer/mac/dist/"

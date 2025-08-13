@@ -13,13 +13,13 @@ from datetime import datetime
 from urllib.parse import urlparse
 import tempfile
 
-# Load compiler from ~/.roelang/
+# Load compiler from ~/.droelang/
 def load_compiler():
     # First try to load the new modular compiler
-    compiler_module_path = Path.home() / ".roelang" / "compiler"
+    compiler_module_path = Path.home() / ".droelang" / "compiler"
     if compiler_module_path.exists() and (compiler_module_path / "__init__.py").exists():
         # Add the parent directory to sys.path so we can import the module
-        sys.path.insert(0, str(Path.home() / ".roelang"))
+        sys.path.insert(0, str(Path.home() / ".droelang"))
         try:
             from compiler import compiler
             return compiler
@@ -27,9 +27,9 @@ def load_compiler():
             pass
     
     # Fallback to standalone compiler
-    compiler_path = Path.home() / ".roelang" / "compiler.py"
+    compiler_path = Path.home() / ".droelang" / "compiler.py"
     if not compiler_path.exists():
-        print("❌ Error: compiler not found in ~/.roelang/")
+        print("❌ Error: compiler not found in ~/.droelang/")
         exit(1)
 
     spec = importlib.util.spec_from_file_location("compiler", str(compiler_path))
@@ -43,7 +43,7 @@ def load_config(project_root=None):
     if project_root is None:
         config_path = Path.cwd() / "roeconfig.json"
     else:
-        config_path = project_root / "roeconfig.json"
+        config_path = project_root / "droeconfig.json"
     
     if config_path.exists():
         try:
@@ -65,7 +65,7 @@ def load_config(project_root=None):
 # Interactive guided initialization
 def guided_init():
     """Interactive project setup with prompts for all configuration."""
-    print("🚀 Welcome to Roelang Project Setup!")
+    print("🚀 Welcome to Droelang Project Setup!")
     print("Let's create your new project step by step.\n")
     
     # Project name
@@ -270,9 +270,9 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
         
         # Check if directory is not empty
         if any(project_root.iterdir()):
-            config_path = project_root / "roeconfig.json"
+            config_path = project_root / "droeconfig.json"
             if config_path.exists():
-                print("❌ Error: This directory already contains a Roelang project")
+                print("❌ Error: This directory already contains a Droelang project")
                 print(f"📁 Current directory: {project_root}")
                 print("💡 Use a new empty directory to create a different project")
             else:
@@ -284,7 +284,7 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
     src_dir = project_root / "src"
     build_dir = project_root / "build"
     modules_dir = project_root / "modules"
-    config_path = project_root / "roeconfig.json"
+    config_path = project_root / "droeconfig.json"
 
     # Create directories
     src_dir.mkdir(exist_ok=True)
@@ -297,7 +297,7 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
         "build": "build",
         "dist": "dist",
         "modules": "modules",
-        "main": "src/main.roe",
+        "main": "src/main.droe",
         "target": target or "roe"
     }
     
@@ -367,8 +367,8 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
             config_data = existing_config
 
 
-    # Create a sample main.roe file
-    main_file = src_dir / "main.roe"
+    # Create a sample main.droe file
+    main_file = src_dir / "main.droe"
     if not main_file.exists():
         # Generate target-specific sample content  
         project_name = name or project_root.name
@@ -430,28 +430,28 @@ display "Hello from [projectName]!"
 '''
         with open(main_file, "w") as f:
             f.write(main_content)
-        print("✅ Created src/main.roe")
+        print("✅ Created src/main.droe")
 
-    print("✅ Initialized Roelang project successfully!")
+    print("✅ Initialized Droelang project successfully!")
     print(f"📁 Project name: {name or project_root.name}")
     if author:
         print(f"👤 Author: {author}")
     # Show framework only for targets that support it
     framework_targets = ["java", "python", "go", "node"] 
     show_framework = framework and framework != "plain" and (target or "wasm") in framework_targets
-    print(f"🎯 Target: {target or 'roe'}" + (f" with {framework} framework" if show_framework else ""))
+    print(f"🎯 Target: {target or 'droe'}" + (f" with {framework} framework" if show_framework else ""))
     print("\n📂 Directory structure:")
-    print("  src/         - Source code (.roe files)")
+    print("  src/         - Source code (.droe files)")
     print("  modules/     - Downloaded packages")
     print("  build/       - Compiled files")
     print("  dist/        - Distribution packages")
     print("\n🚀 Next steps:")
     if name:  # If a project directory was created
         print(f"  cd {name}/              - Navigate to project directory")
-        print("  roe run src/main.roe     - Run the sample")
+        print("  roe run src/main.droe     - Run the sample")
         print("  roe build               - Build project")
     else:  # If initialized in current directory
-        print("  roe run src/main.roe     - Run the sample")
+        print("  roe run src/main.droe     - Run the sample")
         print("  roe build               - Build project")
 
 # Package management functions
@@ -466,7 +466,7 @@ def install_package(package_name, is_dev=False):
     
     # Load package.json
     if not package_path.exists():
-        print("❌ Error: package.json not found. Run 'roe init' first.")
+        print("❌ Error: package.json not found. Run 'droe init' first.")
         exit(1)
     
     with open(package_path) as f:
@@ -478,7 +478,7 @@ def install_package(package_name, is_dev=False):
     # In a real implementation, this would:
     # 1. Resolve package name to repository URL
     # 2. Download from git/registry
-    # 3. Extract .roe files to modules directory
+    # 3. Extract .droe files to modules directory
     
     package_dir = modules_dir / package_name
     
@@ -487,7 +487,7 @@ def install_package(package_name, is_dev=False):
         package_dir.mkdir(exist_ok=True)
         
         # Create example DSL files
-        math_roe = package_dir / "math.roe"
+        math_roe = package_dir / "math.droe"
         with open(math_roe, "w") as f:
             f.write('''# Math utilities package
 module MathUtils
@@ -516,16 +516,16 @@ end
             json.dump({
                 "name": "math-utils",
                 "version": "1.0.0",
-                "description": "Mathematical utility functions for Roelang",
-                "main": "math.roe",
-                "files": ["math.roe"]
+                "description": "Mathematical utility functions for Droelang",
+                "main": "math.droe",
+                "files": ["math.droe"]
             }, f, indent=2)
         
         print(f"✅ Downloaded math-utils to modules/{package_name}")
     elif package_name == "string-utils":
         package_dir.mkdir(exist_ok=True)
         
-        string_roe = package_dir / "strings.roe"
+        string_roe = package_dir / "strings.droe"
         with open(string_roe, "w") as f:
             f.write('''# String utilities package
 module StringUtils
@@ -558,7 +558,7 @@ end
         json.dump(package_data, f, indent=2)
     
     print(f"✅ Added {package_name} to {dep_key}")
-    print(f"💡 Use: include \"{package_name}/{package_name.replace('-', '_')}.roe\"")
+    print(f"💡 Use: include \"{package_name}/{package_name.replace('-', '_')}.droe\"")
 
 def clean_build(clean_all=False):
     """Clean build directory and optionally dist directory."""
@@ -608,12 +608,12 @@ def show_help():
     print("Roe Lang - Domain Specific Language Compiler")
     print("")
     print("USAGE:")
-    print("    roe [COMMAND] [OPTIONS]")
+    print("    droe [COMMAND] [OPTIONS]")
     print("")
     print("COMMANDS:")
-    print("    init [name]             Initialize new Roelang project")
-    print("    compile <file>          Compile .roe file to target language")
-    print("    run <file>              Compile and run .roe file")
+    print("    init [name]             Initialize new Droelang project")
+    print("    compile <file>          Compile .droe file to target language")
+    print("    run <file>              Compile and run .droe file")
     print("    build                   Build entire project")
     print("    clean                   Clean build directory")
     print("    install [package]       Install package dependencies")
@@ -647,22 +647,22 @@ def show_help():
     print("    --version               Show version information")
     print("")
     print("EXAMPLES:")
-    print("    roe init my-app --author \"John Doe\"")
-    print("    roe init my-api --target java --framework spring")
-    print("    roe init api-server --target python --framework fastapi")
-    print("    roe init web-server --target go --framework fiber") 
-    print("    roe init node-api --target node --framework fastify")
-    print("    roe init web-app --target html")
-    print("    roe init my-mobile-app --target mobile")
-    print("    roe init --target python                      # Initialize in current directory")
-    print("    roe install math-utils")
-    print("    roe install dev-tools --dev")
-    print("    roe compile src/main.roe --target java")
-    print("    roe compile src/main.roe --format wasm --output dist/main.wasm")
-    print("    roe run src/main.roe --watch")
-    print("    roe build --clean --release")
-    print("    roe clean")
-    print("    roe clean --all")
+    print("    droe init my-app --author \"John Doe\"")
+    print("    droe init my-api --target java --framework spring")
+    print("    droe init api-server --target python --framework fastapi")
+    print("    droe init web-server --target go --framework fiber") 
+    print("    droe init node-api --target node --framework fastify")
+    print("    droe init web-app --target html")
+    print("    droe init my-mobile-app --target mobile")
+    print("    droe init --target python                      # Initialize in current directory")
+    print("    droe install math-utils")
+    print("    droe install dev-tools --dev")
+    print("    droe compile src/main.droe --target java")
+    print("    droe compile src/main.droe --format wasm --output dist/main.wasm")
+    print("    droe run src/main.droe --watch")
+    print("    droe build --clean --release")
+    print("    droe clean")
+    print("    droe clean --all")
 
 # Load compiler
 compiler = load_compiler()
@@ -690,7 +690,7 @@ def find_project_root():
     # No roeconfig.json found - require user to create one
     print(f"❌ Error: No roeconfig.json found (searched up {depth} directories)")
     print(f"📂 Current directory: {original}")
-    print(f"\n💡 To create a Roelang project, run: roe init")
+    print(f"\n💡 To create a Droelang project, run: droe init")
     print(f"   This will create roeconfig.json in the current directory")
     exit(1)
 
@@ -702,7 +702,7 @@ def build_distribution(project_root, clean=False, release=False):
     from glob import glob
     
     # Load config
-    config_path = project_root / "roeconfig.json"
+    config_path = project_root / "droeconfig.json"
     if not config_path.exists():
         print("❌ Error: roeconfig.json not found")
         exit(1)
@@ -714,7 +714,7 @@ def build_distribution(project_root, clean=False, release=False):
     src_pattern = config.get("src", ".")
     build_dir = project_root / config.get("build", "build")
     dist_dir = project_root / config.get("dist", "dist")
-    main_file = config.get("main", "src/main.roe")
+    main_file = config.get("main", "src/main.droe")
     target = config.get("target", "roe")
     framework = config.get("framework", "plain")
     
@@ -734,7 +734,7 @@ def build_distribution(project_root, clean=False, release=False):
         shutil.rmtree(build_dir)
         print(f"🧹 Cleaned {build_dir}")
     
-    # Find all .roe files in the project
+    # Find all .droe files in the project
     if src_pattern == ".":
         search_root = project_root
     else:
@@ -742,18 +742,18 @@ def build_distribution(project_root, clean=False, release=False):
     
     roe_files = []
     if search_root.exists():
-        roe_files = list(search_root.rglob("*.roe"))
+        roe_files = list(search_root.rglob("*.droe"))
     
     if not roe_files:
-        print(f"⚠️  Warning: No .roe files found in {search_root}")
-        print("💡 Add some .roe files to your project first")
+        print(f"⚠️  Warning: No .droe files found in {search_root}")
+        print("💡 Add some .droe files to your project first")
     else:
-        print(f"🔍 Found {len(roe_files)} .roe files to compile:")
+        print(f"🔍 Found {len(roe_files)} .droe files to compile:")
         for roe_file in roe_files:
             rel_path = roe_file.relative_to(project_root)
             print(f"   {rel_path}")
         
-        # Compile all .roe files
+        # Compile all .droe files
         print(f"🔨 Compiling {len(roe_files)} files...")
         compiled_count = 0
         failed_count = 0
@@ -763,7 +763,7 @@ def build_distribution(project_root, clean=False, release=False):
             try:
                 # Use subprocess to call roe compile for each file
                 result = subprocess.run([
-                    sys.executable, str(Path.home() / ".roelang" / "bin" / "roe"), 
+                    sys.executable, str(Path.home() / ".droelang" / "bin" / "droe"), 
                     "compile", str(rel_path)
                 ], cwd=project_root, capture_output=True, text=True)
                 
@@ -815,7 +815,7 @@ def build_distribution(project_root, clean=False, release=False):
         
         if not copied_files:
             print("⚠️  Warning: No Spring Boot projects found in build directory")
-            print("💡 Run 'roe compile' on your .roe files first")
+            print("💡 Run 'droe compile' on your .droe files first")
     
     elif target == "mobile":
         # Handle mobile projects
@@ -832,7 +832,7 @@ def build_distribution(project_root, clean=False, release=False):
         
         if not copied_files:
             print("⚠️  Warning: No mobile projects found in build directory")
-            print("💡 Run 'roe compile' on your .roe files first")
+            print("💡 Run 'droe compile' on your .droe files first")
     
     else:
         # Handle WASM and other single-file targets
@@ -844,10 +844,10 @@ def build_distribution(project_root, clean=False, release=False):
             "node": "*.js",
             "html": "*.html",
             "rust": "*.rs",
-            "roe": "*.roebc"
+            "roe": "*.droebc"
         }
         
-        pattern = target_extensions.get(target, "*.roebc")
+        pattern = target_extensions.get(target, "*.droebc")
         print(f"📦 Looking for {pattern} files...")
         
         for target_file in build_dir.rglob(pattern):
@@ -862,7 +862,7 @@ def build_distribution(project_root, clean=False, release=False):
         
         if not copied_files:
             print(f"⚠️  Warning: No {pattern} files found in build directory")
-            print("💡 Run 'roe compile' or 'roe run' on some files first")
+            print("💡 Run 'droe compile' or 'droe run' on some files first")
         
         # Set main entry for single-file targets
         if main_file and copied_files:
@@ -879,7 +879,7 @@ def build_distribution(project_root, clean=False, release=False):
     manifest = {
         "name": project_root.name,
         "version": "1.0.0",
-        "description": config.get("description", f"Roelang project: {project_root.name}"),
+        "description": config.get("description", f"Droelang project: {project_root.name}"),
         "target": target,
         "framework": framework if framework != "plain" else None,
         "main": main_entry,
@@ -901,7 +901,7 @@ def build_distribution(project_root, clean=False, release=False):
 # Command line parsing with argparse
 def main():
     parser = argparse.ArgumentParser(
-        prog='roe',
+        prog='droe',
         description='Roe Lang - Domain Specific Language Compiler',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -913,11 +913,11 @@ def main():
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
     
     # Init command
-    init_parser = subparsers.add_parser('init', help='Initialize new Roelang project')
+    init_parser = subparsers.add_parser('init', help='Initialize new Droelang project')
     init_parser.add_argument('project_name', nargs='?', help='Project name (creates directory if specified)')
     init_parser.add_argument('--name', help='Project name (deprecated, use positional argument)')
     init_parser.add_argument('--author', help='Project author')
-    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile', 'rust', 'roe'], help='Compilation target')
+    init_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'mobile', 'rust', 'droe'], help='Compilation target')
     init_parser.add_argument('--framework', choices=['plain', 'spring', 'fastapi', 'fiber', 'fastify', 'axum'], help='Framework to use with target')
     
     # Install command
@@ -935,15 +935,15 @@ def main():
     clean_parser.add_argument('--all', action='store_true', help='Also clean dist directory')
     
     # Compile command
-    compile_parser = subparsers.add_parser('compile', help='Compile .roe file to specified target')
+    compile_parser = subparsers.add_parser('compile', help='Compile .droe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
     compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
-    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'rust', 'roe'], help='Compilation target (overrides roeconfig.json)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'rust', 'droe'], help='Compilation target (overrides roeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
     # Run command
-    run_parser = subparsers.add_parser('run', help='Compile and run .roe file')
+    run_parser = subparsers.add_parser('run', help='Compile and run .droe file')
     run_parser.add_argument('file', help='Source file to run')
     run_parser.add_argument('--watch', action='store_true', help='Watch and rerun on changes')
     
@@ -964,7 +964,7 @@ def main():
             return
         else:
             # Legacy usage - try to infer command
-            print("❌ Unknown command. Use 'roe --help' for usage information.")
+            print("❌ Unknown command. Use 'droe --help' for usage information.")
             return
     
     args = parser.parse_args()
@@ -1006,7 +1006,7 @@ def main():
                 for pkg in dev_dependencies:
                     install_package(pkg, True)
             else:
-                print("❌ Error: package.json not found. Run 'roe init' first.")
+                print("❌ Error: package.json not found. Run 'droe init' first.")
         return
     
     elif args.command == 'build':
@@ -1039,7 +1039,7 @@ def main():
         show_help()
 
 def compile_file(roe_filename, output_format='wasm', output_path=None, watch=False, target_override=None):
-    """Compile a single .roe file."""
+    """Compile a single .droe file."""
     def do_compile():
         # Determine project root
         project_root = find_project_root()
@@ -1047,7 +1047,7 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
         
         # Resolve paths
         config_build_dir = project_root / config["build"]
-        tool_dir = Path.home() / ".roelang"
+        tool_dir = Path.home() / ".droelang"
         
         # Handle file path relative to current working directory
         roe_file = Path(roe_filename)
@@ -1080,8 +1080,8 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             wasm_file = build_dir / f"{basename}.wasm"
         
         # Validations
-        if not roe_file.exists() or not roe_file.suffix == ".roe":
-            print(f"❌ Error: {roe_file} not found or not a .roe file")
+        if not roe_file.exists() or not roe_file.suffix == ".droe":
+            print(f"❌ Error: {roe_file} not found or not a .droe file")
             exit(1)
         
         # Ensure build directory exists
@@ -1129,9 +1129,9 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
                                 'html': '.html',
                                 'kotlin': '.kt',
                                 'swift': '.swift',
-                                'bytecode': '.roebc',
+                                'bytecode': '.droebc',
                                 'rust': '.rs',
-                                'roe': '.roebc'
+                                'droe': '.droebc'
                             }
                             extension = target_extensions.get(target, '.txt')
                             computed_output_path = build_dir / f"{basename}{extension}"
@@ -1220,7 +1220,7 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
         do_compile()
 
 def run_file(roe_filename, watch=False):
-    """Compile and run a .roe file."""
+    """Compile and run a .droe file."""
     # Check if this is a mobile project first
     project_root = find_project_root()
     config = load_config(project_root)
@@ -1282,8 +1282,8 @@ def run_bytecode_file(roe_filename):
     """Run a bytecode file using the Rust VM."""
     project_root = find_project_root()
     config = load_config(project_root)
-    tool_dir = Path.home() / ".roelang"
-    vm_binary = tool_dir / "roevm"
+    tool_dir = Path.home() / ".droelang"
+    vm_binary = tool_dir / "droevm"
     
     roe_file = Path(roe_filename)
     if not roe_file.is_absolute():
@@ -1301,11 +1301,11 @@ def run_bytecode_file(roe_filename):
     if relative_path.parent != Path("."):
         build_dir = build_dir / relative_path.parent
     
-    bytecode_file = build_dir / f"{basename}.roebc"
+    bytecode_file = build_dir / f"{basename}.droebc"
     
     if not vm_binary.exists():
         print(f"❌ Error: Roe VM not found at {vm_binary}")
-        print("💡 You may need to build the VM: cargo build --release --manifest-path roevm/Cargo.toml")
+        print("💡 You may need to build the VM: cargo build --release --manifest-path droevm/Cargo.toml")
         return False
     
     print(f"🚀 Running {bytecode_file} with Roe VM")
@@ -1318,7 +1318,7 @@ def run_wasm_file(roe_filename):
     """Run a WASM file using Node.js (legacy)."""
     project_root = find_project_root()
     config = load_config(project_root)
-    tool_dir = Path.home() / ".roelang"
+    tool_dir = Path.home() / ".droelang"
     runtime = tool_dir / "run.js"
     
     roe_file = Path(roe_filename)
@@ -1350,7 +1350,7 @@ def build_mobile_project(project_root, clean=False, release=False):
     """Build mobile project - development or release."""
     try:
         # Import mobile build system
-        sys.path.insert(0, str(Path.home() / ".roelang"))
+        sys.path.insert(0, str(Path.home() / ".droelang"))
         from compiler.targets.mobile.build_system import MobileBuildSystem
         
         if clean:
@@ -1373,7 +1373,7 @@ def build_mobile_project(project_root, clean=False, release=False):
             
     except ImportError as e:
         print(f"❌ Mobile build system not available: {e}")
-        print(f"💡 Make sure the Roelang compiler is properly installed")
+        print(f"💡 Make sure the Droelang compiler is properly installed")
         exit(1)
     except Exception as e:
         print(f"❌ Mobile build failed: {e}")
@@ -1390,7 +1390,7 @@ def run_mobile_app(roe_filename, watch=False):
         
         # Then run the mobile app
         try:
-            sys.path.insert(0, str(Path.home() / ".roelang"))
+            sys.path.insert(0, str(Path.home() / ".droelang"))
             from compiler.targets.mobile.build_system import MobileBuildSystem
             
             project_root = find_project_root()

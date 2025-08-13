@@ -2,7 +2,7 @@
   "src": "src",
   "build": "build",
   "dist": "dist",
-  "main": "src/main.roe",
+  "main": "src/main.droe",
   "target": "mobile",
   "mobile": {
     "enabled": true,

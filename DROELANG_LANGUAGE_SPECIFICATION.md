@@ -1,8 +1,8 @@
-# Roelang Language Specification
+# Droelang Language Specification
 
 **Version:** 3.0  
 **Date:** January 2025  
-**Authors:** Roelang Development Team
+**Authors:** Droelang Development Team
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@
 
 ## Overview
 
-Roelang is a domain-specific language designed for business logic, process automation, API development, database operations, and cross-platform application development. It features a readable, English-like syntax with strong typing, modern language constructs, built-in DSLs for databases and APIs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java (with Spring Boot support), JavaScript, HTML, and mobile platforms (Android/iOS).
+Droelang is a domain-specific language designed for business logic, process automation, API development, database operations, and cross-platform application development. It features a readable, English-like syntax with strong typing, modern language constructs, built-in DSLs for databases and APIs, and cross-platform compilation to multiple target languages including WebAssembly, Python, Java (with Spring Boot support), JavaScript, HTML, and mobile platforms (Android/iOS).
 
 ### Design Principles
 
@@ -53,7 +53,7 @@ Roelang is a domain-specific language designed for business logic, process autom
 ## Lexical Structure
 
 ### Case Sensitivity
-Roelang is **case-sensitive**. Keywords must be lowercase.
+Droelang is **case-sensitive**. Keywords must be lowercase.
 
 ### Identifiers
 - Start with a letter (a-z, A-Z) or underscore (_)
@@ -79,7 +79,7 @@ Statements are terminated by newlines. No semicolons required.
 
 ## Metadata Annotations
 
-Metadata annotations provide compile-time information about Roelang programs. They are specified at the beginning of a file using the `@key value` syntax.
+Metadata annotations provide compile-time information about Droelang programs. They are specified at the beginning of a file using the `@key value` syntax.
 
 ### Syntax
 
@@ -101,7 +101,7 @@ Specifies the compilation target, overriding command-line options and project co
 - `javascript` or `node` - JavaScript/Node.js
 - `go` - Go
 - `html` - HTML with JavaScript
-- `bytecode` - Roelang bytecode
+- `bytecode` - Droelang bytecode
 
 #### @targets
 **Note: This annotation is not currently implemented in the compiler.**
@@ -230,7 +230,7 @@ description = get_metadata_value(ast, "description")
 
 ## Data Types
 
-Roelang supports the following built-in data types:
+Droelang supports the following built-in data types:
 
 ### Primitive Types
 
@@ -238,7 +238,7 @@ Roelang supports the following built-in data types:
 |------|-------------|----------|
 | `int` | 32-bit signed integer | `42`, `-10`, `0` |
 | `decimal` | Double-precision floating point | `3.14`, `-0.5`, `99.99` |
-| `text` | Unicode string | `"Hello"`, `"Roelang"` |
+| `text` | Unicode string | `"Hello"`, `"Droelang"` |
 | `flag` | Boolean true/false | `true`, `false` |
 | `yesno` | Boolean true/false (alias for flag) | `true`, `false` |
 | `date` | ISO date string | `"2024-08-06"`, `"1990-01-15"` |
@@ -435,7 +435,7 @@ Actions are reusable blocks of code that can accept parameters and return values
 **Basic Action (no parameters):**
 ```roe
 action greet_user
-    display "Hello, welcome to Roelang!"
+    display "Hello, welcome to Droelang!"
 end action
 
 // Call the action
@@ -446,7 +446,7 @@ run greet_user
 ```roe
 action greet_person with name which is text
     display "Hello, " + name + "!"
-    display "Welcome to Roelang!"
+    display "Welcome to Droelang!"
 end action
 
 // Call with parameter
@@ -552,7 +552,7 @@ end module
 
 ## Database DSL
 
-Roelang provides a native Database DSL for defining data models and performing database operations with automatic ORM generation for target frameworks.
+Droelang provides a native Database DSL for defining data models and performing database operations with automatic ORM generation for target frameworks.
 
 ### Data Definitions with Annotations
 
@@ -649,7 +649,7 @@ db delete User where active equals false and age is less than 18
 }
 ```
 
-`src/user_management.roe`:
+`src/user_management.droe`:
 ```roe
 module user_management
 
@@ -701,7 +701,7 @@ end module
 
 ## HTTP and API DSL
 
-Roelang provides native support for making API calls and defining HTTP server endpoints.
+Droelang provides native support for making API calls and defining HTTP server endpoints.
 
 ### Making API Calls
 
@@ -875,7 +875,7 @@ end module
 
 ## UI Components and Layouts
 
-Roelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript), Android (Kotlin), and iOS (Swift) applications using a single, consistent syntax.
+Droelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript), Android (Kotlin), and iOS (Swift) applications using a single, consistent syntax.
 
 ### Layouts
 
@@ -1013,7 +1013,7 @@ enabled when capturedImage is not empty
 
 ## Mobile Platform Features
 
-When targeting mobile platforms (`@metadata(platform="mobile")` or `@targets "android, ios"`), Roelang provides access to native mobile capabilities.
+When targeting mobile platforms (`@metadata(platform="mobile")` or `@targets "android, ios"`), Droelang provides access to native mobile capabilities.
 
 ### Camera Integration
 
@@ -1120,7 +1120,7 @@ Mobile compilation automatically handles:
 
 ### Permission Management
 
-Roelang automatically detects required permissions based on component usage:
+Droelang automatically detects required permissions based on component usage:
 
 ```roe
 // These components automatically add permissions:
@@ -1223,20 +1223,20 @@ Import and use code from other files.
 
 **Include Syntax:**
 ```roe
-include "path/to/ModuleName.roe"
+include "path/to/ModuleName.droe"
 ```
 
 **Using Included Modules:**
 ```roe
-// File: utils/MathUtils.roe
+// File: utils/MathUtils.droe
 module utils_MathUtils
     action add with a which is int, b which is int gives int
         give a + b
     end action
 end module
 
-// File: main.roe
-include "utils/MathUtils.roe"
+// File: main.droe
+include "utils/MathUtils.droe"
 
 set result which is int from run utils_MathUtils.add with 10, 5
 display "Sum: " + result
@@ -1301,7 +1301,7 @@ set value which is int to 42
 
 ## Compilation Targets
 
-Roelang compiles to multiple target languages and frameworks:
+Droelang compiles to multiple target languages and frameworks:
 
 ### Core Compilation Targets
 
@@ -1314,7 +1314,7 @@ Roelang compiles to multiple target languages and frameworks:
 | `go` | `.go` | Go 1.18+ source code | Fiber + GORM | `net/http`, `database/sql` |
 | `rust` | `.rs` | Rust source code | Axum + SQLx | Framework-only |
 | `html` | `.html` | HTML5 with embedded JavaScript | Vue.js integration | - |
-| `bytecode` | `.roebc` | Roelang VM bytecode format | - | - |
+| `bytecode` | `.droebc` | Droelang VM bytecode format | - | - |
 | `mobile` | Multiple | Android (Kotlin) + iOS (Swift) projects | Native SDKs | - |
 
 ### Framework-Specific Generation
@@ -1333,22 +1333,22 @@ When using framework configuration in `roeconfig.json`:
 
 ### Native vs Framework Mode
 
-Roelang supports both framework-based and native standard library code generation:
+Droelang supports both framework-based and native standard library code generation:
 
 #### Framework Mode (Default)
 Uses web frameworks and ORMs for full-featured applications:
 ```bash
-roe compile api.roe --target java --framework spring
-roe compile api.roe --target python --framework fastapi
-roe compile api.roe --target go --framework fiber
+roe compile api.droe --target java --framework spring
+roe compile api.droe --target python --framework fastapi
+roe compile api.droe --target go --framework fiber
 ```
 
 #### Native Mode
 Uses only standard library features for lightweight applications:
 ```bash
-roe compile api.roe --target java --framework plain
-roe compile api.roe --target python --framework plain  
-roe compile api.roe --target go --framework plain
+roe compile api.droe --target java --framework plain
+roe compile api.droe --target python --framework plain  
+roe compile api.droe --target go --framework plain
 ```
 
 | Feature | Framework Mode | Native Mode |
@@ -1363,19 +1363,19 @@ roe compile api.roe --target go --framework plain
 
 ```bash
 # Basic compilation
-roe compile program.roe                    # Uses default or metadata target
-roe compile program.roe --target python    # Compile to Python
-roe compile program.roe --target java      # Compile to Java
+roe compile program.droe                    # Uses default or metadata target
+roe compile program.droe --target python    # Compile to Python
+roe compile program.droe --target java      # Compile to Java
 
 # Framework-specific compilation
-roe compile api.roe --target java --framework spring    # Spring Boot project
-roe compile app.roe --target mobile                     # Android + iOS apps
+roe compile api.droe --target java --framework spring    # Spring Boot project
+roe compile app.droe --target mobile                     # Android + iOS apps
 
 # Project-based compilation (uses roeconfig.json)
 roe compile                                # Uses settings from roeconfig.json
 
 # Compile and run
-roe run program.roe                        # Compile and execute
+roe run program.droe                        # Compile and execute
 ```
 
 ### Configuration File (roeconfig.json)
@@ -1386,7 +1386,7 @@ roe run program.roe                        # Compile and execute
   "build": "build", 
   "dist": "dist",
   "modules": "modules",
-  "main": "src/main.roe",
+  "main": "src/main.droe",
   "target": "java",
   "framework": "spring",
   "package": "com.example.myproject",
@@ -1530,7 +1530,7 @@ dist/ios/
 
 ### Type Mapping Across Targets
 
-| Roelang Type | Python | Java | JavaScript | Go | Kotlin | Swift |
+| Droelang Type | Python | Java | JavaScript | Go | Kotlin | Swift |
 |--------------|--------|------|------------|-------|--------|-------|
 | `int` | `int` | `int` | `number` | `int` | `Int` | `Int` |
 | `decimal` | `float` | `double` | `number` | `float64` | `Double` | `Double` |
@@ -1541,7 +1541,7 @@ dist/ios/
 
 ### Database Type Mapping (Spring Boot)
 
-| Roelang Annotation | JPA Annotation | SQL Type |
+| Droelang Annotation | JPA Annotation | SQL Type |
 |--------------------|----------------|----------|
 | `key auto` | `@Id @GeneratedValue` | `SERIAL/UUID` |
 | `required` | `@Column(nullable=false)` | `NOT NULL` |
@@ -1605,7 +1605,7 @@ end for
 
 ## Error Handling
 
-Roelang enforces strong typing and will generate compilation errors for:
+Droelang enforces strong typing and will generate compilation errors for:
 
 - **Type mismatches**: Assigning wrong type to variable
 - **Undefined variables**: Using undeclared variables  
@@ -1638,7 +1638,7 @@ Roelang enforces strong typing and will generate compilation errors for:
 
 ## Cross-Platform Mobile Example
 
-Complete example of a Roelang application that compiles to web, Android, and iOS:
+Complete example of a Droelang application that compiles to web, Android, and iOS:
 
 ```roe
 // Cross-platform photo sharing app
@@ -1760,7 +1760,7 @@ module photoshare
 end module
 ```
 
-This single Roelang file generates:
+This single Droelang file generates:
 - **Web**: HTML/JavaScript with responsive design
 - **Android**: Complete Kotlin project with Material Design
 - **iOS**: SwiftUI project with native iOS components
@@ -1769,7 +1769,7 @@ This single Roelang file generates:
 
 ## Framework Adapters
 
-Roelang provides framework adapters that automatically generate idiomatic code for popular frameworks.
+Droelang provides framework adapters that automatically generate idiomatic code for popular frameworks.
 
 ### Backend Framework Adapters
 
@@ -1903,7 +1903,7 @@ Generates a complete Android Studio project:
 - **Layouts**: XML layouts with Material Design
 - **Permissions**: Automatic `AndroidManifest.xml` configuration
 - **Build System**: Gradle with dependencies
-- **Components**: Native Android components from Roelang UI DSL
+- **Components**: Native Android components from Droelang UI DSL
 
 #### iOS Adapter (Swift)
 Generates a complete Xcode project:
@@ -1912,7 +1912,7 @@ Generates a complete Xcode project:
 - **Navigation**: Automatic navigation setup
 - **Permissions**: `Info.plist` with usage descriptions
 - **Project Structure**: Standard iOS app structure
-- **Components**: Native iOS components from Roelang UI DSL
+- **Components**: Native iOS components from Droelang UI DSL
 
 ### Supported Framework Features
 
@@ -1942,7 +1942,7 @@ Generates a complete Xcode project:
 
 #### Example: User Management API
 
-**Shared Roelang Code (`src/api.roe`):**
+**Shared Droelang Code (`src/api.droe`):**
 ```roe
 data User
     id is text key auto
@@ -2035,7 +2035,7 @@ end serve
 ### Best Practices
 
 1. **Consistent Configuration**: Use the same database URL format across all frameworks
-2. **Type Safety**: Leverage Roelang's strong typing for database mapping
+2. **Type Safety**: Leverage Droelang's strong typing for database mapping
 3. **REST Conventions**: Use standard HTTP methods in serve statements
 4. **Database Support**: Choose appropriate database types for your framework
 5. **Package Naming**: Follow language conventions for package names (snake_case for Python, kebab-case for Rust, etc.)
@@ -2099,7 +2099,7 @@ requirements.txt             # Dependencies
 end module
 ```
 
-This single Roelang file generates:
+This single Droelang file generates:
 - Complete Spring Boot backend with database
 - Responsive HTML/JavaScript frontend
 - Automatic API integration
@@ -2107,4 +2107,4 @@ This single Roelang file generates:
 
 ---
 
-*This specification covers Roelang version 3.0 with Database DSL, API DSL, and Framework Adapter support. For updates and examples, visit the official Roelang documentation.*
+*This specification covers Droelang version 3.0 with Database DSL, API DSL, and Framework Adapter support. For updates and examples, visit the official Droelang documentation.*

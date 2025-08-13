@@ -1,6 +1,6 @@
-# Roe Virtual Machine
+# Ddroe Virtual Machine
 
-A high-performance Rust-based virtual machine for executing Roe language bytecode.
+A high-performance Rust-based virtual machine for executing Ddroe language bytecode.
 
 ## Features
 
@@ -15,18 +15,18 @@ A high-performance Rust-based virtual machine for executing Roe language bytecod
 ### Running Bytecode Files
 
 ```bash
-# Compile Roe source to bytecode
-roe compile program.roe --target bytecode
+# Compile Ddroe source to bytecode
+droe compile program.droe --target bytecode
 
 # Run bytecode with the VM
-roevm run program.roebc
+ddroevm run program.droebc
 ```
 
 ### Creating Standalone Executables
 
 ```bash
 # Create a standalone executable with embedded bytecode
-roevm build program.roebc -o my-program
+ddroevm build program.droebc -o my-program
 
 # Run the standalone executable (no dependencies needed!)
 ./my-program
@@ -56,7 +56,7 @@ The bytecode uses JSON serialization for cross-platform compatibility:
 {
   "version": 1,
   "metadata": {
-    "source_file": "program.roe",
+    "source_file": "program.droe",
     "created_at": 1754474723,
     "compiler_version": "0.1.0"
   },
@@ -76,19 +76,19 @@ Standalone executables embed bytecode using binary markers:
 
 ```
 [VM Binary Data]
-__ROEBC_DATA_START__
+__DROEBC_DATA_START__
 [8-byte length in little-endian]
 [Bytecode JSON data]
-__ROEBC_DATA_END__
+__DROEBC_DATA_END__
 ```
 
 The VM automatically detects and executes embedded bytecode at startup.
 
 ## Integration
 
-The VM integrates seamlessly with the Roe compilation pipeline:
+The VM integrates seamlessly with the Ddroe compilation pipeline:
 
-1. **Roe source** → Python compiler → **AST**
-2. **AST** → Bytecode generator → **`.roebc` file**  
-3. **`.roebc`** → Rust VM → **Execution**
-4. **`.roebc`** → Standalone builder → **Single executable**
+1. **Ddroe source** → Python compiler → **AST**
+2. **AST** → Bytecode generator → **`.droebc` file**  
+3. **`.droebc`** → Rust VM → **Execution**
+4. **`.droebc`** → Standalone builder → **Single executable**

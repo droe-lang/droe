@@ -5,7 +5,7 @@ on:
     branches: [ main, develop ]
     paths:
       - 'compiler/**'
-      - 'roe'
+      - 'droe'
       - 'run.js'
       - '*.py'
       - '.github/workflows/ci.yml'
@@ -29,7 +29,7 @@ jobs:
     - name: Create compiler bundle
       run: |
         # Create the main compiler bundle
-        tar -czf compiler.tar.gz compiler/ roe run.js
+        tar -czf compiler.tar.gz compiler/ droe run.js
         echo "✅ Compiler bundle created"
         ls -lh compiler.tar.gz
         

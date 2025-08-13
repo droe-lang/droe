@@ -1,22 +1,22 @@
-# Roelang Development Progress
+# Ddroelang Development Progress
 
 **Last Updated:** January 2025  
 **Session:** Native RoeVM Implementation & API DSL Cleanup
 
 ## 🎯 Project Vision
 
-Roelang compiles to native RoeVM bytecode that runs on a Rust-based virtual machine with:
+Ddroelang compiles to native RoeVM bytecode that runs on a Rust-based virtual machine with:
 - Embedded HTTP server (Axum)
 - Database operations (PostgreSQL, MySQL, SQLite, Oracle, MS SQL, MongoDB)
-- Single binary deployment (`roe build --release`)
+- Single binary deployment (`droe build --release`)
 
 ## ✅ Completed Implementation
 
 ### 1. Native RoeVM Target Architecture
 - **Target System Fixed:**
-  - `roe` target → `.roebc` bytecode for RoeVM execution
+  - `droe` target → `.ddroebc` bytecode for RoeVM execution
   - `rust` target → Rust source code with Axum/database support
-  - Default target changed from `wasm` to `roe`
+  - Default target changed from `wasm` to `droe`
 
 ### 2. Bytecode Generation (`compiler/targets/bytecode/codegen.py`)
 - Extended BytecodeGenerator with HTTP/DB support:
@@ -24,10 +24,10 @@ Roelang compiles to native RoeVM bytecode that runs on a Rust-based virtual mach
   - `DefineData` - Database model definitions with field annotations
   - `DatabaseOp` - Database operations (find, create, update, delete)
   - `EndHandler` - Endpoint handler boundaries
-- Generates JSON-serialized `.roebc` files ready for RoeVM
+- Generates JSON-serialized `.ddroebc` files ready for RoeVM
 - Supports `serve` statement parsing into bytecode
 
-### 3. Rust Code Generation (`compiler/targets/roe/codegen.py`)
+### 3. Rust Code Generation (`compiler/targets/droe/codegen.py`)
 - Complete Rust project generation with:
   - Axum HTTP server setup
   - Database abstraction layer (SQLx, rust-oracle, tiberius, mongodb)
@@ -41,7 +41,7 @@ Roelang compiles to native RoeVM bytecode that runs on a Rust-based virtual mach
   - Oracle → rust-oracle crate
   - MS SQL → tiberius crate  
   - MongoDB → mongodb driver
-- Database type configurable via `roeconfig.json` and `@database` metadata
+- Database type configurable via `droeconfig.json` and `@database` metadata
 - Automatic dependency injection based on database selection
 
 ### 5. Parser & Language Cleanup
@@ -55,26 +55,26 @@ Roelang compiles to native RoeVM bytecode that runs on a Rust-based virtual mach
   - Support for database operations in serve blocks
 
 ### 6. CLI & Build System Updates
-- Updated `roe` CLI to support both `rust` and `roe` targets
-- Framework support: `rust` and `roe` targets support `axum` framework
+- Updated `droe` CLI to support both `rust` and `droe` targets
+- Framework support: `rust` and `droe` targets support `axum` framework
 - Multi-file project handling for `rust` target
-- Single-file bytecode output for `roe` target
+- Single-file bytecode output for `droe` target
 - Updated target extensions and compilation paths
 
 ## 🔨 Current Architecture
 
 ### Compilation Flow
 ```
-.roe files → Compiler → .roebc bytecode → RoeVM Runtime → Native Binary
+.ddroe files → Compiler → .ddroebc bytecode → RoeVM Runtime → Native Binary
                                       ↗   (HTTP server + DB embedded)
 
-.roe files → Compiler → Rust source → cargo build → Native Binary
+.ddroe files → Compiler → Rust source → cargo build → Native Binary
 ```
 
 ### Generated Artifacts
 
-**`roe` target produces:**
-- `filename.roebc` - JSON bytecode with endpoints, data models, DB operations
+**`droe` target produces:**
+- `filename.ddroebc` - JSON bytecode with endpoints, data models, DB operations
 
 **`rust` target produces:**
 ```
@@ -104,7 +104,7 @@ project_name/
 ## 🚧 Remaining Implementation
 
 ### Priority 1: RoeVM Runtime (Critical)
-- **Location:** `roevm/` (new directory)
+- **Location:** `droevm/` (new directory)
 - **Requirements:**
   - Rust-based bytecode interpreter
   - Embedded Axum HTTP server
@@ -113,8 +113,8 @@ project_name/
   - Configuration via environment variables
 
 ### Priority 2: Build System Enhancement
-- **`roe build --release` command:**
-  - Bundle RoeVM runtime + `.roebc` bytecode → single binary
+- **`droe build --release` command:**
+  - Bundle RoeVM runtime + `.ddroebc` bytecode → single binary
   - Database driver selection at build time
   - Production optimization
   - Cross-platform binary generation
@@ -131,50 +131,50 @@ project_name/
 - `compiler/ast.py` - Removed ApiEndpointDefinition
 - `compiler/parser/statements.py` - Added serve statement parsing
 - `compiler/parser/structures.py` - Fixed data field parsing
-- `compiler/targets/roe/codegen.py` - Rust code generator
+- `compiler/targets/droe/codegen.py` - Rust code generator
 - `compiler/targets/bytecode/codegen.py` - Enhanced bytecode generator
 
 ### CLI & Configuration  
-- `roe` - Updated CLI with rust/roe targets, default changed to roe
+- `droe` - Updated CLI with rust/droe targets, default changed to droe
 - `ROELANG_LANGUAGE_SPECIFICATION.md` - Removed API syntax, added HTTP endpoints
 
 ### Test Files
-- `tests/test_roe_simple.roe` - Working test case
-- `tests/test_user_db.roe` - Updated to use serve syntax
-- `tests/roeconfig.json` - Database configuration example
+- `tests/test_droe_simple.ddroe` - Working test case
+- `tests/test_user_db.ddroe` - Updated to use serve syntax
+- `tests/droeconfig.json` - Database configuration example
 
 ## 🧪 Testing Status
 
 ### ✅ Working Tests
 ```bash
-roe compile test_roe_simple.roe --target roe     # → .roebc bytecode
-roe compile test_roe_simple.roe --target rust    # → Rust project
-roe init my_app --target roe --framework axum    # → roe project
-roe init my_app --target rust --framework axum   # → rust project
+droe compile test_droe_simple.ddroe --target droe     # → .ddroebc bytecode
+droe compile test_droe_simple.ddroe --target rust    # → Rust project
+droe init my_app --target droe --framework axum    # → droe project
+droe init my_app --target rust --framework axum   # → rust project
 ```
 
 ### 🔄 Compilation Verification
 - Bytecode generation: ✅ Working
 - Rust project generation: ✅ Working  
 - CLI target selection: ✅ Working
-- Default target (roe): ✅ Working
+- Default target (droe): ✅ Working
 - Database configuration: ✅ Working
 - Serve statement parsing: ✅ Working
 
 ## 🎯 Next Session Goals
 
 1. **Implement RoeVM Runtime:**
-   - Create `roevm/` directory with Rust project
+   - Create `droevm/` directory with Rust project
    - Bytecode interpreter with instruction set
    - Embedded HTTP server integration
    - Database connection pooling
 
 2. **Build System Integration:**
-   - `roe build --release` command
+   - `droe build --release` command
    - Binary packaging with bytecode embedding
 
 3. **End-to-End Testing:**
-   - Compile `.roe` → `.roebc` → run with RoeVM
+   - Compile `.ddroe` → `.ddroebc` → run with RoeVM
    - HTTP endpoints working with database operations
 
 ## 💡 Technical Notes
@@ -182,24 +182,24 @@ roe init my_app --target rust --framework axum   # → rust project
 - **Database Drivers:** Feature flags in Cargo.toml for selective compilation
 - **HTTP Server:** Axum integration with route registration from bytecode
 - **Bytecode Format:** JSON for now, can optimize to binary later
-- **Configuration:** `roeconfig.json` + environment variables for runtime
+- **Configuration:** `droeconfig.json` + environment variables for runtime
 - **Deployment:** Single binary with embedded bytecode and HTTP server
 
 ## 🔧 Development Commands
 
 ```bash
 # Compile to bytecode (default)
-roe compile src/main.roe
+droe compile src/main.ddroe
 
 # Compile to Rust source  
-roe compile src/main.roe --target rust
+droe compile src/main.ddroe --target rust
 
 # Create new projects
-roe init my_roe_app                    # roe target (default)
-roe init my_rust_app --target rust     # rust target
+droe init my_droe_app                    # droe target (default)
+droe init my_rust_app --target rust     # rust target
 
 # Future: Build production binary
-roe build --release                    # → Single executable
+droe build --release                    # → Single executable
 ```
 
 ---

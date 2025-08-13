@@ -8,8 +8,8 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "roevm")]
-#[command(about = "Roe Virtual Machine - Execute Roe bytecode", long_about = None)]
+#[command(name = "droevm")]
+#[command(about = "Droe Virtual Machine - Execute Droe bytecode", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -65,7 +65,7 @@ fn main() -> Result<()> {
             build_standalone(bytecode, output)?;
         }
         Commands::Version => {
-            println!("Roe VM version {}", env!("CARGO_PKG_VERSION"));
+            println!("Droe VM version {}", env!("CARGO_PKG_VERSION"));
         }
     }
     
