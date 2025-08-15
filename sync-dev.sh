@@ -78,6 +78,15 @@ if [ -f ~/.droelang/droevm ]; then
     echo "  • DroeVM binary: ~/.droelang/droevm"
 fi
 
+# Create compiler bundle for install-from-curl flow
+echo ""
+echo "📦 Creating compiler bundle..."
+if tar -czf compiler.tar.gz compiler/ droe run.js 2>/dev/null; then
+    echo "✅ compiler.tar.gz updated ($(du -h compiler.tar.gz | cut -f1))"
+else
+    echo "⚠️  Warning: Could not create compiler.tar.gz"
+fi
+
 echo ""
 echo "💡 Make sure ~/.droelang/bin is in your PATH:"
 echo "   export PATH=\"\$HOME/.droelang/bin:\$PATH\""

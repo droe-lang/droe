@@ -32,16 +32,10 @@ jobs:
         tar -czf compiler.tar.gz compiler/ droe run.js
         echo "✅ Compiler bundle created"
         ls -lh compiler.tar.gz
-        
-        # Create a lightweight bundle for quick downloads
-        tar -czf compiler-core.tar.gz compiler/
-        echo "✅ Core compiler bundle created"
-        ls -lh compiler-core.tar.gz
     
     - name: Generate checksums
       run: |
         sha256sum compiler.tar.gz > compiler.tar.gz.sha256
-        sha256sum compiler-core.tar.gz > compiler-core.tar.gz.sha256
         echo "✅ Checksums generated:"
         cat *.sha256
     
@@ -52,8 +46,6 @@ jobs:
         path: |
           compiler.tar.gz
           compiler.tar.gz.sha256
-          compiler-core.tar.gz
-          compiler-core.tar.gz.sha256
         retention-days: 30
     
     - name: Upload latest compiler bundle
@@ -91,8 +83,6 @@ jobs:
         files: |
           compiler.tar.gz
           compiler.tar.gz.sha256
-          compiler-core.tar.gz
-          compiler-core.tar.gz.sha256
         prerelease: true
         draft: false
       env:

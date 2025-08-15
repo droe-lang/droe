@@ -28,7 +28,7 @@ jobs:
     
     - name: Create compiler bundle
       run: |
-        tar -czf compiler.tar.gz compiler/
+        tar -czf compiler.tar.gz compiler/ droe run.js
         echo "✅ Compiler bundle created"
         ls -lh compiler.tar.gz
     
