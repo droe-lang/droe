@@ -99,6 +99,7 @@ pub struct DebugInfo {
 }
 
 impl BytecodeFile {
+    #[allow(dead_code)]
     pub fn new(instructions: Vec<Instruction>) -> Self {
         Self {
             version: 1,
@@ -116,6 +117,7 @@ impl BytecodeFile {
         }
     }
     
+    #[allow(dead_code)]
     pub fn serialize(&self) -> Result<Vec<u8>, serde_json::Error> {
         serde_json::to_vec(self)
     }

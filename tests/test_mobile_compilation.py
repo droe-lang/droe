@@ -77,10 +77,10 @@ def get_target_platforms(ast):
 
 
 def test_mobile_compilation():
-    """Test compiling Roe DSL to mobile targets."""
+    """Test compiling Droe DSL to mobile targets."""
     
     # Read the example file
-    example_file = Path("examples/src/mobile_app_demo.roe")
+    example_file = Path("examples/src/mobile_app_demo.droe")
     if not example_file.exists():
         print(f"Error: {example_file} not found")
         return
@@ -88,7 +88,7 @@ def test_mobile_compilation():
     source_code = example_file.read_text()
     
     # Parse the DSL
-    print("Parsing Roe DSL...")
+    print("Parsing Droe DSL...")
     parser = Parser(source_code)
     ast = parser.parse()
     print(f"✅ Parsed successfully: {len(ast.statements)} statements")

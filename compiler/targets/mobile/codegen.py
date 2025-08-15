@@ -55,7 +55,7 @@ class MobileProjectCodegen(BaseCodeGenerator):
             return False
             
         # Check if manifest file exists (indicates previous build)
-        manifest_file = output_dir / ".roelang_build_manifest.json"
+        manifest_file = output_dir / ".droelang_build_manifest.json"
         if not manifest_file.exists():
             return False
             
@@ -95,7 +95,7 @@ class MobileProjectCodegen(BaseCodeGenerator):
             "version": self.config.get('mobile', {}).get('version', '1.0.0')
         }
         
-        manifest_file = output_dir / ".roelang_build_manifest.json"
+        manifest_file = output_dir / ".droelang_build_manifest.json"
         with open(manifest_file, 'w') as f:
             json.dump(manifest, f, indent=2)
     
@@ -160,9 +160,9 @@ class MobileProjectCodegen(BaseCodeGenerator):
                 print(f"   • iOS: Open {build_dir}/ios/MyApp.xcodeproj in Xcode")
             
             print(f"\n📦 Next steps:")
-            print(f"   • roe run - Run app with hot reload")
-            print(f"   • roe build - Development build")  
-            print(f"   • roe build --release - Create final APK/IPA in dist/")
+            print(f"   • droe run - Run app with hot reload")
+            print(f"   • droe build - Development build")  
+            print(f"   • droe build --release - Create final APK/IPA in dist/")
         
         # Return a special marker to indicate mobile project generation
         # This tells the compiler not to create individual output files

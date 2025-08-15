@@ -1,8 +1,8 @@
-// main_with_includes.roe - Demonstrates using Include to import modules
+// main_with_includes.droe - Demonstrates using Include to import modules
 // and call their actions with parameters
 //
 // ✅ WORKING FEATURES:
-// - include ModuleName.roe syntax
+// - include ModuleName.droe syntax
 // - Cross-module action calls: run ModuleName.ActionName with Params
 // - Parameter passing with proper type inference
 // - Simple mathematical operations (add, multiply, calculate_area)
@@ -19,9 +19,9 @@
 // The core Include functionality is COMPLETE and ready for use!
 
 // Include the utility modules
-include "utils/MathUtils.roe"
-include "utils/StringUtils.roe"
-include "includes/UserManager.roe"
+include "utils/MathUtils.droe"
+include "utils/StringUtils.droe"
+include "includes/UserManager.droe"
 
 // Use MathUtils actions
 display "=== Math Operations ==="
@@ -70,9 +70,9 @@ set user_name which is text to "Alice"
 set greeting which is text from run utils_StringUtils.greet with user_name
 display "Greeting: Hello, Alice!"
 
-set page_title which is text to "Welcome to Roe"
+set page_title which is text to "Welcome to Droe"
 set formatted_title which is text from run utils_StringUtils.format_title with page_title
-display "Formatted title: === Welcome to Roe ==="
+display "Formatted title: === Welcome to Droe ==="
 
 set first which is text to "john"
 set last which is text to "doe"

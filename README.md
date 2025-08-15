@@ -2,7 +2,7 @@
 
 **Roelang** is a lightweight DSL that compiles human-readable commands like:
 
-```roe
+```droe
 Display Hello World
 ```
 
@@ -20,17 +20,17 @@ Display Hello World
 
 ### macOS (via DMG Installer)
 
-1. [Download the latest `.dmg`](https://roe-lang.dev)
+1. [Download the latest `.dmg`](https://droe-lang.dev)
 2. Open and **double-click Roelang Installer**
 3. Follow instructions — this sets up:
 
-   - `~/.roelang/` with runtime files
-   - CLI tool `roe` added to your terminal
+   - `~/.droelang/` with runtime files
+   - CLI tool `droe` added to your terminal
 
 Once installed, run:
 
 ```bash
-roe run main.roe
+droe run main.droe
 ```
 
 ---
@@ -38,15 +38,17 @@ roe run main.roe
 ## 🗂️ Project Structure
 
 ### Roelang Project Structure
+
 ```
 my-project/
 ├── src/
-│   └── main.roe       # Your Roelang source file
+│   └── main.droe       # Your Roelang source file
 ├── build/             # Generated .wat and .wasm files
-└── roeconfig.json     # Project configuration
+└── droeconfig.json     # Project configuration
 ```
 
 ### Repository Structure
+
 ```
 roelang-installer/
 ├── compiler/          # Core compiler components
@@ -55,7 +57,7 @@ roelang-installer/
 │   ├── codegen_wat.py # WebAssembly Text generation
 │   └── symbols.py    # Symbol table and type system
 ├── examples/          # Example programs and documentation
-│   ├── src/          # Example .roe files (01-11)
+│   ├── src/          # Example .droe files (01-11)
 │   └── README.md     # Learning guide and feature documentation
 ├── tests/            # Comprehensive test suite
 │   ├── unit/         # Unit tests
@@ -63,7 +65,7 @@ roelang-installer/
 │   ├── type_system/  # Type system validation
 │   └── README.md     # Test documentation
 ├── assets/           # Icons and DMG assets
-├── roe               # Command-line interface
+├── droe               # Command-line interface
 └── run.js           # WebAssembly runtime
 ```
 
@@ -71,16 +73,16 @@ roelang-installer/
 
 ## 🚀 Example
 
-**main.roe**
+**main.droe**
 
-```roe
+```droe
 Display Hello World
 ```
 
 Then run:
 
 ```bash
-roe run main.roe
+droe run main.droe
 ```
 
 Expected output:
@@ -109,4 +111,4 @@ Licensed under the [Apache License 2.0](LICENSE).
 
 ## 🌐 Website
 
-👉 [roe-lang.dev](https://roe-lang.dev)
+👉 [droe-lang.dev](https://droe-lang.dev)

@@ -1,4 +1,4 @@
-"""Bytecode code generator for Roe DSL compiler."""
+"""Bytecode code generator for Droe DSL compiler."""
 
 import struct
 import json
@@ -9,7 +9,7 @@ from ...codegen_base import BaseCodeGenerator, CodeGenError
 
 
 class BytecodeGenerator(BaseCodeGenerator):
-    """Generates bytecode for the Roe VM."""
+    """Generates bytecode for the Droe VM."""
     
     def __init__(self):
         super().__init__()

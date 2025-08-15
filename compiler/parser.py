@@ -1,5 +1,5 @@
 """
-Roe DSL Parser - Modular parser for the Roe Domain-Specific Language.
+Droe DSL Parser - Modular parser for the Droe Domain-Specific Language.
 
 This module provides a backward-compatible interface to the new modular parser system.
 The actual parsing logic is split across multiple modules in the parser/ package:

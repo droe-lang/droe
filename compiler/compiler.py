@@ -1,4 +1,4 @@
-"""Main compiler entry point for Roe DSL."""
+"""Main compiler entry point for Droe DSL."""
 
 import sys
 import os
@@ -38,7 +38,7 @@ def get_target_from_source(source: str, default_target: str = "wasm") -> str:
     Determine the target from DSL source metadata.
     
     Args:
-        source: Roe DSL source code
+        source: Droe DSL source code
         default_target: Default target if no metadata found
         
     Returns:
@@ -54,10 +54,10 @@ def get_target_from_source(source: str, default_target: str = "wasm") -> str:
 
 def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
     """
-    Compile Roe DSL source code to specified target format.
+    Compile Droe DSL source code to specified target format.
     
     Args:
-        source: Roe DSL source code
+        source: Droe DSL source code
         file_path: Optional path to source file (for module resolution)
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         framework: Framework to use (plain, spring for Java, etc.)
@@ -105,10 +105,10 @@ def compile(source: str, file_path: Optional[str] = None, target: str = "wasm", 
 
 def compile_file(input_path: str, output_path: Optional[str] = None, target: str = "wasm", framework: str = "plain", package: Optional[str] = None, database: Optional[Dict[str, Any]] = None) -> str:
     """
-    Compile a Roe DSL file to specified target.
+    Compile a Droe DSL file to specified target.
     
     Args:
-        input_path: Path to .roe file
+        input_path: Path to .droe file
         output_path: Optional output path for generated file
         target: Compilation target (wasm, python, java, go, node, html, kotlin, swift)
         framework: Framework to use (plain, spring for Java, etc.)
@@ -163,7 +163,7 @@ def compile_file(input_path: str, output_path: Optional[str] = None, target: str
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python -m compiler.compiler <input.roe> [output.wat]")
+        print("Usage: python -m compiler.compiler <input.droe> [output.wat]")
         sys.exit(1)
     
     input_file = sys.argv[1]

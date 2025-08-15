@@ -93,9 +93,9 @@ def test_existing_html_example():
     print("=" * 30)
     
     # Test the showcase example that uses @target html
-    showcase_file = Path("examples/src/showcase_all_components.roe")
+    showcase_file = Path("examples/src/showcase_all_components.droe")
     if not showcase_file.exists():
-        print("❌ showcase_all_components.roe not found")
+        print("❌ showcase_all_components.droe not found")
         return False
     
     source_code = showcase_file.read_text()
@@ -105,7 +105,7 @@ def test_existing_html_example():
         ast = parser.parse()
         platforms = get_target_platforms(ast)
         
-        print(f"📄 File: showcase_all_components.roe")
+        print(f"📄 File: showcase_all_components.droe")
         print(f"🎯 Target platforms: {platforms}")
         
         if 'web' in platforms or 'html' in platforms:

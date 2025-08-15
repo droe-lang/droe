@@ -60,7 +60,7 @@ class MobileBuildSystem:
         
         if not android_project.exists():
             print(f"❌ Android project not found in {android_project}")
-            print(f"   Run 'roe compile' first to generate projects")
+            print(f"   Run 'droe compile' first to generate projects")
             return None
         
         print(f"📱 Building Android project...")
@@ -133,7 +133,7 @@ class MobileBuildSystem:
         
         if not ios_project.exists():
             print(f"❌ iOS project not found in {ios_project}")
-            print(f"   Run 'roe compile' first to generate projects")
+            print(f"   Run 'droe compile' first to generate projects")
             return None
         
         print(f"📱 Building iOS project...")
@@ -246,7 +246,7 @@ class MobileBuildSystem:
         android_project = build_dir / 'android'
         
         if not android_project.exists():
-            print(f"❌ Android project not found. Run 'roe compile' first.")
+            print(f"❌ Android project not found. Run 'droe compile' first.")
             return False
         
         print(f"🚀 Starting Android app...")
@@ -282,7 +282,7 @@ class MobileBuildSystem:
         ios_project = build_dir / 'ios'
         
         if not ios_project.exists():
-            print(f"❌ iOS project not found. Run 'roe compile' first.")
+            print(f"❌ iOS project not found. Run 'droe compile' first.")
             return False
         
         print(f"🚀 Starting iOS app...")

@@ -1,7 +1,7 @@
-// UserManager.roe - Demonstrates data structures and module interactions
+// UserManager.droe - Demonstrates data structures and module interactions
 
 // Include string utilities for formatting
-include "utils/StringUtils.roe"
+include "utils/StringUtils.droe"
 
 // Define user data structure
 data User

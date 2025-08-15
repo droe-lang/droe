@@ -1,6 +1,6 @@
-# Roe DSL Compiler
+# Droe DSL Compiler
 
-This is the AST-based compiler for the Roe Domain-Specific Language.
+This is the AST-based compiler for the Droe Domain-Specific Language.
 
 ## Architecture
 
@@ -13,6 +13,7 @@ DSL Source → Parser → AST → Code Generator → WAT Output
 ### Components
 
 1. **ast.py** - AST node definitions using Python dataclasses
+
    - `Literal`: String, number, and boolean values
    - `Identifier`: Variable names
    - `BinaryOp`: Binary operations (>, <, ==, etc.)
@@ -22,11 +23,13 @@ DSL Source → Parser → AST → Code Generator → WAT Output
    - `Program`: Root node containing statements
 
 2. **parser.py** - Recursive-descent parser
-   - Converts Roe DSL text to AST
+
+   - Converts Droe DSL text to AST
    - Supports basic statements and expressions
    - Handles string/number literals and binary operations
 
 3. **codegen_wat.py** - WebAssembly Text generator
+
    - Walks the AST and generates WAT code
    - Manages string constants in memory
    - Imports `display` function from host environment
@@ -52,12 +55,13 @@ print(wat)
 ### Command Line
 
 ```bash
-python -m compiler.compiler input.roe output.wat
+python -m compiler.compiler input.droe output.wat
 ```
 
 ## Supported Syntax
 
 Currently supported:
+
 - `display "string"` - Display a string
 - `display 'string'` - Single quotes also work
 - `if condition then statement` - Simple conditionals
@@ -71,6 +75,6 @@ Currently supported:
 - [ ] Function definitions
 - [ ] Loops (for, while)
 - [ ] Arrays and objects
-- [ ] More operators (+, -, *, /, &&, ||)
+- [ ] More operators (+, -, \*, /, &&, ||)
 - [ ] Type checking
 - [ ] Better error messages with line numbers

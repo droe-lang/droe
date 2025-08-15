@@ -1,4 +1,4 @@
-"""Symbol table for variable management in Roe DSL."""
+"""Symbol table for variable management in Droe DSL."""
 
 from typing import Dict, Any, Optional
 from enum import Enum

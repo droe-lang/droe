@@ -1,4 +1,4 @@
-"""Roe DSL Compiler Package."""
+"""Droe DSL Compiler Package."""
 
 from .compiler import compile, compile_file, CompilerError
 from .parser import parse, ParseError

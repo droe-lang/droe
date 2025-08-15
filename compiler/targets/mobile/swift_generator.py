@@ -28,7 +28,7 @@ class SwiftProjectGenerator:
 
 
 class SwiftGenerator(MobileGenerator):
-    """Generate Swift/iOS code from Roe DSL."""
+    """Generate Swift/iOS code from Droe DSL."""
     
     def generate(self, program: Program, output_dir: str, mobile_config: Dict[str, Any] = None) -> Dict[str, str]:
         """Generate iOS project structure with Swift code."""

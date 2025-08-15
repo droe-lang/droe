@@ -40,12 +40,12 @@ run_test() {
 }
 
 # Run tests
-run_test "tests/test_comprehensive.roe" "Comprehensive Features"
-run_test "tests/string_interpolation/test_simple_interpolation.roe" "String Interpolation"
-run_test "tests/type_system/test_types_simple.roe" "Type System"
-run_test "tests/type_system/test_boolean_multiple.roe" "Boolean Variables"
-run_test "tests/type_system/test_collections.roe" "Collections"
-run_test "tests/test_string_concatenation.roe" "String Concatenation"
+run_test "tests/test_comprehensive.droe" "Comprehensive Features"
+run_test "tests/string_interpolation/test_simple_interpolation.droe" "String Interpolation"
+run_test "tests/type_system/test_types_simple.droe" "Type System"
+run_test "tests/type_system/test_boolean_multiple.droe" "Boolean Variables"
+run_test "tests/type_system/test_collections.droe" "Collections"
+run_test "tests/test_string_concatenation.droe" "String Concatenation"
 
 echo ""
 echo "📊 Test Results"

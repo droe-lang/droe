@@ -1,11 +1,11 @@
-# Ddroe Virtual Machine
+# Droe Virtual Machine
 
-A high-performance Rust-based virtual machine for executing Ddroe language bytecode.
+A high-performance Rust-based virtual machine for executing Droe language bytecode.
 
 ## Features
 
 - **Stack-based VM** with comprehensive instruction set
-- **JSON bytecode format** for easy debugging and inspection  
+- **JSON bytecode format** for easy debugging and inspection
 - **Standalone executable generation** with embedded bytecode
 - **Zero-dependency deployment** - single binary distribution
 - **Cross-platform support** with native performance
@@ -15,18 +15,18 @@ A high-performance Rust-based virtual machine for executing Ddroe language bytec
 ### Running Bytecode Files
 
 ```bash
-# Compile Ddroe source to bytecode
+# Compile Droe source to bytecode
 droe compile program.droe --target bytecode
 
 # Run bytecode with the VM
-ddroevm run program.droebc
+droevm run program.droebc
 ```
 
 ### Creating Standalone Executables
 
 ```bash
 # Create a standalone executable with embedded bytecode
-ddroevm build program.droebc -o my-program
+droevm build program.droebc -o my-program
 
 # Run the standalone executable (no dependencies needed!)
 ./my-program
@@ -62,7 +62,7 @@ The bytecode uses JSON serialization for cross-platform compatibility:
   },
   "constants": [],
   "instructions": [
-    {"Push": {"String": "Hello, World!"}},
+    { "Push": { "String": "Hello, World!" } },
     "Display",
     "Halt"
   ],
@@ -86,9 +86,9 @@ The VM automatically detects and executes embedded bytecode at startup.
 
 ## Integration
 
-The VM integrates seamlessly with the Ddroe compilation pipeline:
+The VM integrates seamlessly with the Droe compilation pipeline:
 
-1. **Ddroe source** → Python compiler → **AST**
-2. **AST** → Bytecode generator → **`.droebc` file**  
+1. **Droe source** → Python compiler → **AST**
+2. **AST** → Bytecode generator → **`.droebc` file**
 3. **`.droebc`** → Rust VM → **Execution**
 4. **`.droebc`** → Standalone builder → **Single executable**

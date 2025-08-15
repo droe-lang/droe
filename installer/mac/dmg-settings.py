@@ -1,10 +1,10 @@
-volume_name = "Roelang Installer"
+volume_name = "Droelang Installer"
 format = "UDZO"  # compressed image
 size = None      # auto-calculate
 
 # Include only the app; do not include the banner as a separate file
 files = [
-    "dist/Roelang Installer.app"
+    "dist/Droelang Installer.app"
 ]
 
 # No symlink since no drag-and-drop install
@@ -18,7 +18,7 @@ icon = "../../assets/icon.icns"
 
 # Position app icon to be visible against the background message
 icon_locations = {
-    "Roelang Installer.app": (200, 150)
+    "Droelang Installer.app": (200, 150)
 }
 
 # Finder window configuration

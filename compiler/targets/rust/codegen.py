@@ -175,7 +175,7 @@ class RustCodeGenerator(BaseCodeGenerator):
             return f'{method}_root'
             
     def _roe_type_to_rust(self, roe_type: str, annotations: List[str]) -> str:
-        """Convert Roe type to Rust type."""
+        """Convert Droe type to Rust type."""
         type_map = {
             'text': 'String',
             'int': 'i32',

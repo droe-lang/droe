@@ -1,4 +1,4 @@
-"""AST node definitions for Roe DSL compiler."""
+"""AST node definitions for Droe DSL compiler."""
 
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Union
@@ -192,9 +192,9 @@ class FieldAssignment(ASTNode):
 
 @dataclass
 class IncludeStatement(ASTNode):
-    """Represents an include statement (include ModuleName.roe)."""
-    module_name: str  # The module name without .roe extension
-    file_path: str    # The full file path (ModuleName.roe)
+    """Represents an include statement (include ModuleName.droe)."""
+    module_name: str  # The module name without .droe extension
+    file_path: str    # The full file path (ModuleName.droe)
 
 
 @dataclass

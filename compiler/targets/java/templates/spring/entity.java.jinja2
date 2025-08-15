@@ -27,7 +27,7 @@ public class {{ class_name }} {
 
     {% else %}
     {# Regular field #}
-    {% if field.roe_type == 'datetime' and field.is_auto %}
+    {% if field.droe_type == 'datetime' and field.is_auto %}
     @CreationTimestamp
     {% endif %}
     @Column(name = "{{ field.name }}"

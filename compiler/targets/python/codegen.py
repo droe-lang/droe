@@ -221,7 +221,7 @@ class PythonCodeGenerator(BaseCodeGenerator):
             return 'root_router'
             
     def _roe_type_to_python(self, roe_type: str, annotations: List[str]) -> str:
-        """Convert Roe type to Python type."""
+        """Convert Droe type to Python type."""
         type_map = {
             'text': 'str',
             'int': 'int',

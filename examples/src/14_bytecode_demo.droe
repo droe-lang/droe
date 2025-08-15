@@ -1,4 +1,4 @@
-display "Welcome to Roe VM!"
+display "Welcome to Droe VM!"
 display "This program runs on the Rust-based virtual machine"
 
 set message which is text to "Fast bytecode execution"

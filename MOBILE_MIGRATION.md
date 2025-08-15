@@ -7,14 +7,16 @@ The Roelang compiler now includes a comprehensive mobile target that generates c
 ## 🔄 Migration Required
 
 ### ❌ Old Syntax (No Longer Works)
-```roe
+
+```droe
 @target kotlin
 // or
 @target swift
 ```
 
 ### ✅ New Syntax (Recommended)
-```roe
+
+```droe
 // Generate for mobile platforms only
 @metadata(platform="mobile")
 
@@ -28,6 +30,7 @@ The Roelang compiler now includes a comprehensive mobile target that generates c
 ## 📱 What You Get Now
 
 ### Before (Old Targets)
+
 - ❌ Single Kotlin/Swift files
 - ❌ No project structure
 - ❌ No Android/iOS specific features
@@ -35,6 +38,7 @@ The Roelang compiler now includes a comprehensive mobile target that generates c
 - ❌ No build configuration
 
 ### After (New Mobile Target)
+
 - ✅ Complete Android project with Gradle
 - ✅ Complete iOS project with Xcode configuration
 - ✅ Native mobile components (Camera, Location, etc.)
@@ -45,6 +49,7 @@ The Roelang compiler now includes a comprehensive mobile target that generates c
 ## 📋 Generated Project Structure
 
 ### Android Output
+
 ```
 MyApp/
 ├── app/
@@ -59,7 +64,8 @@ MyApp/
 └── build.gradle
 ```
 
-### iOS Output  
+### iOS Output
+
 ```
 MyApp/
 ├── ContentView.swift
@@ -77,38 +83,40 @@ MyApp/
 ## 🚀 Example Migration
 
 ### Old DSL
-```roe
+
+```droe
 @target kotlin
 
 show "Hello Mobile"
 ```
 
 ### New DSL
-```roe
+
+```droe
 @metadata(platform="mobile", name="MyApp", package="com.example.myapp")
 
 module myapp
   layout MainScreen
     column class "container"
       title "Hello Mobile" class "app-title"
-      
+
       // Mobile-specific components
       button "Take Photo" type camera action capturePhoto
       button "Get Location" type location action getLocation
-      
+
       button "Say Hello" action sayHello
     end column
   end layout
-  
+
   action capturePhoto
     when device has camera permission then
       show message "Opening camera..."
       run native camera capture
     otherwise
-      show alert "Camera permission required"  
+      show alert "Camera permission required"
     end when
   end action
-  
+
   action getLocation
     when device has location permission then
       show message "Getting location..."
@@ -117,7 +125,7 @@ module myapp
       show alert "Location permission required"
     end when
   end action
-  
+
   action sayHello
     show toast "Hello from mobile!"
   end action
@@ -126,13 +134,13 @@ end module
 
 ## 🎯 Target Selection Guide
 
-| Use Case | Recommended Syntax |
-|----------|-------------------|
-| Mobile only | `@metadata(platform="mobile")` |
-| Web only | `@target html` |  
+| Use Case       | Recommended Syntax             |
+| -------------- | ------------------------------ |
+| Mobile only    | `@metadata(platform="mobile")` |
+| Web only       | `@target html`                 |
 | Cross-platform | `@targets "web, android, ios"` |
-| Android only | `@targets "android"` |
-| iOS only | `@targets "ios"` |
+| Android only   | `@targets "android"`           |
+| iOS only       | `@targets "ios"`               |
 
 ## 🔧 Available Mobile Components
 
@@ -142,11 +150,12 @@ The new mobile target supports these components:
 - **Mobile-specific**: `Camera`, `Location`, `Notification`, `Storage`, `Sensor`, `Contact`
 
 ### Example Mobile Components
-```roe
+
+```droe
 // Camera integration
 button "Take Photo" type camera action capturePhoto permissions "camera, storage"
 
-// Location services  
+// Location services
 button "Get Location" type location action getLocation permissions "location" accuracy high
 
 // Notifications
@@ -157,7 +166,7 @@ button "Send Notification" type notification action sendNotification permissions
 
 ```bash
 # Compile to mobile platforms
-roe compile myapp.roe
+droe compile myapp.droe
 
 # Output will be generated in:
 # examples/output/android/  (if android in targets)
@@ -169,7 +178,7 @@ roe compile myapp.roe
 If you encounter issues migrating from the old kotlin/swift targets:
 
 1. **Update your metadata** to use the new syntax
-2. **Add mobile components** for enhanced functionality  
+2. **Add mobile components** for enhanced functionality
 3. **Test compilation** with the new mobile target
 4. **Check generated projects** in the output directories
 

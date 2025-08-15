@@ -31,7 +31,7 @@ class KotlinProjectGenerator:
 
 
 class KotlinGenerator(MobileGenerator):
-    """Generate Kotlin/Android code from Roe DSL."""
+    """Generate Kotlin/Android code from Droe DSL."""
     
     def generate(self, program: Program, output_dir: str, mobile_config: Dict[str, Any] = None) -> Dict[str, str]:
         """Generate Android project structure with Kotlin code."""

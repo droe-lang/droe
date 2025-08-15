@@ -1,4 +1,4 @@
-"""Modular parser package for Roe DSL."""
+"""Modular parser package for Droe DSL."""
 
 from .core import Parser, ParseError
 

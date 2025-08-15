@@ -16,7 +16,7 @@ def test_consistent_mobile_syntax():
     """Test the new consistent mobile syntax."""
     
     # Read the consistent mobile example
-    example_file = Path("examples/src/consistent_mobile_demo.roe")
+    example_file = Path("examples/src/consistent_mobile_demo.droe")
     if not example_file.exists():
         print(f"Error: {example_file} not found")
         return

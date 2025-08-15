@@ -10,7 +10,7 @@ from compiler.targets.wasm.runtime_builder import WASMRuntimeBuilder
 def update_runtime():
     """Update the run.js file with new runtime functions."""
     # Path to run.js
-    roelang_dir = Path.home() / ".roelang"
+    roelang_dir = Path.home() / ".droelang"
     runtime_path = roelang_dir / "run.js"
     
     # Create runtime builder

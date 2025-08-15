@@ -10,17 +10,22 @@ pub struct VM {
     pc: usize,
     instructions: Vec<Instruction>,
     tasks: HashMap<String, TaskDefinition>,
+    #[allow(dead_code)]
     modules: HashMap<String, HashMap<String, Value>>,
 }
 
 struct CallFrame {
+    #[allow(dead_code)]
     return_address: usize,
+    #[allow(dead_code)]
     locals: HashMap<String, Value>,
 }
 
+#[derive(Clone)]
 struct TaskDefinition {
     parameters: Vec<String>,
     body_start: usize,
+    #[allow(dead_code)]
     body_end: usize,
 }
 

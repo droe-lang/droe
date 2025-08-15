@@ -1,4 +1,4 @@
-"""Module resolution and loading for Roe DSL includes."""
+"""Module resolution and loading for Droe DSL includes."""
 
 import os
 from typing import Dict, List, Optional, Set
@@ -79,7 +79,7 @@ class ModuleResolver:
         
         Args:
             module_name: Name of the module
-            file_path: Relative path to the .roe file
+            file_path: Relative path to the .droe file
             
         Returns:
             Parsed program AST for the module

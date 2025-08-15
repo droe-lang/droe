@@ -143,10 +143,10 @@ class NodeTarget(CompilerTarget):
 
 
 class BytecodeTarget(CompilerTarget):
-    """Bytecode compilation target for Roe VM."""
+    """Bytecode compilation target for Droe VM."""
     
     def __init__(self):
-        super().__init__("bytecode", ".roebc", "Roe VM bytecode format")
+        super().__init__("bytecode", ".droebc", "Droe VM bytecode format")
     
     def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, framework: str = "plain") -> BaseCodeGenerator:
         from .targets.bytecode.codegen import BytecodeGenerator
@@ -156,7 +156,7 @@ class BytecodeTarget(CompilerTarget):
         return []  # VM is bundled separately
     
     def get_dependencies(self) -> List[str]:
-        return ["roevm"]  # Requires the Roe VM
+        return ["droevm"]  # Requires the Droe VM
 
 
 class MobileTarget(CompilerTarget):
@@ -237,11 +237,11 @@ class RustTarget(CompilerTarget):
         return ["cargo", "rustc"]  # Rust toolchain
 
 
-class RoeTarget(CompilerTarget):
-    """Native RoeVM compilation target - generates RoeVM bytecode."""
+class DroeTarget(CompilerTarget):
+    """Native DroeVM compilation target - generates DroeVM bytecode."""
     
     def __init__(self):
-        super().__init__("roe", ".roebc", "Native RoeVM bytecode")
+        super().__init__("droe", ".droebc", "Native DroeVM bytecode")
     
     def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, 
                       framework: str = "plain", package: Optional[str] = None, 
@@ -250,10 +250,10 @@ class RoeTarget(CompilerTarget):
         return BytecodeGenerator()
     
     def get_runtime_files(self) -> List[str]:
-        return []  # RoeVM handles bytecode execution
+        return []  # DroeVM handles bytecode execution
     
     def get_dependencies(self) -> List[str]:
-        return ["roevm"]  # Requires the RoeVM runtime
+        return ["droevm"]  # Requires the DroeVM runtime
 
 
 class TargetFactory:
@@ -270,7 +270,7 @@ class TargetFactory:
             "bytecode": BytecodeTarget,
             "mobile": MobileTarget,
             "rust": RustTarget,
-            "roe": RoeTarget
+            "droe": DroeTarget
         }
     
     def get_available_targets(self) -> List[str]:

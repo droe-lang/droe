@@ -1,4 +1,4 @@
-"""WebAssembly Text (WAT) code generator for Roe DSL AST."""
+"""WebAssembly Text (WAT) code generator for Droe DSL AST."""
 
 from typing import List, Dict, Any
 from ...ast import (

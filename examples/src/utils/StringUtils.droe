@@ -1,4 +1,4 @@
-// StringUtils.roe - A utility module for string operations
+// StringUtils.droe - A utility module for string operations
 
 module utils_StringUtils
   action greet with name which is text gives text

@@ -19,7 +19,7 @@ compiler/
 │   └── core/
 │       ├── __init__.py
 │       ├── string_utils.py     # String utility functions
-│       ├── math_utils.py       # Math utility functions  
+│       ├── math_utils.py       # Math utility functions
 │       └── formatting.py      # Formatting utility functions
 └── targets/                    # Target-specific code generators
     ├── __init__.py
@@ -50,7 +50,7 @@ compiler/
     │   └── templates/          # Jinja2 templates
     │       ├── kotlin/         # Android templates
     │       └── swift/          # iOS templates
-    └── bytecode/               # Roe VM bytecode target
+    └── bytecode/               # Droe VM bytecode target
         ├── __init__.py
         └── codegen.py          # Bytecode generation
 ```
@@ -60,6 +60,7 @@ compiler/
 ### 1. Base Code Generator (`codegen_base.py`)
 
 The `BaseCodeGenerator` abstract base class provides:
+
 - Common functionality for all code generators
 - Type system utilities and type checking
 - Symbol table management
@@ -72,12 +73,12 @@ class BaseCodeGenerator(ABC):
     def generate(self, program: Program) -> str:
         """Generate code for the given AST program."""
         pass
-    
-    @abstractmethod 
+
+    @abstractmethod
     def emit_expression(self, expr: ASTNode):
         """Emit code for an expression."""
         pass
-    
+
     @abstractmethod
     def emit_statement(self, stmt: ASTNode):
         """Emit code for a statement."""
@@ -89,18 +90,21 @@ class BaseCodeGenerator(ABC):
 Core libraries provide built-in functionality that is available to all Roelang programs:
 
 #### String Utilities (`string_utils.py`)
+
 - String concatenation, length, substring operations
 - Print functions with/without newlines
 - WebAssembly import declarations
 - JavaScript runtime implementations
 
-#### Math Utilities (`math_utils.py`) 
+#### Math Utilities (`math_utils.py`)
+
 - Absolute value, min/max, power functions
 - Decimal math operations (scaled arithmetic)
 - Square root, multiplication, division for decimals
 - Math constants (π, e, √2, etc.)
 
 #### Formatting Utilities (`formatting.py`)
+
 - Date formatting (MM/dd/yyyy, long, short, ISO, etc.)
 - Decimal formatting (#,##0.00, $0.00, percent, etc.)
 - Number formatting (hex, octal, binary, zero-padded)
@@ -111,12 +115,14 @@ Core libraries provide built-in functionality that is available to all Roelang p
 #### WebAssembly Target (`targets/wasm/`)
 
 **Code Generator (`codegen.py`)**:
+
 - Extends `BaseCodeGenerator`
 - Generates WebAssembly Text (WAT) format
 - Integrates core libraries via WASM imports
 - Handles WASM-specific features (memory, locals, etc.)
 
 **Runtime Builder (`runtime_builder.py`)**:
+
 - Generates JavaScript runtime for Node.js execution
 - Creates import object with core library functions
 - Enables/disables libraries based on compiler configuration
@@ -127,6 +133,7 @@ Core libraries provide built-in functionality that is available to all Roelang p
 The `TargetFactory` provides a unified interface for managing multiple compilation targets:
 
 **Supported Targets**:
+
 - **WASM**: WebAssembly with JavaScript runtime
 - **Python**: Pure Python code with runtime library
 - **Java**: Java source code with runtime classes
@@ -137,6 +144,7 @@ The `TargetFactory` provides a unified interface for managing multiple compilati
 - **Swift**: Swift source code with runtime
 
 **Target Selection**:
+
 ```python
 from compiler.target_factory import target_factory, compile_to_target
 
@@ -171,10 +179,10 @@ go_code = compile(source, target='go')
 node_code = compile(source, target='node')
 
 # Compile files with automatic extension
-compile_file('example.roe', target='python')  # → example.py
-compile_file('example.roe', target='java')    # → example.java
-compile_file('example.roe', target='go')      # → example.go
-compile_file('example.roe', target='node')    # → example.js
+compile_file('example.droe', target='python')  # → example.py
+compile_file('example.droe', target='java')    # → example.java
+compile_file('example.droe', target='go')      # → example.go
+compile_file('example.droe', target='node')    # → example.js
 
 # Get target information
 info = target_factory.get_target_info('python')
@@ -256,11 +264,11 @@ class MyCodeGenerator(BaseCodeGenerator):
     def generate(self, program: Program) -> str:
         # Custom implementation
         pass
-    
+
     def emit_expression(self, expr: ASTNode):
         # Custom expression handling
         pass
-    
+
     def emit_statement(self, stmt: ASTNode):
         # Custom statement handling
         pass
@@ -284,18 +292,22 @@ wat = codegen.generate(ast)
 ## Core Library Functions
 
 ### String Functions
+
 - `print_no_newline`, `print_string_from_offset_no_newline`, `print_newline`
 - `string_concat`, `string_length`, `string_substring`
 
 ### Math Functions
+
 - `math_abs_i32`, `math_abs_decimal`, `math_min_i32`, `math_max_i32`
 - `math_power_i32`, `math_sqrt_decimal`, `math_decimal_multiply`, `math_decimal_divide`
 
 ### Formatting Functions
+
 - `print_i32_no_newline`, `print_decimal_no_newline`, `print_date_no_newline`
 - `format_date`, `format_decimal`, `format_number`
 
 This modular architecture provides:
+
 - **Extensibility**: Easy to add new compilation targets
 - **Maintainability**: Separate concerns and modular design
 - **Reusability**: Core libraries shared across all targets

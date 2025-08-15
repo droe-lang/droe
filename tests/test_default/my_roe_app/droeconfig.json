@@ -4,5 +4,5 @@
   "dist": "dist",
   "modules": "modules",
   "main": "src/main.droe",
-  "target": "roe"
+  "target": "droe"
 }

@@ -1,19 +1,19 @@
 #!/bin/bash
 
 # sync-dev.sh - Development deployment script
-# Syncs the compiler and ddroe CLI to ~/.ddroelang/ for development/testing
+# Syncs the compiler and droe CLI to ~/.droelang/ for development/testing
 
 set -e
 
-echo "🔄 Syncing development files to ~/.ddroelang/"
+echo "🔄 Syncing development files to ~/.droelang/"
 
-# Ensure ~/.ddroelang exists
-mkdir -p ~/.ddroelang
+# Ensure ~/.droelang exists
+mkdir -p ~/.droelang
 
 # Sync the compiler directory
 if [ -d "compiler" ]; then
     echo "📂 Syncing compiler module..."
-    rsync -av --delete compiler/ ~/.ddroelang/compiler/
+    rsync -av --delete compiler/ ~/.droelang/compiler/
     echo "✅ Compiler synced"
 else
     echo "❌ Error: compiler/ directory not found"
@@ -23,8 +23,8 @@ fi
 # Sync the droe CLI
 if [ -f "droe" ]; then
     echo "🛠️  Syncing droe CLI..."
-    cp droe ~/.ddroelang/droe
-    chmod +x ~/.ddroelang/droe
+    cp droe ~/.droelang/droe
+    chmod +x ~/.droelang/droe
     echo "✅ droe CLI synced"
 else
     echo "❌ Error: droe file not found"
@@ -34,23 +34,23 @@ fi
 # Sync additional runtime files if they exist
 if [ -f "run.js" ]; then
     echo "🟨 Syncing Node.js runtime..."
-    cp run.js ~/.ddroelang/run.js
+    cp run.js ~/.droelang/run.js
     echo "✅ Node.js runtime synced"
 fi
 
 # Build and sync DroeVM
-if [ -d "ddroevm" ]; then
+if [ -d "droevm" ]; then
     # Try to build DroeVM first
-    if [ -f "build-ddroevm.sh" ]; then
+    if [ -f "build-droevm.sh" ]; then
         echo "🔨 Building DroeVM..."
-        ./build-ddroevm.sh
+        ./build-droevm.sh
     fi
     
     # Now sync the binary if it exists
-    if [ -f "ddroevm/target/release/ddroevm" ]; then
+    if [ -f "droevm/target/release/droevm" ]; then
         echo "🦀 Syncing DroeVM binary..."
-        cp ddroevm/target/release/ddroevm ~/.ddroelang/ddroevm
-        chmod +x ~/.ddroelang/ddroevm
+        cp droevm/target/release/droevm ~/.droelang/droevm
+        chmod +x ~/.droelang/droevm
         echo "✅ DroeVM binary synced"
     else
         echo "⚠️  DroeVM binary not found. Build may have failed."
@@ -58,28 +58,28 @@ if [ -d "ddroevm" ]; then
 fi
 
 # Create bin directory and symlink for PATH usage
-mkdir -p ~/.ddroelang/bin
-if [ ! -e ~/.ddroelang/bin/droe ]; then
-    ln -s ~/.ddroelang/droe ~/.ddroelang/bin/droe
-    echo "🔗 Created symlink: ~/.ddroelang/bin/droe"
+mkdir -p ~/.droelang/bin
+if [ ! -e ~/.droelang/bin/droe ]; then
+    ln -s ~/.droelang/droe ~/.droelang/bin/droe
+    echo "🔗 Created symlink: ~/.droelang/bin/droe"
 fi
 
 echo ""
 echo "✅ Development sync complete!"
 echo ""
 echo "📋 Synced components:"
-echo "  • Compiler module: ~/.ddroelang/compiler/"
-echo "  • droe CLI: ~/.ddroelang/droe"
-echo "  • droe symlink: ~/.ddroelang/bin/droe"
-if [ -f ~/.ddroelang/run.js ]; then
-    echo "  • Node.js runtime: ~/.ddroelang/run.js"
+echo "  • Compiler module: ~/.droelang/compiler/"
+echo "  • droe CLI: ~/.droelang/droe"
+echo "  • droe symlink: ~/.droelang/bin/droe"
+if [ -f ~/.droelang/run.js ]; then
+    echo "  • Node.js runtime: ~/.droelang/run.js"
 fi
-if [ -f ~/.ddroelang/ddroevm ]; then
-    echo "  • DroeVM binary: ~/.ddroelang/ddroevm"
+if [ -f ~/.droelang/droevm ]; then
+    echo "  • DroeVM binary: ~/.droelang/droevm"
 fi
 
 echo ""
-echo "💡 Make sure ~/.ddroelang/bin is in your PATH:"
-echo "   export PATH=\"\$HOME/.ddroelang/bin:\$PATH\""
+echo "💡 Make sure ~/.droelang/bin is in your PATH:"
+echo "   export PATH=\"\$HOME/.droelang/bin:\$PATH\""
 echo ""
 echo "🚀 You can now test with: droe --help"

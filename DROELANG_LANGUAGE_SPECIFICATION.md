@@ -60,7 +60,7 @@ Droelang is **case-sensitive**. Keywords must be lowercase.
 - Followed by letters, digits (0-9), or underscores
 - Cannot be reserved keywords
 
-```roe
+```droe
 // Valid identifiers
 user_name
 firstName
@@ -83,7 +83,7 @@ Metadata annotations provide compile-time information about Droelang programs. T
 
 ### Syntax
 
-```roe
+```droe
 @key value
 @key "quoted value"
 @key 'single quoted value'
@@ -120,15 +120,15 @@ Multi-target compilation should be configured in `roeconfig.json` instead:
 #### @metadata
 Complex metadata with key-value parameters for advanced configuration.
 
-```roe
+```droe
 @metadata(platform="mobile", name="MyApp", package="com.example.myapp")
 @metadata(platform="web", framework="react")
 ```
 
 **Note:** For mobile development, you must use project-level configuration in `roeconfig.json` rather than file-level metadata annotations.
 
-```roe
-@target roe
+```droe
+@target droe
 @name user_authentication
 @description "User authentication and authorization module"
 
@@ -138,7 +138,7 @@ display "This will compile to RoeVM bytecode"
 #### @name
 Specifies the module or component name. Useful for documentation and tooling.
 
-```roe
+```droe
 @name "Shopping Cart"
 @name shopping_cart_module
 ```
@@ -146,7 +146,7 @@ Specifies the module or component name. Useful for documentation and tooling.
 #### @description  
 Provides a human-readable description of the module's purpose.
 
-```roe
+```droe
 @description "Handles user profile management and validation"
 @description "A utility module for mathematical operations"
 ```
@@ -154,7 +154,7 @@ Provides a human-readable description of the module's purpose.
 #### @package
 Specifies the package name for mobile applications.
 
-```roe
+```droe
 @package "com.example.myapp"
 @package "org.company.project"
 ```
@@ -162,7 +162,7 @@ Specifies the package name for mobile applications.
 #### Custom Metadata
 You can define custom metadata keys for your specific use cases:
 
-```roe
+```droe
 @version "1.2.0"
 @author "Development Team"
 @license "MIT"
@@ -180,7 +180,7 @@ You can define custom metadata keys for your specific use cases:
 ### Examples
 
 **Basic metadata:**
-```roe
+```droe
 @target java
 @name PaymentProcessor
 @description "Processes payment transactions and validations"
@@ -190,7 +190,7 @@ display "Payment system initialized"
 ```
 
 **Web application module:**
-```roe
+```droe
 @target javascript  
 @name "User Profile Form"
 @description "Interactive form for user profile management"
@@ -202,7 +202,7 @@ display user_name
 ```
 
 **Backend service:**
-```roe
+```droe
 @target go
 @name api_gateway
 @description "API gateway with authentication and rate limiting"
@@ -270,12 +270,12 @@ Collections can contain any primitive type:
 ### Variable Declaration and Assignment
 
 **Basic Syntax:**
-```roe
+```droe
 set <variable> which is <type> to <value>
 ```
 
 **Examples:**
-```roe
+```droe
 // Primitive types
 set name which is text to "Alice"
 set age which is int to 25
@@ -291,13 +291,13 @@ set holidays which are list of date to ["2024-01-01", "2024-12-25"]
 ```
 
 ### Type Inference Assignment
-```roe
+```droe
 set result to 10 + 5        // Infers int type
 set message to "Hello"      // Infers text type
 ```
 
 ### Reassignment
-```roe
+```droe
 set age which is int to 25
 set age to 26               // Type already declared
 ```
@@ -307,7 +307,7 @@ set age to 26               // Type already declared
 ## Expressions
 
 ### Arithmetic Expressions
-```roe
+```droe
 set sum to 10 + 5          // Addition
 set difference to 20 - 8    // Subtraction  
 set product to 6 * 7        // Multiplication
@@ -320,7 +320,7 @@ set result to x + y * 2     // 16 (multiplication has higher precedence)
 ```
 
 ### String Concatenation
-```roe
+```droe
 set first_name which is text to "John"
 set last_name which is text to "Doe"
 set full_name to first_name + " " + last_name
@@ -331,7 +331,7 @@ set message to "I am " + age + " years old"
 ```
 
 ### Comparison Expressions
-```roe
+```droe
 // Numeric comparisons
 when 5 is greater than 3 then display "True"
 when 10 is less than 20 then display "True"
@@ -361,12 +361,12 @@ when age is greater than limit then display "Adult"
 ### Conditional Statements
 
 **Basic Conditional:**
-```roe
+```droe
 when <condition> then <statement>
 ```
 
 **If-Else Structure:**
-```roe
+```droe
 when <condition> then
     // statements
 otherwise
@@ -375,7 +375,7 @@ end when
 ```
 
 **Examples:**
-```roe
+```droe
 // Simple condition
 when age is greater than 18 then display "Adult"
 
@@ -391,14 +391,14 @@ end when
 ### While Loops
 
 **Syntax:**
-```roe
+```droe
 while <condition>
     // statements
 end while
 ```
 
 **Examples:**
-```roe
+```droe
 // Counting loop
 set counter to 1
 while counter is less than or equal to 5
@@ -417,7 +417,7 @@ display "Sum: " + total
 ```
 
 ### For-Each Loops
-```roe
+```droe
 set numbers which are list of int to [1, 2, 3, 4, 5]
 for each num in numbers
     display "Number: " + num
@@ -433,7 +433,7 @@ end for
 Actions are reusable blocks of code that can accept parameters and return values.
 
 **Basic Action (no parameters):**
-```roe
+```droe
 action greet_user
     display "Hello, welcome to Droelang!"
 end action
@@ -443,7 +443,7 @@ run greet_user
 ```
 
 **Parameterized Action:**
-```roe
+```droe
 action greet_person with name which is text
     display "Hello, " + name + "!"
     display "Welcome to Droelang!"
@@ -454,7 +454,7 @@ run greet_person with "Alice"
 ```
 
 **Action with Return Value:**
-```roe
+```droe
 action calculate_area with width which is int, height which is int gives int
     give width * height
 end action
@@ -465,7 +465,7 @@ display "Area: " + area
 ```
 
 **Action with Multiple Parameters:**
-```roe
+```droe
 action create_greeting with name which is text, age which is int gives text
     give "Hello " + name + ", you are " + age + " years old!"
 end action
@@ -479,7 +479,7 @@ display message
 Tasks are actions that don't return values, used for procedural execution.
 
 **Task Syntax:**
-```roe
+```droe
 task send_reminder
     display "Don't forget to complete your tasks!"
 end task
@@ -500,7 +500,7 @@ run process_order with "widgets", 5
 Modules provide namespacing and code organization.
 
 **Module Definition:**
-```roe
+```droe
 module math_utils
 
     action add with a which is int, b which is int gives int
@@ -515,7 +515,7 @@ end module
 ```
 
 **Using Module Actions:**
-```roe
+```droe
 // Call module action
 set result which is int from run math_utils.add with 10, 5
 display "Result: " + result
@@ -531,7 +531,7 @@ display run math_utils.add with 20, 15
 Define custom data types with named fields.
 
 **Data Definition:**
-```roe
+```droe
 module user_system
 
     data User
@@ -558,7 +558,7 @@ Droelang provides a native Database DSL for defining data models and performing 
 
 Define data structures with field annotations for database schema generation:
 
-```roe
+```droe
 data User
     id is text key auto                    // Primary key with auto-generation
     name is text required                   // Required field
@@ -592,7 +592,7 @@ end data
 ### Database Operations
 
 #### Create (INSERT)
-```roe
+```droe
 // Create new record
 db create User with name is "Alice", email is "alice@example.com", age is 25
 
@@ -604,7 +604,7 @@ db create User from new_user
 ```
 
 #### Read (SELECT)
-```roe
+```droe
 // Find single record
 set user from db find User where id equals "user123"
 
@@ -619,7 +619,7 @@ set adult_users from db find all User where age is greater than 18
 ```
 
 #### Update
-```roe
+```droe
 // Update single record
 db update User where id equals "user123" set name is "Alice Smith", age is 26
 
@@ -630,7 +630,7 @@ db update User where id equals user_id set name is new_name
 ```
 
 #### Delete
-```roe
+```droe
 // Delete single record
 db delete User where id equals "user123"
 
@@ -650,7 +650,7 @@ db delete User where active equals false and age is less than 18
 ```
 
 `src/user_management.droe`:
-```roe
+```droe
 module user_management
 
     // Define User entity
@@ -706,12 +706,12 @@ Droelang provides native support for making API calls and defining HTTP server e
 ### Making API Calls
 
 #### Basic API Call Syntax
-```roe
+```droe
 call <endpoint> method <HTTP_METHOD> [with <data>] [using headers <headers>] into <response_variable>
 ```
 
 #### GET Request
-```roe
+```droe
 // Simple GET request
 call "https://api.example.com/users" method GET into response
 display response
@@ -724,7 +724,7 @@ end headers into profile_data
 ```
 
 #### POST Request
-```roe
+```droe
 // POST with JSON data
 set user_data which is text to '{"name": "Alice", "email": "alice@example.com"}'
 call "https://api.example.com/users" method POST with user_data using headers
@@ -740,7 +740,7 @@ end headers into login_response
 ```
 
 #### PUT Request
-```roe
+```droe
 set update_data which is text to '{"name": "Alice Smith"}'
 call "https://api.example.com/users/123" method PUT with update_data using headers
     Content-Type: "application/json"
@@ -749,7 +749,7 @@ end headers into update_response
 ```
 
 #### DELETE Request
-```roe
+```droe
 call "https://api.example.com/users/123" method DELETE using headers
     Authorization: "Bearer token123"
 end headers into delete_response
@@ -757,7 +757,7 @@ end headers into delete_response
 
 ### API Response Handling
 
-```roe
+```droe
 // Make API call
 call "https://api.example.com/data" method GET into response
 
@@ -779,7 +779,7 @@ display "User name: " + data.name
 
 You can define REST HTTP endpoints using the `serve` statement:
 
-```roe
+```droe
 // GET endpoint
 serve get /users/:id
     set user from db find User where id equals id
@@ -810,8 +810,8 @@ end serve
 
 ### Complete HTTP API Example
 
-```roe
-@target roe
+```droe
+@target droe
 
 module blog_api
 
@@ -882,7 +882,7 @@ Droelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript),
 Layouts define the structure and organization of UI components.
 
 **Column Layout:**
-```roe
+```droe
 layout MainScreen
   column class "main-container"
     title "My Application" class "app-title"
@@ -902,7 +902,7 @@ end layout
 ### UI Components
 
 #### Text Components
-```roe
+```droe
 // Static text
 text "Hello World" class "greeting"
 
@@ -914,7 +914,7 @@ title "Page Title" class "page-header"
 ```
 
 #### Input Components
-```roe
+```droe
 // Text input with validation
 input id username_field text placeholder "Enter username" bind UserProfile.userName validate required class "form-input"
 
@@ -926,7 +926,7 @@ input id password_field password placeholder "Password" bind LoginForm.password 
 ```
 
 #### Button Components
-```roe
+```droe
 // Action button
 button "Submit" action submitForm class "submit-btn primary"
 
@@ -938,7 +938,7 @@ button "Take Photo" type camera action capturePhoto permissions "camera, storage
 ```
 
 #### Toggle and Selection Components
-```roe
+```droe
 // Toggle switch
 toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
 
@@ -958,7 +958,7 @@ end radio
 ```
 
 #### Image Components
-```roe
+```droe
 // Static image
 image source "logo.png" alt "Company Logo" class "logo-image"
 
@@ -970,7 +970,7 @@ image source bind UserProfile.profilePicture alt "Profile Picture" class "profil
 
 Forms provide structured data collection with validation and submission handling.
 
-```roe
+```droe
 form SettingsForm
   column class "settings-container"
     title "User Settings" class "form-title"
@@ -997,7 +997,7 @@ end form
 
 UI components can bind to data models for automatic updates:
 
-```roe
+```droe
 // Data binding syntax
 bind VariableName.propertyName
 bind UserProfile.userName
@@ -1017,7 +1017,7 @@ When targeting mobile platforms (`@metadata(platform="mobile")` or `@targets "an
 
 ### Camera Integration
 
-```roe
+```droe
 // Camera button component
 button "Take Photo" type camera action capturePhoto permissions "camera, storage" class "camera-btn"
 
@@ -1035,7 +1035,7 @@ end action
 
 ### Location Services
 
-```roe
+```droe
 // Location button component
 button "Get Location" type location action getLocation permissions "location" accuracy high class "location-btn"
 
@@ -1053,7 +1053,7 @@ end action
 
 ### Notifications
 
-```roe
+```droe
 // Show notifications
 show notification "Task completed successfully!" 
 show notification "New message received" with sound
@@ -1066,7 +1066,7 @@ end when
 
 ### Data Persistence
 
-```roe
+```droe
 // Local storage operations
 action saveUserData
   store UserProfile in local database
@@ -1081,7 +1081,7 @@ end action
 
 ### Sensors and Hardware
 
-```roe
+```droe
 // Device sensors (mobile only)
 action detectMotion
   when device has motion sensor then
@@ -1122,7 +1122,7 @@ Mobile compilation automatically handles:
 
 Droelang automatically detects required permissions based on component usage:
 
-```roe
+```droe
 // These components automatically add permissions:
 button "Take Photo" type camera         // → CAMERA permission
 button "Get Location" type location     // → LOCATION permissions  
@@ -1152,7 +1152,7 @@ request permissions "camera, location, notifications"
 
 Embed variables and expressions within strings using square brackets:
 
-```roe
+```droe
 set name which is text to "Alice"
 set age which is int to 25
 set balance which is decimal to 150.50
@@ -1164,7 +1164,7 @@ display "Status: [name] ([age] years old)"      // Status: Alice (25 years old)
 ```
 
 ### String Concatenation
-```roe
+```droe
 set first which is text to "Hello"
 set second which is text to "World"
 set combined to first + " " + second            // "Hello World"
@@ -1181,7 +1181,7 @@ set message to "You have " + count + " items"   // "You have 5 items"
 Format expressions allow precise control over how data is displayed.
 
 ### Date Formatting
-```roe
+```droe
 set event_date which is date to "2024-12-25"
 
 display format event_date as "MM/dd/yyyy"       // 12/25/2024
@@ -1191,7 +1191,7 @@ display format event_date as "long"             // Wednesday, December 25, 2024
 ```
 
 ### Decimal Formatting
-```roe
+```droe
 set price which is decimal to 1234.56
 
 display format price as "0.00"                  // 1234.56
@@ -1200,7 +1200,7 @@ display format price as "$0.00"                 // $1234.56
 ```
 
 ### Number Formatting  
-```roe
+```droe
 set quantity which is int to 12345
 set code which is int to 255
 
@@ -1210,7 +1210,7 @@ display format code as "0000"                   // 0255
 ```
 
 ### Format in Assignments
-```roe
+```droe
 set formatted_date which is text to format event_date as "long"
 set formatted_price which is text to format price as "#,##0.00"
 ```
@@ -1222,12 +1222,12 @@ set formatted_price which is text to format price as "#,##0.00"
 Import and use code from other files.
 
 **Include Syntax:**
-```roe
+```droe
 include "path/to/ModuleName.droe"
 ```
 
 **Using Included Modules:**
-```roe
+```droe
 // File: utils/MathUtils.droe
 module utils_MathUtils
     action add with a which is int, b which is int gives int
@@ -1247,13 +1247,13 @@ display "Sum: " + result
 ## Comments
 
 ### Single-line Comments
-```roe
+```droe
 // This is a single-line comment
 set name which is text to "Alice"  // End-of-line comment
 ```
 
 ### Multi-line Comments
-```roe
+```droe
 /*
 This is a multi-line comment
 that spans multiple lines.
@@ -1338,17 +1338,17 @@ Droelang supports both framework-based and native standard library code generati
 #### Framework Mode (Default)
 Uses web frameworks and ORMs for full-featured applications:
 ```bash
-roe compile api.droe --target java --framework spring
-roe compile api.droe --target python --framework fastapi
-roe compile api.droe --target go --framework fiber
+droe compile api.droe --target java --framework spring
+droe compile api.droe --target python --framework fastapi
+droe compile api.droe --target go --framework fiber
 ```
 
 #### Native Mode
 Uses only standard library features for lightweight applications:
 ```bash
-roe compile api.droe --target java --framework plain
-roe compile api.droe --target python --framework plain  
-roe compile api.droe --target go --framework plain
+droe compile api.droe --target java --framework plain
+droe compile api.droe --target python --framework plain  
+droe compile api.droe --target go --framework plain
 ```
 
 | Feature | Framework Mode | Native Mode |
@@ -1363,19 +1363,19 @@ roe compile api.droe --target go --framework plain
 
 ```bash
 # Basic compilation
-roe compile program.droe                    # Uses default or metadata target
-roe compile program.droe --target python    # Compile to Python
-roe compile program.droe --target java      # Compile to Java
+droe compile program.droe                    # Uses default or metadata target
+droe compile program.droe --target python    # Compile to Python
+droe compile program.droe --target java      # Compile to Java
 
 # Framework-specific compilation
-roe compile api.droe --target java --framework spring    # Spring Boot project
-roe compile app.droe --target mobile                     # Android + iOS apps
+droe compile api.droe --target java --framework spring    # Spring Boot project
+droe compile app.droe --target mobile                     # Android + iOS apps
 
 # Project-based compilation (uses roeconfig.json)
-roe compile                                # Uses settings from roeconfig.json
+droe compile                                # Uses settings from droeconfig.json
 
 # Compile and run
-roe run program.droe                        # Compile and execute
+droe run program.droe                        # Compile and execute
 ```
 
 ### Configuration File (roeconfig.json)
@@ -1557,7 +1557,7 @@ dist/ios/
 ## Example Programs
 
 ### Complete Example
-```roe
+```droe
 // Customer management system
 module customer_system
 
@@ -1640,7 +1640,7 @@ Droelang enforces strong typing and will generate compilation errors for:
 
 Complete example of a Droelang application that compiles to web, Android, and iOS:
 
-```roe
+```droe
 // Cross-platform photo sharing app
 @name "PhotoShare" 
 @description "Cross-platform photo sharing application"
@@ -1943,7 +1943,7 @@ Generates a complete Xcode project:
 #### Example: User Management API
 
 **Shared Droelang Code (`src/api.droe`):**
-```roe
+```droe
 data User
     id is text key auto
     name is text required

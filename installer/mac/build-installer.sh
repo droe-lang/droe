@@ -16,9 +16,9 @@ cd ../..
 PROJECT_ROOT=$(pwd)
 
 # Build DroeVM if build script exists
-if [ -f "$PROJECT_ROOT/build-ddroevm.sh" ] && [ -d "$PROJECT_ROOT/droevm" ]; then
+if [ -f "$PROJECT_ROOT/build-droevm.sh" ] && [ -d "$PROJECT_ROOT/droevm" ]; then
     echo "🔨 Building DroeVM..."
-    "$PROJECT_ROOT/build-ddroevm.sh"
+    "$PROJECT_ROOT/build-droevm.sh"
 fi
 
 # Check if DroeVM binary exists and copy it locally to avoid path conflicts

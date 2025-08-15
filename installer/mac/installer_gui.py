@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 
 # Version information
-DDROE_VERSION = "1.0.0"
+DROE_VERSION = "1.0.0"
 INSTALLER_VERSION = "1.0.0"
 BUILD_DATE = datetime.now().strftime("%Y-%m-%d")
 
@@ -23,8 +23,8 @@ else:
 
 # Setup paths
 HOME = Path.home()
-DDROELANG_DIR = HOME / ".ddroelang"
-BIN_DIR = DDROELANG_DIR / "bin"
+DROELANG_DIR = HOME / ".droelang"
+BIN_DIR = DROELANG_DIR / "bin"
 
 # Determine shell config file
 if platform.system() != "Windows":
@@ -38,7 +38,7 @@ else:
     SHELL_RC = None
 
 def register_file_association():
-    """Register .ddroe file association on macOS with icon"""
+    """Register .droe file association on macOS with icon"""
     if platform.system() != "Darwin":
         return True
     
@@ -53,8 +53,8 @@ def register_file_association():
             
         shutil.copy(icon_source, icon_dest)
         
-        # Create Roe.app in Applications directory (renamed from RoeHandler)
-        app_bundle = Path("/Applications/Roe.app")
+        # Create Droe.app in Applications directory (renamed from RoeHandler)
+        app_bundle = Path("/Applications/Droe.app")
         # Remove old RoeHandler.app if it exists
         old_app = Path("/Applications/RoeHandler.app")
         if old_app.exists():
@@ -83,9 +83,9 @@ def register_file_association():
     <key>CFBundleExecutable</key>
     <string>droe-launcher</string>
     <key>CFBundleIdentifier</key>
-    <string>com.ddroelang.app</string>
+    <string>com.droelang.app</string>
     <key>CFBundleName</key>
-    <string>Roe</string>
+    <string>Droe</string>
     <key>CFBundleVersion</key>
     <string>{DROE_VERSION}</string>
     <key>CFBundleShortVersionString</key>
@@ -102,7 +102,7 @@ def register_file_association():
                 <string>droe</string>
             </array>
             <key>CFBundleTypeName</key>
-            <string>Ddroelang Source File</string>
+            <string>Droelang Source File</string>
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
             <key>CFBundleTypeIconFile</key>
@@ -122,9 +122,9 @@ def register_file_association():
                 <string>public.plain-text</string>
             </array>
             <key>UTTypeDescription</key>
-            <string>Ddroelang Source File</string>
+            <string>Droelang Source File</string>
             <key>UTTypeIdentifier</key>
-            <string>com.ddroelang.source</string>
+            <string>com.droelang.source</string>
             <key>UTTypeTagSpecification</key>
             <dict>
                 <key>public.filename-extension</key>
@@ -145,19 +145,19 @@ def register_file_association():
         handler_script = macos_dir / "droe-launcher"
         handler_content = f'''#!/bin/bash
 
-# Roe Language Launcher
-# Handles both .ddroe file opening and Spotlight launches
+# Droe Language Launcher
+# Handles both .droe file opening and Spotlight launches
 
 if [ "$1" != "" ]; then
-    # A .ddroe file was passed - open it in the default text editor
+    # A .droe file was passed - open it in the default text editor
     open -t "$1"
 else
     # Launched from Spotlight or Finder - show info dialog (no System Events needed)
-    result=$(osascript -e 'display dialog "Roe Language v{DROE_VERSION}\\nBuild Date: {BUILD_DATE}\\n\\nA unified programming system that compiles high-level app definitions to native, web, mobile, and server runtimes.\\n\\nTo use Roe:\\n• Open Terminal\\n• Type: droe --help\\n\\nTo create a new project:\\n• droe init my-project\\n\\nTo compile a .ddroe file:\\n• droe compile file.ddroe\\n\\nDocumentation:\\nhttps://github.com/droelang/docs" buttons {{"Open Terminal", "OK"}} default button "OK" with title "Roe Language" with icon note' 2>/dev/null)
+    result=$(osascript -e 'display dialog "Droe Language v{DROE_VERSION}\\nBuild Date: {BUILD_DATE}\\n\\nA unified programming system that compiles high-level app definitions to native, web, mobile, and server runtimes.\\n\\nTo use Droe:\\n• Open Terminal\\n• Type: droe --help\\n\\nTo create a new project:\\n• droe init my-project\\n\\nTo compile a .droe file:\\n• droe compile file.droe\\n\\nDocumentation:\\nhttps://github.com/droelang/docs" buttons {{"Open Terminal", "OK"}} default button "OK" with title "Droe Language" with icon note' 2>/dev/null)
     
     # Check if user clicked "Open Terminal"
     if [[ "$result" == *"Open Terminal"* ]]; then
-        osascript -e 'tell application "Terminal" to activate' -e 'tell application "Terminal" to do script "echo \"Welcome to Roe v{DROE_VERSION}\"; echo \"Type: droe --help to get started\"; echo \"\""' 2>/dev/null
+        osascript -e 'tell application "Terminal" to activate' -e 'tell application "Terminal" to do script "echo \"Welcome to Droe v{DROE_VERSION}\"; echo \"Type: droe --help to get started\"; echo \"\""' 2>/dev/null
     fi
 fi
 '''
@@ -183,7 +183,7 @@ def install():
         BIN_DIR.mkdir(parents=True, exist_ok=True)
 
         # Copy binaries
-        shutil.copy(BASE_DIR / "ddroe", BIN_DIR / "ddroe")
+        shutil.copy(BASE_DIR / "droe", BIN_DIR / "droe")
         
         # Copy compiler module directory
         compiler_src = BASE_DIR / "compiler"
@@ -203,10 +203,10 @@ def install():
 
         # Make CLI executable (Unix only)
         if platform.system() != "Windows":
-            os.chmod(BIN_DIR / "ddroe", 0o755)
+            os.chmod(BIN_DIR / "droe", 0o755)
 
         # Add to PATH
-        path_line = 'export PATH="$HOME/.ddroelang/bin:$PATH"'
+        path_line = 'export PATH="$HOME/.droelang/bin:$PATH"'
         if SHELL_RC:
             if not SHELL_RC.exists():
                 SHELL_RC.write_text(path_line + "\n")
@@ -219,27 +219,27 @@ def install():
         # Register file association
         file_association_success = register_file_association()
         
-        success_msg = f"✅ Ddroelang v{DROE_VERSION} installed successfully!\nRestart your terminal to use 'droe'."
+        success_msg = f"✅ Droelang v{DROE_VERSION} installed successfully!\nRestart your terminal to use 'droe'."
         if file_association_success:
-            success_msg += "\n\n.ddroe files are now associated with the Roe app.\nYou can find 'Roe' in Spotlight."
+            success_msg += "\n\n.droe files are now associated with the Droe app.\nYou can find 'Droe' in Spotlight."
         
-        messagebox.showinfo("Ddroelang Installer", success_msg)
+        messagebox.showinfo("Droelang Installer", success_msg)
     except Exception as e:
         messagebox.showerror("Installation Failed", str(e))
 
 # GUI Setup
 root = tk.Tk()
-root.title(f"Ddroelang Installer v{INSTALLER_VERSION}")
+root.title(f"Droelang Installer v{INSTALLER_VERSION}")
 root.geometry("350x250")
 root.resizable(False, False)
 
-label = tk.Label(root, text="Install Ddroelang DSL to your system", font=("Arial", 12))
+label = tk.Label(root, text="Install Droelang DSL to your system", font=("Arial", 12))
 label.pack(pady=20)
 
-version_label = tk.Label(root, text=f"Roe Language v{DROE_VERSION}\nInstaller v{INSTALLER_VERSION}", font=("Arial", 10), fg="gray")
+version_label = tk.Label(root, text=f"Droe Language v{DROE_VERSION}\nInstaller v{INSTALLER_VERSION}", font=("Arial", 10), fg="gray")
 version_label.pack(pady=5)
 
-install_btn = tk.Button(root, text="Install Ddroelang", font=("Arial", 11), width=20, command=install)
+install_btn = tk.Button(root, text="Install Droelang", font=("Arial", 11), width=20, command=install)
 install_btn.pack(pady=10)
 
 quit_btn = tk.Button(root, text="Exit", font=("Arial", 10), command=root.destroy)

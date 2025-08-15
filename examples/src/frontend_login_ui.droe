@@ -9,7 +9,7 @@ module login_ui
 
   layout login_screen
     column
-      title "Welcome to Roe" validate required
+      title "Welcome to Droe" validate required
       input email bind LoginForm.email validate required, email
       input type password bind LoginForm.password secure 
       button "Login" run submit_login
