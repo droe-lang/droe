@@ -256,6 +256,25 @@ class DroeTarget(CompilerTarget):
         return ["droevm"]  # Requires the DroeVM runtime
 
 
+class PuckTarget(CompilerTarget):
+    """Puck editor JSON compilation target - generates Puck editor format."""
+    
+    def __init__(self):
+        super().__init__("puck", ".puck.json", "Puck visual editor JSON format")
+    
+    def create_codegen(self, source_file_path: str = None, is_main_file: bool = False, 
+                      framework: str = "plain", package: Optional[str] = None, 
+                      database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
+        from .targets.puck.codegen import PuckCodeGenerator
+        return PuckCodeGenerator()
+    
+    def get_runtime_files(self) -> List[str]:
+        return []  # Puck JSON is consumed by the editor directly
+    
+    def get_dependencies(self) -> List[str]:
+        return []  # No external dependencies needed
+
+
 class TargetFactory:
     """Factory for creating compilation targets."""
     
@@ -270,7 +289,8 @@ class TargetFactory:
             "bytecode": BytecodeTarget,
             "mobile": MobileTarget,
             "rust": RustTarget,
-            "droe": DroeTarget
+            "droe": DroeTarget,
+            "puck": PuckTarget
         }
     
     def get_available_targets(self) -> List[str]:
