@@ -15,7 +15,7 @@ class MobileBuildSystem:
         
     def _load_project_config(self) -> Dict[str, Any]:
         """Load project configuration."""
-        config_path = self.project_root / "roeconfig.json"
+        config_path = self.project_root / "droeconfig.json"
         if config_path.exists():
             with open(config_path, 'r') as f:
                 return json.load(f)

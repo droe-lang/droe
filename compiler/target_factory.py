@@ -169,12 +169,12 @@ class MobileTarget(CompilerTarget):
         # Mobile target generates complete project structures
         from .targets.mobile.codegen import MobileProjectCodegen
         
-        # Find project root by looking for roeconfig.json
+        # Find project root by looking for droeconfig.json
         project_root = None
         if source_file_path:
             current_dir = Path(source_file_path).parent
             for _ in range(10):  # Search up to 10 levels
-                if (current_dir / "roeconfig.json").exists():
+                if (current_dir / "droeconfig.json").exists():
                     project_root = str(current_dir)
                     break
                 parent = current_dir.parent
@@ -202,20 +202,20 @@ class RustTarget(CompilerTarget):
                       database: Optional[Dict[str, Any]] = None) -> BaseCodeGenerator:
         from .targets.rust.codegen import RustCodeGenerator
         
-        # Load database config from roeconfig.json if available
+        # Load database config from droeconfig.json if available
         if source_file_path and not database:
             database = self._load_database_config(source_file_path)
             
         return RustCodeGenerator(source_file_path, is_main_file, framework, package, database)
     
     def _load_database_config(self, source_file_path: str) -> Dict[str, Any]:
-        """Load database configuration from roeconfig.json."""
+        """Load database configuration from droeconfig.json."""
         import json
         from pathlib import Path
         
         current_dir = Path(source_file_path).parent
         for _ in range(10):  # Search up to 10 levels
-            config_path = current_dir / "roeconfig.json"
+            config_path = current_dir / "droeconfig.json"
             if config_path.exists():
                 try:
                     with open(config_path, 'r') as f:
@@ -377,11 +377,11 @@ def _create_project_files(project_result: Dict[str, Any], source_file_path: str 
     else:
         project_root_dir = Path.cwd()
     
-    # Look for roeconfig.json up to 10 levels up
+    # Look for droeconfig.json up to 10 levels up
     config_dir = project_root_dir
     config = {}
     for _ in range(10):
-        config_path = config_dir / "roeconfig.json"
+        config_path = config_dir / "droeconfig.json"
         if config_path.exists():
             try:
                 with open(config_path, 'r') as f:

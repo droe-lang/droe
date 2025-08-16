@@ -31,7 +31,7 @@ class ExpressionParser(BaseParser):
         if (expr_str.startswith('"') and expr_str.endswith('"')) or \
            (expr_str.startswith("'") and expr_str.endswith("'")):
             string_content = expr_str[1:-1]
-            if '${' in string_content:
+            if '[' in string_content and ']' in string_content:
                 return self.parse_string_interpolation(string_content)
             return Literal(string_content, 'string')
         
@@ -51,22 +51,21 @@ class ExpressionParser(BaseParser):
         except ValueError:
             pass
         
-        # Parse arithmetic operations
-        arithmetic_result = self._parse_arithmetic(expr_str)
+        # Parse word-based arithmetic operations
+        arithmetic_result = self._parse_word_arithmetic(expr_str)
         if arithmetic_result:
             return arithmetic_result
         
-        # Check for comparisons and logical operations
+        # Check for word-based comparisons and logical operations
         for op_str, op_type in [
-            ('==', 'equals'),
-            ('!=', 'not_equals'),
-            ('<=', 'less_equal'),
-            ('>=', 'greater_equal'),
-            ('<', 'less_than'),
-            ('>', 'greater_than'),
-            ('&&', 'and'),
-            ('||', 'or'),
-            ('+', 'concat')
+            (' equals ', 'equals'),
+            (' does not equal ', 'not_equals'),
+            (' is less than or equal to ', 'less_equal'),
+            (' is greater than or equal to ', 'greater_equal'),
+            (' is less than ', 'less_than'),
+            (' is greater than ', 'greater_than'),
+            (' and ', 'and'),
+            (' or ', 'or')
         ]:
             if op_str in expr_str:
                 parts = expr_str.split(op_str, 1)
@@ -118,8 +117,8 @@ class ExpressionParser(BaseParser):
         # Default to identifier
         return Identifier(expr_str)
     
-    def _parse_arithmetic(self, expr_str: str) -> Optional[ArithmeticOp]:
-        """Parse arithmetic expressions with proper precedence."""
+    def _parse_word_arithmetic(self, expr_str: str) -> Optional[ArithmeticOp]:
+        """Parse word-based arithmetic expressions with proper precedence."""
         expr_str = expr_str.strip()
         
         # Remove outer parentheses if they enclose the entire expression
@@ -139,50 +138,35 @@ class ExpressionParser(BaseParser):
                 expr_str = expr_str[1:-1].strip()
         
         # Parse addition and subtraction (lowest precedence)
-        for op in ['+', '-']:
-            # Find the operator at the correct precedence level
-            depth = 0
-            for i in range(len(expr_str) - 1, -1, -1):
-                char = expr_str[i]
-                if char == ')':
-                    depth += 1
-                elif char == '(':
-                    depth -= 1
-                elif depth == 0 and char == op:
-                    # Skip unary minus at the beginning
-                    if op == '-' and i == 0:
-                        continue
-                    
-                    left_str = expr_str[:i].strip()
-                    right_str = expr_str[i+1:].strip()
+        for op_word, op_type in [(' plus ', 'add'), (' minus ', 'subtract')]:
+            if op_word in expr_str:
+                # Split on the operator
+                parts = expr_str.split(op_word, 1)
+                if len(parts) == 2:
+                    left_str = parts[0].strip()
+                    right_str = parts[1].strip()
                     
                     if left_str and right_str:
-                        left = self._parse_arithmetic(left_str) or self._parse_term(left_str)
-                        right = self._parse_arithmetic(right_str) or self._parse_term(right_str)
+                        left = self._parse_word_arithmetic(left_str) or self._parse_term(left_str)
+                        right = self._parse_word_arithmetic(right_str) or self._parse_term(right_str)
                         
                         if left and right:
-                            op_type = 'add' if op == '+' else 'subtract'
                             return ArithmeticOp(left, op_type, right)
         
-        # Parse multiplication, division, and modulo (higher precedence)
-        for op in ['*', '/', '%']:
-            depth = 0
-            for i in range(len(expr_str) - 1, -1, -1):
-                char = expr_str[i]
-                if char == ')':
-                    depth += 1
-                elif char == '(':
-                    depth -= 1
-                elif depth == 0 and char == op:
-                    left_str = expr_str[:i].strip()
-                    right_str = expr_str[i+1:].strip()
+        # Parse multiplication and division (higher precedence)
+        for op_word, op_type in [(' times ', 'multiply'), (' divided by ', 'divide')]:
+            if op_word in expr_str:
+                # Split on the operator
+                parts = expr_str.split(op_word, 1)
+                if len(parts) == 2:
+                    left_str = parts[0].strip()
+                    right_str = parts[1].strip()
                     
                     if left_str and right_str:
-                        left = self._parse_arithmetic(left_str) or self._parse_term(left_str)
-                        right = self._parse_arithmetic(right_str) or self._parse_term(right_str)
+                        left = self._parse_word_arithmetic(left_str) or self._parse_term(left_str)
+                        right = self._parse_word_arithmetic(right_str) or self._parse_term(right_str)
                         
                         if left and right:
-                            op_type = 'multiply' if op == '*' else ('divide' if op == '/' else 'modulo')
                             return ArithmeticOp(left, op_type, right)
         
         # Not an arithmetic expression
@@ -195,7 +179,7 @@ class ExpressionParser(BaseParser):
         # Handle parenthesized expressions
         if expr_str.startswith('(') and expr_str.endswith(')'):
             inner = expr_str[1:-1].strip()
-            return self._parse_arithmetic(inner) or self.parse_expression(inner)
+            return self._parse_word_arithmetic(inner) or self.parse_expression(inner)
         
         # Try to parse as number
         try:
@@ -237,13 +221,13 @@ class ExpressionParser(BaseParser):
         return ArrayLiteral(elements)
     
     def parse_string_interpolation(self, string_content: str) -> StringInterpolation:
-        """Parse string interpolation like 'Hello ${name}'."""
+        """Parse string interpolation like 'Hello [name]'."""
         parts = []
         current_pos = 0
         
         while current_pos < len(string_content):
             # Find next interpolation
-            interp_start = string_content.find('${', current_pos)
+            interp_start = string_content.find('[', current_pos)
             
             if interp_start == -1:
                 # No more interpolations, add rest as literal
@@ -256,12 +240,12 @@ class ExpressionParser(BaseParser):
                 parts.append(Literal(string_content[current_pos:interp_start], 'string'))
             
             # Find end of interpolation
-            interp_end = string_content.find('}', interp_start + 2)
+            interp_end = string_content.find(']', interp_start + 1)
             if interp_end == -1:
                 raise ParseError(f"Unclosed interpolation in string: {string_content}")
             
             # Parse the interpolated expression
-            expr_str = string_content[interp_start + 2:interp_end].strip()
+            expr_str = string_content[interp_start + 1:interp_end].strip()
             parts.append(self.parse_expression(expr_str))
             
             current_pos = interp_end + 1

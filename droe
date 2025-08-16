@@ -175,11 +175,11 @@ def load_compiler():
     spec.loader.exec_module(compiler)
     return compiler
 
-# Load config from roeconfig.json if available
+# Load config from droeconfig.json if available
 def load_config(project_root=None):
-    default_config = {"src": "src", "build": "build", "target": "roe", "framework": "plain"}
+    default_config = {"src": "src", "build": "build", "target": "droe", "framework": "plain"}
     if project_root is None:
-        config_path = Path.cwd() / "roeconfig.json"
+        config_path = Path.cwd() / "droeconfig.json"
     else:
         config_path = project_root / "droeconfig.json"
     
@@ -190,13 +190,13 @@ def load_config(project_root=None):
                 return {
                     "src": config.get("src", "src"),
                     "build": config.get("build", "build"),
-                    "target": config.get("target", "roe"),
+                    "target": config.get("target", "droe"),
                     "framework": config.get("framework", "plain"),
                     "package": config.get("package"),
                     "database": config.get("database")
                 }
         except Exception as e:
-            print(f"❌ Error reading roeconfig.json: {e}")
+            print(f"❌ Error reading droeconfig.json: {e}")
             exit(1)
     return default_config
 
@@ -223,7 +223,7 @@ def guided_init():
     # Target selection
     print("\n🎯 Choose your target platform:")
     targets = [
-        ("roe", "Roe VM (Fast bytecode execution)"),
+        ("droe", "Droe VM (Fast bytecode execution)"),
         ("html", "Web Applications (HTML/CSS/JS)"),
         ("mobile", "Mobile Apps (Android/iOS)"),
         ("java", "Java Applications"),
@@ -241,7 +241,7 @@ def guided_init():
         try:
             choice = input(f"\nSelect target (1-{len(targets)}) [1]: ").strip()
             if not choice:
-                target = "roe"
+                target = "droe"
                 break
             choice_idx = int(choice) - 1
             if 0 <= choice_idx < len(targets):
@@ -260,7 +260,7 @@ def guided_init():
         "go": [("fiber", "Fiber Framework")],
         "node": [("fastify", "Fastify Framework")],
         "rust": [("axum", "Axum Framework")],
-        "roe": [("axum", "Axum Framework")]
+        "droe": [("axum", "Axum Framework")]
     }
     
     if target in framework_options:
@@ -293,7 +293,7 @@ def guided_init():
     database_user = None
     database_password = None
     
-    if target in ["html", "mobile", "java", "python", "go", "node", "rust", "roe"] and framework != "plain":
+    if target in ["html", "mobile", "java", "python", "go", "node", "rust", "droe"] and framework != "plain":
         print(f"\n🗄️  Database Configuration:")
         needs_db = input("Do you need database support? (y/N): ").strip().lower()
         
@@ -416,7 +416,7 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
             else:
                 print("❌ Error: Directory is not empty")
                 print(f"📁 Current directory: {project_root}")
-                print("💡 'roe init' must be run in an empty directory or provide a project name")
+                print("💡 'droe init' must be run in an empty directory or provide a project name")
             exit(1)
     
     src_dir = project_root / "src"
@@ -436,7 +436,7 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
         "dist": "dist",
         "modules": "modules",
         "main": "src/main.droe",
-        "target": target or "roe"
+        "target": target or "droe"
     }
     
     # Validate framework-target compatibility
@@ -450,10 +450,10 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
             "html": [],
             "mobile": [],
             "rust": ["axum"],
-            "roe": ["axum"]
+            "droe": ["axum"]
         }
         
-        target_key = target or "roe"
+        target_key = target or "droe"
         if target_key in valid_frameworks:
             if framework != "plain" and framework not in valid_frameworks[target_key]:
                 print(f"❌ Error: Framework '{framework}' is not compatible with target '{target_key}'")
@@ -464,7 +464,7 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
                 exit(1)
         
         # Add framework if specified and applicable (ignore for targets that don't support frameworks)
-        if framework != "plain" and target_key in ["java", "python", "go", "node", "rust", "roe"]:
+        if framework != "plain" and target_key in ["java", "python", "go", "node", "rust", "droe"]:
             config_data["framework"] = framework
         
     # Add package name for Java Spring projects
@@ -489,11 +489,11 @@ def init_project_enhanced(name=None, author=None, target=None, framework=None,
                 "password": db_password
             }
 
-    # Create roeconfig.json
+    # Create droeconfig.json
     if not config_path.exists():
         with open(config_path, "w") as f:
             json.dump(config_data, f, indent=2)
-        print("✅ Created roeconfig.json")
+        print("✅ Created droeconfig.json")
     else:
         # If config exists, load it to preserve existing values
         with open(config_path) as f:
@@ -586,11 +586,11 @@ display "Hello from [projectName]!"
     print("\n🚀 Next steps:")
     if name:  # If a project directory was created
         print(f"  cd {name}/              - Navigate to project directory")
-        print("  roe run src/main.droe     - Run the sample")
-        print("  roe build               - Build project")
+        print("  droe run src/main.droe     - Run the sample")
+        print("  droe build               - Build project")
     else:  # If initialized in current directory
-        print("  roe run src/main.droe     - Run the sample")
-        print("  roe build               - Build project")
+        print("  droe run src/main.droe     - Run the sample")
+        print("  droe build               - Build project")
 
 # Package management functions
 def install_package(package_name, is_dev=False):
@@ -805,18 +805,18 @@ def show_help():
 # Load compiler
 compiler = load_compiler()
 
-# Find project root by looking for roeconfig.json
+# Find project root by looking for droeconfig.json
 def find_project_root():
-    """Find the project root by looking for roeconfig.json up to 10 levels."""
+    """Find the project root by looking for droeconfig.json up to 10 levels."""
     current = Path.cwd()
     original = current
     root = current.root
     max_depth = 10  # Look up to 10 levels
     depth = 0
     
-    # Look for roeconfig.json in current and parent directories (up to max_depth)
+    # Look for droeconfig.json in current and parent directories (up to max_depth)
     while current != Path(root) and depth < max_depth:
-        if (current / "roeconfig.json").exists():
+        if (current / "droeconfig.json").exists():
             return current
         
         parent = current.parent
@@ -825,11 +825,11 @@ def find_project_root():
         current = parent
         depth += 1
     
-    # No roeconfig.json found - require user to create one
-    print(f"❌ Error: No roeconfig.json found (searched up {depth} directories)")
+    # No droeconfig.json found - require user to create one
+    print(f"❌ Error: No droeconfig.json found (searched up {depth} directories)")
     print(f"📂 Current directory: {original}")
     print(f"\n💡 To create a Droelang project, run: droe init")
-    print(f"   This will create roeconfig.json in the current directory")
+    print(f"   This will create droeconfig.json in the current directory")
     exit(1)
 
 # Build distribution package
@@ -842,7 +842,7 @@ def build_distribution(project_root, clean=False, release=False):
     # Load config
     config_path = project_root / "droeconfig.json"
     if not config_path.exists():
-        print("❌ Error: roeconfig.json not found")
+        print("❌ Error: droeconfig.json not found")
         exit(1)
     
     with open(config_path) as f:
@@ -853,7 +853,7 @@ def build_distribution(project_root, clean=False, release=False):
     build_dir = project_root / config.get("build", "build")
     dist_dir = project_root / config.get("dist", "dist")
     main_file = config.get("main", "src/main.droe")
-    target = config.get("target", "roe")
+    target = config.get("target", "droe")
     framework = config.get("framework", "plain")
     
     print(f"📦 Building distribution package...")
@@ -899,7 +899,7 @@ def build_distribution(project_root, clean=False, release=False):
         for roe_file in roe_files:
             rel_path = roe_file.relative_to(project_root)
             try:
-                # Use subprocess to call roe compile for each file
+                # Use subprocess to call droe compile for each file
                 result = subprocess.run([
                     sys.executable, str(Path.home() / ".droelang" / "bin" / "droe"), 
                     "compile", str(rel_path)
@@ -982,7 +982,7 @@ def build_distribution(project_root, clean=False, release=False):
             "node": "*.js",
             "html": "*.html",
             "rust": "*.rs",
-            "roe": "*.droebc"
+            "droe": "*.droebc"
         }
         
         pattern = target_extensions.get(target, "*.droebc")
@@ -1076,7 +1076,7 @@ def main():
     compile_parser = subparsers.add_parser('compile', help='Compile .droe file to specified target')
     compile_parser.add_argument('file', help='Source file to compile')
     compile_parser.add_argument('--format', choices=['wat', 'wasm'], help='Legacy output format (wat/wasm)')
-    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'rust', 'droe', 'puck'], help='Compilation target (overrides roeconfig.json)')
+    compile_parser.add_argument('--target', choices=['wasm', 'python', 'java', 'go', 'node', 'html', 'kotlin', 'swift', 'bytecode', 'mobile', 'rust', 'droe', 'puck'], help='Compilation target (overrides droeconfig.json)')
     compile_parser.add_argument('--output', help='Output file path')
     compile_parser.add_argument('--watch', action='store_true', help='Watch for file changes')
     
@@ -1251,7 +1251,7 @@ def compile_file(roe_filename, output_format='wasm', output_path=None, watch=Fal
             if target_override:
                 target = target_override
             else:
-                config_target = config.get("target", "roe")
+                config_target = config.get("target", "droe")
                 target = compiler.get_target_from_source(source_content, config_target)
             
             # If output_format is specified and not 'wasm', it's likely wat - keep backward compatibility

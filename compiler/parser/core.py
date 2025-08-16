@@ -43,27 +43,25 @@ class Parser(StructureParser, StatementParser):
             self.consume_line()
             
             # Parse structural definitions
-            if line_stripped == 'Module:':
+            if line_stripped == 'module':
                 stmt = self.parse_module_definition()
-            elif line_stripped == 'Data:':
+            elif line_stripped == 'data':
                 stmt = self.parse_data_definition()
             elif line_stripped.startswith('module '):
                 stmt = self.parse_module_spec_syntax(line_stripped)
             elif line_stripped.startswith('data '):
                 stmt = self.parse_data_spec_syntax(line_stripped)
-            elif line_stripped == 'Layout:':
+            elif line_stripped == 'layout':
                 stmt = self.parse_layout_definition()
-            elif line_stripped == 'Form:':
+            elif line_stripped == 'form':
                 stmt = self.parse_form_definition()
-            elif line_stripped.startswith('Layout ') and ':' in line_stripped and '[' in line_stripped:
+            elif line_stripped.startswith('layout ') and '[' in line_stripped:
                 stmt = self.parse_inline_layout(line_stripped)
             
-            # Parse UI components
-            elif any(line_stripped.startswith(prefix + ':') for prefix in [
-                'Title', 'Input', 'Textarea', 'Dropdown', 'Toggle',
-                'Checkbox', 'Radio', 'Button', 'Image', 'Video', 'Audio',
-                'Asset', 'Camera', 'Location', 'Notification', 'Storage',
-                'Sensor', 'Contact'
+            # Parse UI components (spec syntax only)
+            elif any(line_stripped.startswith(prefix + ' ') for prefix in [
+                'title', 'input', 'textarea', 'dropdown', 'toggle',
+                'checkbox', 'radio', 'button', 'image', 'video', 'audio'
             ]):
                 stmt = self.parse_component(line_stripped)
             
@@ -102,15 +100,23 @@ class Parser(StructureParser, StatementParser):
             if next_line and next_line.strip() == "using headers":
                 self.consume_line()  # Consume "using headers"
                 
-                # Collect indented header lines
+                # Collect header lines until 'end headers' or end of headers block
                 while self.current_line < len(self.lines):
                     line = self.peek_line()
-                    if not line or not line.startswith('    '):  # Not indented
+                    if not line:
                         break
-                    if ':' in line:
-                        header_lines.append(line.strip())
+                    
+                    line_stripped = line.strip()
+                    if line_stripped == 'end headers':
+                        self.consume_line()
+                        break
+                    
+                    # If line contains colon, it's a header
+                    if ':' in line_stripped:
+                        header_lines.append(line_stripped)
                         self.consume_line()
                     else:
+                        # Not a header line, end of headers
                         break
         
         # Parse headers and add to API call

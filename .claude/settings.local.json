@@ -55,7 +55,10 @@
       "Bash(cargo:*)",
       "Bash(../../droe init my_droe_app)",
       "Bash(../droe clean)",
-      "Bash(./build-installer.sh:*)"
+      "Bash(./build-installer.sh:*)",
+      "Bash(ln:*)",
+      "Bash(../../../sync-dev.sh)",
+      "Bash(../../../droe compile main.droe --target puck)"
     ],
     "deny": []
   }

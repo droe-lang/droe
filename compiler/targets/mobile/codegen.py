@@ -23,8 +23,8 @@ class MobileProjectCodegen(BaseCodeGenerator):
         self.config = self._load_project_config()
         
     def _load_project_config(self) -> Dict[str, Any]:
-        """Load project configuration from roeconfig.json."""
-        config_path = self.project_root / "roeconfig.json"
+        """Load project configuration from droeconfig.json."""
+        config_path = self.project_root / "droeconfig.json"
         default_config = {
             "mobile": {
                 "enabled": True,
@@ -45,7 +45,7 @@ class MobileProjectCodegen(BaseCodeGenerator):
                     default_config['mobile'].update(mobile_config)
                     return config
             except Exception as e:
-                print(f"Warning: Error reading roeconfig.json: {e}")
+                print(f"Warning: Error reading droeconfig.json: {e}")
         
         return default_config
     
@@ -71,7 +71,7 @@ class MobileProjectCodegen(BaseCodeGenerator):
                     return False
                     
             # Check if project config changed
-            config_file = self.project_root / "roeconfig.json"
+            config_file = self.project_root / "droeconfig.json"
             if config_file.exists() and config_file.stat().st_mtime > manifest_time:
                 print("🔄 Project configuration changed, rebuilding...")
                 return False
@@ -90,7 +90,7 @@ class MobileProjectCodegen(BaseCodeGenerator):
         manifest = {
             "build_time": time.time(),
             "source_files": [str(f) for f in source_files],
-            "config_file": str(self.project_root / "roeconfig.json"),
+            "config_file": str(self.project_root / "droeconfig.json"),
             "platforms": self.config.get('mobile', {}).get('platforms', ['android', 'ios']),
             "version": self.config.get('mobile', {}).get('version', '1.0.0')
         }

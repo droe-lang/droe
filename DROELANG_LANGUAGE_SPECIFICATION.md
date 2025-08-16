@@ -7,26 +7,27 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Lexical Structure](#lexical-structure)
-3. [Metadata Annotations](#metadata-annotations)
-4. [Data Types](#data-types)
-5. [Variables and Assignment](#variables-and-assignment)
-6. [Expressions](#expressions)
-7. [Control Flow](#control-flow)
-8. [Functions and Actions](#functions-and-actions)
-9. [Modules](#modules)
-10. [Data Structures](#data-structures)
-11. [Database DSL](#database-dsl)
-12. [API DSL](#api-dsl)
-13. [UI Components and Layouts](#ui-components-and-layouts)
-14. [Mobile Platform Features](#mobile-platform-features)
-15. [String Operations](#string-operations)
-16. [Format Expressions](#format-expressions)
-17. [Include System](#include-system)
-18. [Comments](#comments)
-19. [Keywords](#keywords)
-20. [Compilation Targets](#compilation-targets)
-21. [Framework Adapters](#framework-adapters)
+2. [Language Rules and Syntax](#language-rules-and-syntax)
+3. [Lexical Structure](#lexical-structure)
+4. [Metadata Annotations](#metadata-annotations)
+5. [Data Types](#data-types)
+6. [Variables and Assignment](#variables-and-assignment)
+7. [Expressions](#expressions)
+8. [Control Flow](#control-flow)
+9. [Functions and Actions](#functions-and-actions)
+10. [Modules](#modules)
+11. [Data Structures](#data-structures)
+12. [Database DSL](#database-dsl)
+13. [API DSL](#api-dsl)
+14. [UI Components and Layouts](#ui-components-and-layouts)
+15. [Mobile Platform Features](#mobile-platform-features)
+16. [String Operations](#string-operations)
+17. [Format Expressions](#format-expressions)
+18. [Include System](#include-system)
+19. [Comments](#comments)
+20. [Keywords](#keywords)
+21. [Compilation Targets](#compilation-targets)
+22. [Framework Adapters](#framework-adapters)
 
 ---
 
@@ -50,13 +51,48 @@ Droelang is a domain-specific language designed for business logic, process auto
 
 ---
 
+## Language Rules and Syntax
+
+### Core Principles
+
+1. **Lowercase Keywords Only**: All keywords must be lowercase (`display`, `module`, `when`, etc.)
+2. **Word-Based Operators**: No mathematical symbols - use `plus`, `minus`, `times`, `divided by` instead of `+`, `-`, `*`, `/`
+3. **Natural Language**: Comparisons use `is greater than`, `equals`, `does not equal` instead of `>`, `==`, `!=`
+4. **Square Bracket Interpolation**: String interpolation uses `[variable]` syntax, not `+` concatenation
+5. **@ Prefix for Imports**: Only `@include` uses `@` prefix to avoid ambiguity
+6. **No Colons**: Clean syntax without colon suffixes
+
+### Syntax Rules
+
+```droe
+// ✅ Correct Droelang Syntax
+module MyModule
+data User
+@include MathUtils from "utils/math.droe"
+
+set total to 10 plus 5 times 2
+when age is greater than 18 then display "Adult"
+display "Hello [name], you have [points] points"
+
+// ❌ Incorrect - these will not work
+Module: MyModule                    // No colons, no uppercase
+include "file.droe"                 // Must use @include
+set total to 10 + 5 * 2            // No symbols, use words
+when age > 18 then display "Adult" // No symbols, use words
+display "Hello " + name             // No +, use [name]
+```
+
+---
+
 ## Lexical Structure
 
 ### Case Sensitivity
+
 Droelang is **case-sensitive**. Keywords must be lowercase.
 
 ### Identifiers
-- Start with a letter (a-z, A-Z) or underscore (_)
+
+- Start with a letter (a-z, A-Z) or underscore (\_)
 - Followed by letters, digits (0-9), or underscores
 - Cannot be reserved keywords
 
@@ -73,6 +109,7 @@ user-name   // contains hyphen
 ```
 
 ### Line Termination
+
 Statements are terminated by newlines. No semicolons required.
 
 ---
@@ -92,50 +129,32 @@ Metadata annotations provide compile-time information about Droelang programs. T
 ### Standard Metadata Keys
 
 #### @target
-Specifies the compilation target, overriding command-line options and project configuration.
+
+Specifies the compilation target, overriding command-line options and project configuration. If not specified, defaults to `bytecode`.
 
 **Supported targets:**
-- `wasm` - WebAssembly (default)
+
+- `wasm` - WebAssembly
 - `python` - Python
-- `java` - Java  
+- `java` - Java
 - `javascript` or `node` - JavaScript/Node.js
 - `go` - Go
 - `html` - HTML with JavaScript
 - `bytecode` - Droelang bytecode
 
-#### @targets
-**Note: This annotation is not currently implemented in the compiler.**
-
-Multi-target compilation should be configured in `roeconfig.json` instead:
+**Note:** Multi-target compilation should be configured in `droeconfig.json` instead of file-level annotations:
 
 ```json
 {
-    "target": "mobile",
-    "mobile": {
-        "platforms": ["android", "ios"]
-    }
+  "target": "mobile",
+  "mobile": {
+    "platforms": ["android", "ios"]
+  }
 }
 ```
 
-#### @metadata
-Complex metadata with key-value parameters for advanced configuration.
-
-```droe
-@metadata(platform="mobile", name="MyApp", package="com.example.myapp")
-@metadata(platform="web", framework="react")
-```
-
-**Note:** For mobile development, you must use project-level configuration in `roeconfig.json` rather than file-level metadata annotations.
-
-```droe
-@target droe
-@name user_authentication
-@description "User authentication and authorization module"
-
-display "This will compile to RoeVM bytecode"
-```
-
 #### @name
+
 Specifies the module or component name. Useful for documentation and tooling.
 
 ```droe
@@ -143,7 +162,8 @@ Specifies the module or component name. Useful for documentation and tooling.
 @name shopping_cart_module
 ```
 
-#### @description  
+#### @description
+
 Provides a human-readable description of the module's purpose.
 
 ```droe
@@ -152,21 +172,11 @@ Provides a human-readable description of the module's purpose.
 ```
 
 #### @package
-Specifies the package name for mobile applications.
+
+Specifies the package name for applications (mainly used in `droeconfig.json`).
 
 ```droe
 @package "com.example.myapp"
-@package "org.company.project"
-```
-
-#### Custom Metadata
-You can define custom metadata keys for your specific use cases:
-
-```droe
-@version "1.2.0"
-@author "Development Team"
-@license "MIT"
-@category "utilities"
 ```
 
 ### Rules and Constraints
@@ -179,7 +189,8 @@ You can define custom metadata keys for your specific use cases:
 
 ### Examples
 
-**Basic metadata:**
+**Simple file-level metadata:**
+
 ```droe
 @target java
 @name PaymentProcessor
@@ -189,27 +200,18 @@ You can define custom metadata keys for your specific use cases:
 display "Payment system initialized"
 ```
 
-**Web application module:**
-```droe
-@target javascript  
-@name "User Profile Form"
-@description "Interactive form for user profile management"
-@version "2.1.0"
+**Note:** For most projects, use `droeconfig.json` instead of file-level metadata:
 
-// Your code here
-set user_name which is text to "John Doe"
-display user_name
-```
-
-**Backend service:**
-```droe
-@target go
-@name api_gateway
-@description "API gateway with authentication and rate limiting"
-@author "Backend Team"
-
-// Your code here
-display "API Gateway starting..."
+```json
+{
+  "target": "java",
+  "framework": "spring",
+  "package": "com.example.payments",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/payments_db"
+  }
+}
 ```
 
 ### Programmatic Access
@@ -234,30 +236,33 @@ Droelang supports the following built-in data types:
 
 ### Primitive Types
 
-| Type | Description | Examples |
-|------|-------------|----------|
-| `int` | 32-bit signed integer | `42`, `-10`, `0` |
-| `decimal` | Double-precision floating point | `3.14`, `-0.5`, `99.99` |
-| `text` | Unicode string | `"Hello"`, `"Droelang"` |
-| `flag` | Boolean true/false | `true`, `false` |
-| `yesno` | Boolean true/false (alias for flag) | `true`, `false` |
-| `date` | ISO date string | `"2024-08-06"`, `"1990-01-15"` |
-| `file` | File path string | `"/path/to/file.txt"` |
+| Type      | Description                         | Examples                       |
+| --------- | ----------------------------------- | ------------------------------ |
+| `int`     | 32-bit signed integer               | `42`, `-10`, `0`               |
+| `decimal` | Double-precision floating point     | `3.14`, `-0.5`, `99.99`        |
+| `text`    | Unicode string                      | `"Hello"`, `"Droelang"`        |
+| `flag`    | Boolean true/false                  | `true`, `false`                |
+| `yesno`   | Boolean true/false (alias for flag) | `true`, `false`                |
+| `date`    | ISO date string                     | `"2024-08-06"`, `"1990-01-15"` |
+| `file`    | File path string                    | `"/path/to/file.txt"`          |
 
 ### Legacy Types (for compatibility)
+
 - `number` → `int`
-- `string` → `text`  
+- `string` → `text`
 - `boolean` → `flag`
 
 ### Collection Types
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `list of <type>` | Ordered collection | `[1, 2, 3, 4, 5]` |
+| Type              | Description          | Example                       |
+| ----------------- | -------------------- | ----------------------------- |
+| `list of <type>`  | Ordered collection   | `[1, 2, 3, 4, 5]`             |
 | `group of <type>` | Unordered collection | `["Alice", "Bob", "Charlie"]` |
 
 ### Collection Element Types
+
 Collections can contain any primitive type:
+
 - `list of int` → `[1, 2, 3]`
 - `list of text` → `["hello", "world"]`
 - `group of decimal` → `[3.14, 2.71, 1.41]`
@@ -270,11 +275,13 @@ Collections can contain any primitive type:
 ### Variable Declaration and Assignment
 
 **Basic Syntax:**
+
 ```droe
 set <variable> which is <type> to <value>
 ```
 
 **Examples:**
+
 ```droe
 // Primitive types
 set name which is text to "Alice"
@@ -291,12 +298,14 @@ set holidays which are list of date to ["2024-01-01", "2024-12-25"]
 ```
 
 ### Type Inference Assignment
+
 ```droe
-set result to 10 + 5        // Infers int type
+set result to 10 plus 5     // Infers int type
 set message to "Hello"      // Infers text type
 ```
 
 ### Reassignment
+
 ```droe
 set age which is int to 25
 set age to 26               // Type already declared
@@ -307,30 +316,34 @@ set age to 26               // Type already declared
 ## Expressions
 
 ### Arithmetic Expressions
+
 ```droe
-set sum to 10 + 5          // Addition
-set difference to 20 - 8    // Subtraction  
-set product to 6 * 7        // Multiplication
-set quotient to 15 / 3      // Division
+set sum to 10 plus 5                    // Addition
+set difference to 20 minus 8            // Subtraction
+set product to 6 times 7                // Multiplication
+set quotient to 15 divided by 3         // Division
 
 // With variables
 set x which is int to 10
 set y which is int to 3
-set result to x + y * 2     // 16 (multiplication has higher precedence)
+set result to x plus y times 2          // 16 (multiplication has higher precedence)
 ```
 
-### String Concatenation
+### String Interpolation
+
 ```droe
 set first_name which is text to "John"
 set last_name which is text to "Doe"
-set full_name to first_name + " " + last_name
-
-// Mixed types (automatic conversion)
 set age which is int to 25
-set message to "I am " + age + " years old"
+
+// String interpolation with variables
+set full_name to "[first_name] [last_name]"
+set message to "I am [age] years old"
+set greeting to "Hello [first_name], nice to meet you!"
 ```
 
 ### Comparison Expressions
+
 ```droe
 // Numeric comparisons
 when 5 is greater than 3 then display "True"
@@ -346,13 +359,16 @@ set limit which is int to 18
 when age is greater than limit then display "Adult"
 ```
 
-### Comparison Operators
-- `is greater than` → `>`
-- `is less than` → `<`
-- `is greater than or equal to` → `>=`
-- `is less than or equal to` → `<=`
-- `equals` → `==`
-- `does not equal` → `!=`
+### Comparison Operators (Word-Based Only)
+
+- `is greater than` - Tests if left value is greater than right value
+- `is less than` - Tests if left value is less than right value
+- `is greater than or equal to` - Tests if left value is greater than or equal to right value
+- `is less than or equal to` - Tests if left value is less than or equal to right value
+- `equals` - Tests if values are equal
+- `does not equal` - Tests if values are not equal
+
+**Note**: Droelang uses only word-based operators to maintain readability and non-technical friendliness. Symbol-based operators (`>`, `<`, `==`, etc.) are not supported.
 
 ---
 
@@ -361,11 +377,13 @@ when age is greater than limit then display "Adult"
 ### Conditional Statements
 
 **Basic Conditional:**
+
 ```droe
 when <condition> then <statement>
 ```
 
 **If-Else Structure:**
+
 ```droe
 when <condition> then
     // statements
@@ -375,6 +393,7 @@ end when
 ```
 
 **Examples:**
+
 ```droe
 // Simple condition
 when age is greater than 18 then display "Adult"
@@ -391,6 +410,7 @@ end when
 ### While Loops
 
 **Syntax:**
+
 ```droe
 while <condition>
     // statements
@@ -398,29 +418,31 @@ end while
 ```
 
 **Examples:**
+
 ```droe
 // Counting loop
 set counter to 1
 while counter is less than or equal to 5
     display counter
-    set counter to counter + 1
+    set counter to counter plus 1
 end while
 
 // Accumulator pattern
 set i to 1
 set total to 0
 while i is less than or equal to 10
-    set total to total + i
-    set i to i + 1
+    set total to total plus i
+    set i to i plus 1
 end while
-display "Sum: " + total
+display "Sum: [total]"
 ```
 
 ### For-Each Loops
+
 ```droe
 set numbers which are list of int to [1, 2, 3, 4, 5]
 for each num in numbers
-    display "Number: " + num
+    display "Number: [num]"
 end for
 ```
 
@@ -433,6 +455,7 @@ end for
 Actions are reusable blocks of code that can accept parameters and return values.
 
 **Basic Action (no parameters):**
+
 ```droe
 action greet_user
     display "Hello, welcome to Droelang!"
@@ -443,9 +466,10 @@ run greet_user
 ```
 
 **Parameterized Action:**
+
 ```droe
 action greet_person with name which is text
-    display "Hello, " + name + "!"
+    display "Hello, [name]!"
     display "Welcome to Droelang!"
 end action
 
@@ -454,6 +478,7 @@ run greet_person with "Alice"
 ```
 
 **Action with Return Value:**
+
 ```droe
 action calculate_area with width which is int, height which is int gives int
     give width * height
@@ -461,10 +486,11 @@ end action
 
 // Use return value
 set area which is int from calculate_area with 10, 5
-display "Area: " + area
+display "Area: [area]"
 ```
 
 **Action with Multiple Parameters:**
+
 ```droe
 action create_greeting with name which is text, age which is int gives text
     give "Hello " + name + ", you are " + age + " years old!"
@@ -479,13 +505,14 @@ display message
 Tasks are actions that don't return values, used for procedural execution.
 
 **Task Syntax:**
+
 ```droe
 task send_reminder
     display "Don't forget to complete your tasks!"
 end task
 
 task process_order with item which is text, quantity which is int
-    display "Processing order for " + quantity + " " + item
+    display "Processing order for [quantity] [item]"
 end task
 
 // Execute tasks
@@ -500,13 +527,14 @@ run process_order with "widgets", 5
 Modules provide namespacing and code organization.
 
 **Module Definition:**
+
 ```droe
 module math_utils
 
     action add with a which is int, b which is int gives int
         give a + b
     end action
-    
+
     action multiply with x which is decimal, y which is decimal gives decimal
         give x * y
     end action
@@ -515,10 +543,11 @@ end module
 ```
 
 **Using Module Actions:**
+
 ```droe
 // Call module action
 set result which is int from run math_utils.add with 10, 5
-display "Result: " + result
+display "Result: [result]"
 
 // Direct execution
 display run math_utils.add with 20, 15
@@ -531,6 +560,7 @@ display run math_utils.add with 20, 15
 Define custom data types with named fields.
 
 **Data Definition:**
+
 ```droe
 module user_system
 
@@ -539,7 +569,7 @@ module user_system
         age is int
         active is flag
     end data
-    
+
     action create_user with user_name which is text, user_age which is int gives User
         // Return user instance (implementation varies by target)
         give User with name is user_name, age is user_age, active is true
@@ -580,18 +610,19 @@ end data
 
 ### Field Annotations
 
-| Annotation | Description | Example |
-|------------|-------------|---------|
-| `key` | Primary key field | `id is text key` |
-| `auto` | Auto-generated value | `id is text key auto` |
-| `required` | Non-nullable field | `name is text required` |
-| `optional` | Nullable field | `age is int optional` |
-| `unique` | Unique constraint | `email is text unique` |
-| `default <value>` | Default value | `active is flag default true` |
+| Annotation        | Description          | Example                       |
+| ----------------- | -------------------- | ----------------------------- |
+| `key`             | Primary key field    | `id is text key`              |
+| `auto`            | Auto-generated value | `id is text key auto`         |
+| `required`        | Non-nullable field   | `name is text required`       |
+| `optional`        | Nullable field       | `age is int optional`         |
+| `unique`          | Unique constraint    | `email is text unique`        |
+| `default <value>` | Default value        | `active is flag default true` |
 
 ### Database Operations
 
 #### Create (INSERT)
+
 ```droe
 // Create new record
 db create User with name is "Alice", email is "alice@example.com", age is 25
@@ -604,6 +635,7 @@ db create User from new_user
 ```
 
 #### Read (SELECT)
+
 ```droe
 // Find single record
 set user from db find User where id equals "user123"
@@ -619,6 +651,7 @@ set adult_users from db find all User where age is greater than 18
 ```
 
 #### Update
+
 ```droe
 // Update single record
 db update User where id equals "user123" set name is "Alice Smith", age is 26
@@ -630,6 +663,7 @@ db update User where id equals user_id set name is new_name
 ```
 
 #### Delete
+
 ```droe
 // Delete single record
 db delete User where id equals "user123"
@@ -640,16 +674,18 @@ db delete User where active equals false and age is less than 18
 
 ### Complete Database Example
 
-`roeconfig.json`:
+`droeconfig.json`:
+
 ```json
 {
-    "target": "java",
-    "framework": "spring",
-    "database": {"type": "postgres"}
+  "target": "java",
+  "framework": "spring",
+  "database": { "type": "postgres" }
 }
 ```
 
 `src/user_management.droe`:
+
 ```droe
 module user_management
 
@@ -662,7 +698,7 @@ module user_management
         active is flag default true
         created_at is date auto
     end data
-    
+
     // User registration
     action register_user with username which is text, email which is text, password which is text
         // Check if user exists
@@ -671,13 +707,13 @@ module user_management
             display "User already exists"
             give false
         end when
-        
+
         // Create new user
         db create User with username is username, email is email, password is password
         display "User registered successfully"
         give true
     end action
-    
+
     // User authentication
     action authenticate with email which is text, password which is text gives User
         set user from db find User where email equals email and password equals password
@@ -687,7 +723,7 @@ module user_management
         end when
         give user
     end action
-    
+
     // Update user profile
     action update_profile with user_id which is text, new_email which is text
         db update User where id equals user_id set email is new_email
@@ -706,11 +742,13 @@ Droelang provides native support for making API calls and defining HTTP server e
 ### Making API Calls
 
 #### Basic API Call Syntax
+
 ```droe
 call <endpoint> method <HTTP_METHOD> [with <data>] [using headers <headers>] into <response_variable>
 ```
 
 #### GET Request
+
 ```droe
 // Simple GET request
 call "https://api.example.com/users" method GET into response
@@ -724,6 +762,7 @@ end headers into profile_data
 ```
 
 #### POST Request
+
 ```droe
 // POST with JSON data
 set user_data which is text to '{"name": "Alice", "email": "alice@example.com"}'
@@ -740,6 +779,7 @@ end headers into login_response
 ```
 
 #### PUT Request
+
 ```droe
 set update_data which is text to '{"name": "Alice Smith"}'
 call "https://api.example.com/users/123" method PUT with update_data using headers
@@ -749,6 +789,7 @@ end headers into update_response
 ```
 
 #### DELETE Request
+
 ```droe
 call "https://api.example.com/users/123" method DELETE using headers
     Authorization: "Bearer token123"
@@ -763,16 +804,16 @@ call "https://api.example.com/data" method GET into response
 
 // Check response status
 when response.status equals 200 then
-    display "Success: " + response.body
+    display "Success: [response.body]"
 otherwise when response.status equals 404 then
     display "Not found"
 otherwise
-    display "Error: " + response.status
+    display "Error: [response.status]"
 end when
 
 // Parse JSON response (automatic in supported targets)
 set data from response.body
-display "User name: " + data.name
+display "User name: [data.name]"
 ```
 
 ### Defining HTTP Endpoints
@@ -789,7 +830,7 @@ serve get /users/:id
     respond 200 with user
 end serve
 
-// POST endpoint  
+// POST endpoint
 serve post /users
     db create User from request.body
     respond 201 with created_user
@@ -823,13 +864,13 @@ module blog_api
         published is flag default false
         created_at is date auto
     end data
-    
+
     // List all articles
     serve get /articles
         set articles from db find all Article where published equals true
         respond 200 with articles
     end serve
-    
+
     // Get single article
     serve get /articles/:id
         set article from db find Article where id equals id
@@ -838,14 +879,14 @@ module blog_api
         end when
         respond 200 with article
     end serve
-    
+
     // Create article
     serve post /articles
         set new_article from request.body
         db create Article from new_article
         respond 201 with new_article
     end serve
-    
+
     // Update article
     serve put /articles/:id
         set article from db find Article where id equals id
@@ -855,13 +896,13 @@ module blog_api
         db update Article where id equals id set title is request.title
         respond 200 with updated_article
     end serve
-    
+
     // Delete article
     serve delete /articles/:id
         db delete Article where id equals id
         respond 204
     end serve
-    
+
     // Publish article
     serve post /articles/:id/publish
         db update Article where id equals id set published is true
@@ -881,90 +922,111 @@ Droelang provides a comprehensive UI DSL that compiles to web (HTML/JavaScript),
 
 Layouts define the structure and organization of UI components.
 
-**Column Layout:**
+**Current Implementation (Spec Syntax):**
+
 ```droe
 layout MainScreen
   column class "main-container"
-    title "My Application" class "app-title"
-    
+    Title: "My Application" [class="app-title"]
+
     column class "content-section"
-      text "Welcome to the app!" class "welcome-text"
-      button "Get Started" action startApp class "primary-btn"
+      Title: "Welcome to the app!" [class="welcome-text"]
+      Button: "Get Started" [action:startApp, class="primary-btn"]
     end column
   end column
 end layout
 ```
 
+**Inline Layout (Legacy - Fully Implemented):**
+
+```droe
+Layout "MainLayout": [Title: "App", Button: "Start"]
+```
+
+**Container Types Supported:**
+
+- `column` - Vertical layout container
+- `row` - Horizontal layout container
+- `grid` - Grid layout container
+- `stack` - Stacked layout container
+- `overlay` - Overlay layout container
+
 **Layout Attributes:**
+
 - `class` - CSS class for web, styling hints for mobile
 - Automatic responsive design for different screen sizes
 
 ### UI Components
 
 #### Text Components
+
 ```droe
-// Static text
-text "Hello World" class "greeting"
-
-// Dynamic text with data binding
-text bind UserProfile.displayName class "user-name"
-
-// Title text
+// Title component (fully implemented)
 title "Page Title" class "page-header"
 ```
 
+**Implementation Status**: `title` component spec syntax is fully implemented.
+
 #### Input Components
+
 ```droe
-// Text input with validation
-input id username_field text placeholder "Enter username" bind UserProfile.userName validate required class "form-input"
+// Input component (fully implemented)
+input id username_field type text placeholder "Enter username" bind UserProfile.userName validate required class "form-input"
 
 // Email input
-input id email_field email placeholder "your@email.com" bind UserProfile.email validate email class "form-input"
+input id email_field type email placeholder "your@email.com" bind UserProfile.email validate email class "form-input"
 
 // Password input
-input id password_field password placeholder "Password" bind LoginForm.password validate required class "form-input"
+input id password_field type password placeholder "Password" bind LoginForm.password validate required class "form-input"
 ```
+
+**Implementation Status**: Input spec syntax is fully implemented with support for id, type, placeholder, bind, validate, and class attributes.
 
 #### Button Components
+
 ```droe
-// Action button
+// Button component (fully implemented)
 button "Submit" action submitForm class "submit-btn primary"
-
-// Button with conditional enabling
-button "Save" action saveData enabled when form is valid class "save-btn"
-
-// Mobile-specific buttons (see Mobile Platform Features)
-button "Take Photo" type camera action capturePhoto permissions "camera, storage"
+button "Save" action saveData id save_btn class "save-btn"
 ```
+
+**Implementation Status**: Button spec syntax is fully implemented with support for text, action, id, and class attributes.
 
 #### Toggle and Selection Components
-```droe
-// Toggle switch
-toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
 
-// Dropdown selection
+```droe
+// Toggle component (fully implemented)
+toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default on class "toggle-field"
+
+// Dropdown component (fully implemented)
 dropdown id quality_dropdown bind UserSettings.photoQuality default "Medium Quality" class "dropdown-field"
-  option "High Quality"
-  option "Medium Quality" 
-  option "Low Quality"
-end dropdown
 
-// Radio button group
-radio id theme_radio group "appTheme" bind UserSettings.appTheme default "System Default" class "radio-group"
-  option "Light Theme"
-  option "Dark Theme" 
-  option "System Default"
-end radio
+// Checkbox component (fully implemented)
+checkbox id accept_terms "I accept the terms" bind UserForm.acceptTerms class "checkbox-field"
+
+// Radio button component (fully implemented)
+radio id theme_option group "appTheme" "Dark Theme" bind UserSettings.appTheme default "Light" class "radio-option"
+
+// Textarea component (fully implemented)
+textarea id description placeholder "Enter description" bind UserForm.description rows 6 class "textarea-field"
 ```
 
-#### Image Components
+**Implementation Status**: All selection and form component spec syntax methods are fully implemented with support for id, bind, default, class, and component-specific attributes.
+
+#### Image and Media Components
+
 ```droe
-// Static image
-image source "logo.png" alt "Company Logo" class "logo-image"
+// Image component (fully implemented)
+image source "logo.png" alt "Company Logo" class "logo-image" id main_logo
 
-// Dynamic image with data binding
-image source bind UserProfile.profilePicture alt "Profile Picture" class "profile-pic"
+// Video component (fully implemented)
+video source "video.mp4" controls autoplay loop muted class "video-player" id intro_video
+
+// Audio component (fully implemented)
+audio source "audio.mp3" controls autoplay loop class "audio-player" id background_music
 ```
+
+**Implementation Status**: Image, video, and audio spec syntax methods are fully implemented with support for source, alt, controls, autoplay, loop, muted, class, and id attributes.
 
 ### Forms
 
@@ -974,19 +1036,19 @@ Forms provide structured data collection with validation and submission handling
 form SettingsForm
   column class "settings-container"
     title "User Settings" class "form-title"
-    
+
     column class "form-fields"
       input id name_field text placeholder "Full Name" bind UserProfile.fullName validate required class "form-input"
       input id email_field email placeholder "Email Address" bind UserProfile.email validate email class "form-input"
-      
+
       toggle id marketing_toggle "Receive Marketing Emails" bind UserSettings.marketingOptIn default off class "toggle-field"
-      
+
       dropdown id language_dropdown bind UserSettings.language default "English" class "dropdown-field"
         option "English"
         option "Spanish"
         option "French"
       end dropdown
-      
+
       button "Save Settings" action saveUserSettings class "save-btn primary"
     end column
   end column
@@ -1040,12 +1102,12 @@ end action
 button "Get Location" type location action getLocation permissions "location" accuracy high class "location-btn"
 
 // Location action
-action getLocation  
+action getLocation
   when device has location permission then
     show message "Getting location..."
     run native location service with accuracy high
     set currentLocation to location result
-  otherwise  
+  otherwise
     show alert "Location permission required"
   end when
 end action
@@ -1055,7 +1117,7 @@ end action
 
 ```droe
 // Show notifications
-show notification "Task completed successfully!" 
+show notification "Task completed successfully!"
 show notification "New message received" with sound
 
 // Request notification permissions
@@ -1105,6 +1167,7 @@ end action
 Mobile compilation automatically handles:
 
 **Android (Kotlin) Features:**
+
 - `MainActivity.kt` with proper lifecycle management
 - Android XML layouts with responsive design
 - `AndroidManifest.xml` with required permissions
@@ -1112,6 +1175,7 @@ Mobile compilation automatically handles:
 - Gradle build configuration
 
 **iOS (Swift) Features:**
+
 - SwiftUI `ContentView` with navigation
 - iOS-specific UI components
 - `Info.plist` with privacy usage descriptions
@@ -1125,7 +1189,7 @@ Droelang automatically detects required permissions based on component usage:
 ```droe
 // These components automatically add permissions:
 button "Take Photo" type camera         // → CAMERA permission
-button "Get Location" type location     // → LOCATION permissions  
+button "Get Location" type location     // → LOCATION permissions
 show notification "Message"             // → NOTIFICATION permission
 action storeData                        // → STORAGE permissions
 
@@ -1134,12 +1198,14 @@ request permissions "camera, location, notifications"
 ```
 
 **Android Permissions Generated:**
+
 - `android.permission.CAMERA`
-- `android.permission.ACCESS_FINE_LOCATION` 
+- `android.permission.ACCESS_FINE_LOCATION`
 - `android.permission.ACCESS_COARSE_LOCATION`
 - `android.permission.WRITE_EXTERNAL_STORAGE`
 
 **iOS Privacy Descriptions Generated:**
+
 - `NSCameraUsageDescription`
 - `NSLocationWhenInUseUsageDescription`
 - `NSPhotoLibraryUsageDescription`
@@ -1158,21 +1224,30 @@ set age which is int to 25
 set balance which is decimal to 150.50
 
 display "Hello [name]!"                           // Hello Alice!
-display "Age: [age]"                             // Age: 25  
+display "Age: [age]"                             // Age: 25
 display "Balance: $[balance]"                    // Balance: $150.50
 display "Status: [name] ([age] years old)"      // Status: Alice (25 years old)
 ```
 
-### String Concatenation
+### String Building with Interpolation Only
+
 ```droe
 set first which is text to "Hello"
 set second which is text to "World"
-set combined to first + " " + second            // "Hello World"
+set combined to "[first] [second]"              // "Hello World"
 
-// Mixed type concatenation
+// Mixed type interpolation
 set count which is int to 5
-set message to "You have " + count + " items"   // "You have 5 items"
+set message to "You have [count] items"         // "You have 5 items"
+
+// Complex expressions in interpolation
+set user which is text to "John"
+set points which is int to 100
+set bonus which is int to 25
+set status to "[user] earned [points plus bonus] total points"
 ```
+
+**Note**: String concatenation using the `+` operator is not supported. Use square bracket interpolation `[variable]` for all string composition.
 
 ---
 
@@ -1181,16 +1256,18 @@ set message to "You have " + count + " items"   // "You have 5 items"
 Format expressions allow precise control over how data is displayed.
 
 ### Date Formatting
+
 ```droe
 set event_date which is date to "2024-12-25"
 
 display format event_date as "MM/dd/yyyy"       // 12/25/2024
-display format event_date as "dd/MM/yyyy"       // 25/12/2024  
+display format event_date as "dd/MM/yyyy"       // 25/12/2024
 display format event_date as "MMM dd, yyyy"     // Dec 25, 2024
 display format event_date as "long"             // Wednesday, December 25, 2024
 ```
 
 ### Decimal Formatting
+
 ```droe
 set price which is decimal to 1234.56
 
@@ -1199,7 +1276,8 @@ display format price as "#,##0.00"              // 1,234.56
 display format price as "$0.00"                 // $1234.56
 ```
 
-### Number Formatting  
+### Number Formatting
+
 ```droe
 set quantity which is int to 12345
 set code which is int to 255
@@ -1210,6 +1288,7 @@ display format code as "0000"                   // 0255
 ```
 
 ### Format in Assignments
+
 ```droe
 set formatted_date which is text to format event_date as "long"
 set formatted_price which is text to format price as "#,##0.00"
@@ -1222,24 +1301,26 @@ set formatted_price which is text to format price as "#,##0.00"
 Import and use code from other files.
 
 **Include Syntax:**
+
 ```droe
-include "path/to/ModuleName.droe"
+@include ModuleName from "path/to/ModuleName.droe"
 ```
 
 **Using Included Modules:**
+
 ```droe
 // File: utils/MathUtils.droe
 module utils_MathUtils
     action add with a which is int, b which is int gives int
-        give a + b
+        give a plus b
     end action
 end module
 
 // File: main.droe
-include "utils/MathUtils.droe"
+@include utils_MathUtils from "utils/MathUtils.droe"
 
 set result which is int from run utils_MathUtils.add with 10, 5
-display "Sum: " + result
+display "Sum: [result]"
 ```
 
 ---
@@ -1247,12 +1328,14 @@ display "Sum: " + result
 ## Comments
 
 ### Single-line Comments
+
 ```droe
 // This is a single-line comment
 set name which is text to "Alice"  // End-of-line comment
 ```
 
 ### Multi-line Comments
+
 ```droe
 /*
 This is a multi-line comment
@@ -1269,33 +1352,46 @@ set value which is int to 42
 
 ### Reserved Words
 
-| Category | Keywords |
-|----------|----------|
-| **Variables** | `set`, `which`, `is`, `to`, `are` |
-| **Control Flow** | `when`, `then`, `otherwise`, `end`, `while`, `for`, `each`, `in` |
-| **Actions** | `action`, `task`, `with`, `gives`, `give`, `run`, `from` |
-| **Modules** | `module`, `include`, `data` |
-| **Display** | `display`, `show` |  
-| **Types** | `int`, `decimal`, `text`, `flag`, `yesno`, `date`, `file`, `list`, `group`, `of` |
-| **Logic** | `true`, `false`, `and`, `or`, `not`, `empty` |
-| **Comparisons** | `equals`, `greater`, `less`, `than`, `equal`, `does` |
-| **Format** | `format`, `as` |
-| **Database** | `db`, `find`, `create`, `update`, `delete`, `where`, `all`, `key`, `auto`, `required`, `optional`, `unique` |
-| **HTTP/API** | `call`, `method`, `GET`, `POST`, `PUT`, `DELETE`, `using`, `headers`, `into`, `respond`, `serve`, `accept`, `request`, `body`, `status` |
-| **UI Components** | `layout`, `form`, `column`, `title`, `text`, `input`, `button`, `toggle`, `dropdown`, `radio`, `image`, `option` |
-| **UI Attributes** | `id`, `class`, `placeholder`, `bind`, `validate`, `default`, `enabled`, `action`, `type`, `permissions`, `accuracy` |
-| **Mobile** | `camera`, `location`, `notification`, `native`, `device`, `sensor`, `storage`, `cloud`, `vibration`, `audio` |
+| Category          | Keywords                                                                                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Variables**     | `set`, `which`, `is`, `to`, `are`                                                                                                                                                     |
+| **Control Flow**  | `when`, `then`, `otherwise`, `end`, `while`, `for`, `each`, `in`                                                                                                                      |
+| **Actions**       | `action`, `task`, `with`, `gives`, `give`, `run`, `from`                                                                                                                              |
+| **Modules**       | `module`, `data`                                                                                                                                                                      |
+| **Imports**       | `@include`                                                                                                                                                                            |
+| **Display**       | `display`                                                                                                                                                                             |
+| **Types**         | `int`, `decimal`, `text`, `flag`, `yesno`, `date`, `file`, `list`, `group`, `of`                                                                                                      |
+| **Logic**         | `true`, `false`, `and`, `or`, `not`, `empty`                                                                                                                                          |
+| **Arithmetic**    | `plus`, `minus`, `times`, `divided`                                                                                                                                                   |
+| **Comparisons**   | `equals`, `greater`, `less`, `than`, `equal`, `does`                                                                                                                                  |
+| **Format**        | `format`, `as`                                                                                                                                                                        |
+| **Database**      | `db`, `find`, `create`, `update`, `delete`, `where`, `all`, `key`, `auto`, `required`, `optional`, `unique`                                                                           |
+| **HTTP/API**      | `call`, `method`, `GET`, `POST`, `PUT`, `DELETE`, `using`, `headers`, `into`, `respond`, `serve`, `accept`, `request`, `body`, `status`                                               |
+| **UI Components** | `layout`, `form`, `column`, `title`, `input`, `button`, `toggle`, `dropdown`, `radio`, `image`, `video`, `audio`, `textarea`, `checkbox`                                              |
+| **UI Attributes** | `id`, `class`, `placeholder`, `bind`, `validate`, `default`, `enabled`, `action`, `type`, `permissions`, `accuracy`, `source`, `alt`, `controls`, `autoplay`, `loop`, `muted`, `rows` |
+| **Mobile**        | `camera`, `location`, `notification`, `native`, `device`, `sensor`, `storage`, `cloud`, `vibration`, `audio`                                                                          |
 
-### Operators
+### Operators (Word-Based Only)
 
+| Word Operator     | Meaning                 | Usage                                               |
+| ----------------- | ----------------------- | --------------------------------------------------- |
+| `plus`            | Addition                | `5 plus 3`                                          |
+| `minus`           | Subtraction             | `10 minus 4`                                        |
+| `times`           | Multiplication          | `6 times 7`                                         |
+| `divided by`      | Division                | `15 divided by 3`                                   |
+| `equals`          | Equality comparison     | `x equals 5`                                        |
+| `is greater than` | Greater than comparison | `age is greater than 18`                            |
+| `is less than`    | Less than comparison    | `score is less than 100`                            |
+| `and`             | Logical AND             | `age is greater than 18 and score is less than 100` |
+| `or`              | Logical OR              | `status equals "active" or status equals "pending"` |
+
+**Special Syntax:**
 | Symbol | Meaning | Usage |
 |--------|---------|-------|
-| `+` | Addition/Concatenation | `5 + 3`, `"Hello" + " World"` |
-| `-` | Subtraction | `10 - 4` |
-| `*` | Multiplication | `6 * 7` |
-| `/` | Division | `15 / 3` |
 | `[]` | String interpolation | `"Hello [name]"` |
 | `[]` | Array literals | `[1, 2, 3]` |
+
+**Note**: Droelang intentionally avoids mathematical symbols (`+`, `-`, `*`, `/`, `>`, `<`, etc.) to maintain readability for non-technical users.
 
 ---
 
@@ -1305,38 +1401,48 @@ Droelang compiles to multiple target languages and frameworks:
 
 ### Core Compilation Targets
 
-| Target | Extension | Description | Framework Support | Native Support |
-|--------|-----------|-------------|-------------------|----------------|
-| `wasm` | `.wat`/`.wasm` | WebAssembly Text and Binary formats | - | - |
-| `python` | `.py` | Python 3.x source code | FastAPI + SQLAlchemy | `http.client`, `http.server`, `sqlite3` |
-| `java` | `.java` | Java 11+ source code | Spring Boot + JPA | `HttpClient`, `HttpServer`, JDBC |
-| `node` | `.js` | Node.js JavaScript ES6+ | Fastify + Prisma | `http`, `https` (no native DB) |  
-| `go` | `.go` | Go 1.18+ source code | Fiber + GORM | `net/http`, `database/sql` |
-| `rust` | `.rs` | Rust source code | Axum + SQLx | Framework-only |
-| `html` | `.html` | HTML5 with embedded JavaScript | Vue.js integration | - |
-| `bytecode` | `.droebc` | Droelang VM bytecode format | - | - |
-| `mobile` | Multiple | Android (Kotlin) + iOS (Swift) projects | Native SDKs | - |
+| Target     | Extension      | Description                             | Framework Support    | Native Support                          |
+| ---------- | -------------- | --------------------------------------- | -------------------- | --------------------------------------- |
+| `wasm`     | `.wat`/`.wasm` | WebAssembly Text and Binary formats     | -                    | -                                       |
+| `python`   | `.py`          | Python 3.x source code                  | FastAPI + SQLAlchemy | `http.client`, `http.server`, `sqlite3` |
+| `java`     | `.java`        | Java 11+ source code                    | Spring Boot + JPA    | `HttpClient`, `HttpServer`, JDBC        |
+| `node`     | `.js`          | Node.js JavaScript ES6+                 | Fastify + Prisma     | `http`, `https` (no native DB)          |
+| `go`       | `.go`          | Go 1.18+ source code                    | Fiber + GORM         | `net/http`, `database/sql`              |
+| `rust`     | `.rs`          | Rust source code                        | Axum + SQLx          | Framework-only                          |
+| `html`     | `.html`        | HTML5 with embedded JavaScript          | Vue.js integration   | -                                       |
+| `bytecode` | `.droebc`      | Droelang VM bytecode format (default)   | -                    | -                                       |
+| `mobile`   | Multiple       | Android (Kotlin) + iOS (Swift) projects | Native SDKs          | -                                       |
+
+### Target Resolution
+
+The compiler resolves compilation targets using the following priority order:
+
+1. **@target metadata** in source file (highest priority)
+2. **target** setting in `droeconfig.json` 
+3. **Default: bytecode** (for compilation speed)
 
 ### Framework-Specific Generation
 
-When using framework configuration in `roeconfig.json`:
+When using framework configuration in `droeconfig.json`:
 
-| Framework | Target | Generated Output |
-|-----------|--------|------------------|
-| **Spring Boot** | `java` | Complete Spring Boot project with JPA entities, REST controllers, services, repositories, `pom.xml`, `application.properties` |
-| **FastAPI** | `python` | FastAPI project with SQLAlchemy models, database configuration, routers, `requirements.txt`, `main.py` |
-| **Fiber** | `go` | Go Fiber project with GORM models, handlers, routes, database connection, `go.mod` |
-| **Fastify** | `node` | Node.js Fastify project with Prisma schema, handlers, routes, server configuration, `package.json` |
-| **Axum** | `rust` | Rust Axum project with SQLx models, handlers, routes, `Cargo.toml` |
-| **Android** | `mobile` | Android Studio project with Kotlin activities, XML layouts, Gradle build files, `AndroidManifest.xml` |
-| **iOS** | `mobile` | Xcode project with SwiftUI views, `Info.plist`, project configuration |
+| Framework       | Target   | Generated Output                                                                                                              |
+| --------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Spring Boot** | `java`   | Complete Spring Boot project with JPA entities, REST controllers, services, repositories, `pom.xml`, `application.properties` |
+| **FastAPI**     | `python` | FastAPI project with SQLAlchemy models, database configuration, routers, `requirements.txt`, `main.py`                        |
+| **Fiber**       | `go`     | Go Fiber project with GORM models, handlers, routes, database connection, `go.mod`                                            |
+| **Fastify**     | `node`   | Node.js Fastify project with Prisma schema, handlers, routes, server configuration, `package.json`                            |
+| **Axum**        | `rust`   | Rust Axum project with SQLx models, handlers, routes, `Cargo.toml`                                                            |
+| **Android**     | `mobile` | Android Studio project with Kotlin activities, XML layouts, Gradle build files, `AndroidManifest.xml`                         |
+| **iOS**         | `mobile` | Xcode project with SwiftUI views, `Info.plist`, project configuration                                                         |
 
 ### Native vs Framework Mode
 
 Droelang supports both framework-based and native standard library code generation:
 
 #### Framework Mode (Default)
+
 Uses web frameworks and ORMs for full-featured applications:
+
 ```bash
 droe compile api.droe --target java --framework spring
 droe compile api.droe --target python --framework fastapi
@@ -1344,20 +1450,22 @@ droe compile api.droe --target go --framework fiber
 ```
 
 #### Native Mode
+
 Uses only standard library features for lightweight applications:
+
 ```bash
 droe compile api.droe --target java --framework plain
-droe compile api.droe --target python --framework plain  
+droe compile api.droe --target python --framework plain
 droe compile api.droe --target go --framework plain
 ```
 
-| Feature | Framework Mode | Native Mode |
-|---------|----------------|-------------|
-| **Java** | Spring Boot + JPA/Hibernate | `HttpClient` + `HttpServer` + JDBC |
-| **Python** | FastAPI + SQLAlchemy | `http.client` + `http.server` + `sqlite3` |
-| **Go** | Fiber + GORM | `net/http` + `database/sql` |
-| **Node.js** | Fastify + Prisma | `http`/`https` modules |
-| **Rust** | Axum + SQLx | Not supported |
+| Feature     | Framework Mode              | Native Mode                               |
+| ----------- | --------------------------- | ----------------------------------------- |
+| **Java**    | Spring Boot + JPA/Hibernate | `HttpClient` + `HttpServer` + JDBC        |
+| **Python**  | FastAPI + SQLAlchemy        | `http.client` + `http.server` + `sqlite3` |
+| **Go**      | Fiber + GORM                | `net/http` + `database/sql`               |
+| **Node.js** | Fastify + Prisma            | `http`/`https` modules                    |
+| **Rust**    | Axum + SQLx                 | Not supported                             |
 
 ### Compilation Commands
 
@@ -1371,19 +1479,19 @@ droe compile program.droe --target java      # Compile to Java
 droe compile api.droe --target java --framework spring    # Spring Boot project
 droe compile app.droe --target mobile                     # Android + iOS apps
 
-# Project-based compilation (uses roeconfig.json)
-droe compile                                # Uses settings from droeconfig.json
+# Project-based compilation (uses droeconfig.json)
+droe compile                                # Uses settings from ddroeconfig.json
 
 # Compile and run
 droe run program.droe                        # Compile and execute
 ```
 
-### Configuration File (roeconfig.json)
+### Configuration File (droeconfig.json)
 
 ```json
 {
   "src": "src",
-  "build": "build", 
+  "build": "build",
   "dist": "dist",
   "modules": "modules",
   "main": "src/main.droe",
@@ -1411,18 +1519,20 @@ All frameworks use a standardized database configuration format:
 ```
 
 **Examples:**
+
 - PostgreSQL: `"url": "postgresql://localhost/mydb"`
-- MySQL: `"url": "mysql://localhost/mydb"` 
+- MySQL: `"url": "mysql://localhost/mydb"`
 - SQLite: `"url": "sqlite:///path/to/db.sqlite"`
 - H2 (in-memory): `"url": "jdbc:h2:mem:testdb"`
 
 #### Framework-Specific Examples
 
 **Spring Boot (Java):**
+
 ```json
 {
   "target": "java",
-  "framework": "spring", 
+  "framework": "spring",
   "package": "com.example.api",
   "database": {
     "type": "postgres",
@@ -1432,19 +1542,21 @@ All frameworks use a standardized database configuration format:
 ```
 
 **FastAPI (Python):**
+
 ```json
 {
   "target": "python",
   "framework": "fastapi",
   "package": "my_api",
   "database": {
-    "type": "postgres", 
+    "type": "postgres",
     "url": "postgresql://localhost/fastapi_db"
   }
 }
 ```
 
 **Fiber (Go):**
+
 ```json
 {
   "target": "go",
@@ -1452,12 +1564,13 @@ All frameworks use a standardized database configuration format:
   "package": "myapi",
   "database": {
     "type": "postgres",
-    "url": "postgresql://localhost/fiber_db" 
+    "url": "postgresql://localhost/fiber_db"
   }
 }
 ```
 
 **Native Mode:**
+
 ```json
 {
   "target": "python",
@@ -1497,6 +1610,7 @@ dist/
 ### Mobile Project Structure
 
 **Android Project (Kotlin):**
+
 ```
 dist/android/
 ├── app/
@@ -1516,6 +1630,7 @@ dist/android/
 ```
 
 **iOS Project (Swift):**
+
 ```
 dist/ios/
 ├── MyApp.xcodeproj/
@@ -1530,33 +1645,34 @@ dist/ios/
 
 ### Type Mapping Across Targets
 
-| Droelang Type | Python | Java | JavaScript | Go | Kotlin | Swift |
-|--------------|--------|------|------------|-------|--------|-------|
-| `int` | `int` | `int` | `number` | `int` | `Int` | `Int` |
-| `decimal` | `float` | `double` | `number` | `float64` | `Double` | `Double` |
-| `text` | `str` | `String` | `string` | `string` | `String` | `String` |
-| `flag` | `bool` | `boolean` | `boolean` | `bool` | `Boolean` | `Bool` |
-| `date` | `datetime` | `LocalDate` | `Date` | `time.Time` | `LocalDate` | `Date` |
-| `list of T` | `List[T]` | `List<T>` | `T[]` | `[]T` | `List<T>` | `[T]` |
+| Droelang Type | Python     | Java        | JavaScript | Go          | Kotlin      | Swift    |
+| ------------- | ---------- | ----------- | ---------- | ----------- | ----------- | -------- |
+| `int`         | `int`      | `int`       | `number`   | `int`       | `Int`       | `Int`    |
+| `decimal`     | `float`    | `double`    | `number`   | `float64`   | `Double`    | `Double` |
+| `text`        | `str`      | `String`    | `string`   | `string`    | `String`    | `String` |
+| `flag`        | `bool`     | `boolean`   | `boolean`  | `bool`      | `Boolean`   | `Bool`   |
+| `date`        | `datetime` | `LocalDate` | `Date`     | `time.Time` | `LocalDate` | `Date`   |
+| `list of T`   | `List[T]`  | `List<T>`   | `T[]`      | `[]T`       | `List<T>`   | `[T]`    |
 
 ### Database Type Mapping (Spring Boot)
 
-| Droelang Annotation | JPA Annotation | SQL Type |
-|--------------------|----------------|----------|
-| `key auto` | `@Id @GeneratedValue` | `SERIAL/UUID` |
-| `required` | `@Column(nullable=false)` | `NOT NULL` |
-| `unique` | `@Column(unique=true)` | `UNIQUE` |
-| `text` | `@Column(columnDefinition="TEXT")` | `TEXT/VARCHAR` |
-| `int` | `@Column` | `INTEGER` |
-| `decimal` | `@Column` | `DECIMAL` |
-| `flag` | `@Column` | `BOOLEAN` |
-| `date auto` | `@CreatedDate` | `TIMESTAMP` |
+| Droelang Annotation | JPA Annotation                     | SQL Type       |
+| ------------------- | ---------------------------------- | -------------- |
+| `key auto`          | `@Id @GeneratedValue`              | `SERIAL/UUID`  |
+| `required`          | `@Column(nullable=false)`          | `NOT NULL`     |
+| `unique`            | `@Column(unique=true)`             | `UNIQUE`       |
+| `text`              | `@Column(columnDefinition="TEXT")` | `TEXT/VARCHAR` |
+| `int`               | `@Column`                          | `INTEGER`      |
+| `decimal`           | `@Column`                          | `DECIMAL`      |
+| `flag`              | `@Column`                          | `BOOLEAN`      |
+| `date auto`         | `@CreatedDate`                     | `TIMESTAMP`    |
 
 ---
 
 ## Example Programs
 
 ### Complete Example
+
 ```droe
 // Customer management system
 module customer_system
@@ -1567,11 +1683,11 @@ module customer_system
         balance is decimal
         active is flag
     end data
-    
+
     action create_welcome_message with customer_name which is text, balance which is decimal gives text
         when balance is greater than 1000 then
             give "Welcome, " + customer_name + "! You're a premium member."
-        otherwise  
+        otherwise
             give "Welcome, " + customer_name + "! Thank you for joining us."
         end when
     end action
@@ -1608,7 +1724,7 @@ end for
 Droelang enforces strong typing and will generate compilation errors for:
 
 - **Type mismatches**: Assigning wrong type to variable
-- **Undefined variables**: Using undeclared variables  
+- **Undefined variables**: Using undeclared variables
 - **Unknown actions**: Calling non-existent functions
 - **Parameter mismatches**: Wrong number or types of parameters
 - **Syntax errors**: Invalid language constructs
@@ -1618,16 +1734,19 @@ Droelang enforces strong typing and will generate compilation errors for:
 ## Best Practices
 
 ### Code Organization
+
 - Use modules to group related functionality
 - Use meaningful variable and action names
 - Include type annotations for clarity
 
 ### Performance
+
 - Use appropriate collection types (`list of` vs `group of`)
 - Avoid deep nesting in control structures
 - Use format expressions for efficient string formatting
 
-### Readability  
+### Readability
+
 - Use consistent indentation
 - Add comments for complex logic
 - Use string interpolation for dynamic messages
@@ -1642,11 +1761,11 @@ Complete example of a Droelang application that compiles to web, Android, and iO
 
 ```droe
 // Cross-platform photo sharing app
-@name "PhotoShare" 
+@name "PhotoShare"
 @description "Cross-platform photo sharing application"
 @package "com.example.photoshare"
 
-// Mobile configuration should be in roeconfig.json:
+// Mobile configuration should be in droeconfig.json:
 // {
 //   "target": "mobile",
 //   "mobile": {
@@ -1661,16 +1780,16 @@ module photoshare
   layout MainScreen
     column class "main-container"
       title "PhotoShare App" class "app-title"
-      
+
       column class "form-container"
         input id name_field text placeholder "Enter your name" bind UserProfile.userName validate required class "form-input"
-        
+
         // Mobile-specific components work seamlessly
         button "Take Photo" type camera action capturePhoto permissions "camera, storage" class "camera-btn"
         button "Get Location" type location action getLocation permissions "location" accuracy high class "location-btn"
-        
+
         image source "placeholder.jpg" alt "Your captured photo" bind UserProfile.capturedImage class "photo-preview"
-        
+
         button "Share Photo" action sharePhoto enabled when capturedImage is not empty class "share-btn primary"
       end column
     end column
@@ -1680,16 +1799,16 @@ module photoshare
   form SettingsForm
     column class "settings-container"
       title "App Settings" class "form-title"
-      
+
       column class "form-fields"
         toggle id notifications_toggle "Enable Notifications" bind UserSettings.notificationsEnabled default off class "toggle-field"
-        
+
         dropdown id quality_dropdown bind UserSettings.photoQuality default "Medium Quality" class "dropdown-field"
           option "High Quality"
-          option "Medium Quality" 
+          option "Medium Quality"
           option "Low Quality"
         end dropdown
-        
+
         button "Save Settings" action saveSettings class "save-btn primary"
       end column
     end column
@@ -1706,12 +1825,12 @@ module photoshare
     end when
   end action
 
-  action getLocation  
+  action getLocation
     when device has location permission then
       show message "Getting location..."
       run native location service with accuracy high
       set currentLocation to location result
-    otherwise  
+    otherwise
       show alert "Location permission required"
     end when
   end action
@@ -1736,12 +1855,12 @@ module photoshare
   task UploadPhoto
     step "Compress image for upload"
     step "Upload to cloud server"
-    step "Generate shareable link" 
-    
+    step "Generate shareable link"
+
     when task completed then
       show notification "Photo shared successfully!"
     end when
-    
+
     when task failed then
       show alert "Upload failed. Please try again."
     end when
@@ -1750,7 +1869,7 @@ module photoshare
   // Cross-platform data models
   data Photo
     id is text required
-    imagePath is text required  
+    imagePath is text required
     location is text optional
     timestamp is date required
     userName is text required
@@ -1761,6 +1880,7 @@ end module
 ```
 
 This single Droelang file generates:
+
 - **Web**: HTML/JavaScript with responsive design
 - **Android**: Complete Kotlin project with Material Design
 - **iOS**: SwiftUI project with native iOS components
@@ -1778,6 +1898,7 @@ Droelang provides framework adapters that automatically generate idiomatic code 
 The Spring Boot adapter generates a complete, production-ready Spring Boot application:
 
 **Features:**
+
 - **JPA Entities**: Automatic generation from `data` definitions with proper annotations
 - **REST Controllers**: Full CRUD endpoints from `serve` statements
 - **Service Layer**: Business logic separation
@@ -1786,15 +1907,16 @@ The Spring Boot adapter generates a complete, production-ready Spring Boot appli
 - **Build System**: Maven `pom.xml` with all required dependencies
 
 **Configuration:**
+
 ```json
 {
-    "target": "java",
-    "framework": "spring",
-    "package": "com.example.api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/mydb"
-    }
+  "target": "java",
+  "framework": "spring",
+  "package": "com.example.api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/mydb"
+  }
 }
 ```
 
@@ -1803,6 +1925,7 @@ The Spring Boot adapter generates a complete, production-ready Spring Boot appli
 The FastAPI adapter generates a modern, async Python web API:
 
 **Features:**
+
 - **SQLAlchemy Models**: ORM models from `data` definitions
 - **Pydantic Schemas**: Request/response validation
 - **REST Endpoints**: Async CRUD APIs from `serve` statements
@@ -1810,15 +1933,16 @@ The FastAPI adapter generates a modern, async Python web API:
 - **Dependencies**: `requirements.txt` with FastAPI, SQLAlchemy, and database drivers
 
 **Configuration:**
+
 ```json
 {
-    "target": "python",
-    "framework": "fastapi",
-    "package": "my_api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/mydb"
-    }
+  "target": "python",
+  "framework": "fastapi",
+  "package": "my_api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/mydb"
+  }
 }
 ```
 
@@ -1827,6 +1951,7 @@ The FastAPI adapter generates a modern, async Python web API:
 The Axum adapter generates a high-performance Rust web server:
 
 **Features:**
+
 - **SQLx Models**: Compile-time checked database queries
 - **Axum Handlers**: Type-safe HTTP handlers
 - **REST Endpoints**: Async CRUD APIs from `serve` statements
@@ -1834,15 +1959,16 @@ The Axum adapter generates a high-performance Rust web server:
 - **Build System**: `Cargo.toml` with Axum, SQLx, and database drivers
 
 **Configuration:**
+
 ```json
 {
-    "target": "rust",
-    "framework": "axum",
-    "package": "my-api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/mydb"
-    }
+  "target": "rust",
+  "framework": "axum",
+  "package": "my-api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/mydb"
+  }
 }
 ```
 
@@ -1851,6 +1977,7 @@ The Axum adapter generates a high-performance Rust web server:
 The Fiber adapter generates a fast Go web API with GORM:
 
 **Features:**
+
 - **GORM Models**: Go structs with database tags from `data` definitions
 - **Fiber Handlers**: High-performance HTTP handlers
 - **REST Endpoints**: Complete CRUD APIs from `serve` statements
@@ -1858,15 +1985,16 @@ The Fiber adapter generates a fast Go web API with GORM:
 - **Go Module**: `go.mod` with Fiber, GORM, and database drivers
 
 **Configuration:**
+
 ```json
 {
-    "target": "go",
-    "framework": "fiber",
-    "package": "my_api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/mydb"
-    }
+  "target": "go",
+  "framework": "fiber",
+  "package": "my_api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/mydb"
+  }
 }
 ```
 
@@ -1875,6 +2003,7 @@ The Fiber adapter generates a fast Go web API with GORM:
 The Fastify adapter generates a Node.js web API with Prisma:
 
 **Features:**
+
 - **Prisma Schema**: Type-safe database schema from `data` definitions
 - **Fastify Routes**: Fast HTTP routing from `serve` statements
 - **REST Endpoints**: Complete CRUD APIs with validation
@@ -1882,21 +2011,23 @@ The Fastify adapter generates a Node.js web API with Prisma:
 - **Package System**: `package.json` with Fastify, Prisma, and database drivers
 
 **Configuration:**
+
 ```json
 {
-    "target": "node",
-    "framework": "fastify",
-    "package": "my-api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/mydb"
-    }
+  "target": "node",
+  "framework": "fastify",
+  "package": "my-api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/mydb"
+  }
 }
 ```
 
 ### Mobile Framework Adapters
 
 #### Android Adapter (Kotlin)
+
 Generates a complete Android Studio project:
 
 - **Activities**: Kotlin activities with lifecycle management
@@ -1906,6 +2037,7 @@ Generates a complete Android Studio project:
 - **Components**: Native Android components from Droelang UI DSL
 
 #### iOS Adapter (Swift)
+
 Generates a complete Xcode project:
 
 - **SwiftUI Views**: Modern declarative UI
@@ -1916,33 +2048,34 @@ Generates a complete Xcode project:
 
 ### Supported Framework Features
 
-| Target | Framework | Database ORM | API Type | Generated Files | Status |
-|--------|-----------|--------------|----------|-----------------|--------|
-| Java | Spring Boot | JPA/Hibernate | REST Controllers | Maven project | ✅ Implemented |
-| Python | FastAPI | SQLAlchemy | REST + Async | Python package | ✅ Implemented |
-| Rust | Axum | SQLx | REST + Async | Cargo project | ✅ Implemented |
-| Go | Fiber | GORM | REST + Fast HTTP | Go module | ✅ Implemented |
-| Node.js | Fastify | Prisma | REST + TypeScript | npm package | ✅ Implemented |
-| HTML | None | N/A | Client-side JS | Static HTML/CSS | ✅ Implemented |
-| Mobile | Kotlin/Swift | Room/CoreData* | Retrofit/URLSession* | Native projects* | 🚧 Partial |
+| Target  | Framework    | Database ORM    | API Type              | Generated Files   | Status         |
+| ------- | ------------ | --------------- | --------------------- | ----------------- | -------------- |
+| Java    | Spring Boot  | JPA/Hibernate   | REST Controllers      | Maven project     | ✅ Implemented |
+| Python  | FastAPI      | SQLAlchemy      | REST + Async          | Python package    | ✅ Implemented |
+| Rust    | Axum         | SQLx            | REST + Async          | Cargo project     | ✅ Implemented |
+| Go      | Fiber        | GORM            | REST + Fast HTTP      | Go module         | ✅ Implemented |
+| Node.js | Fastify      | Prisma          | REST + TypeScript     | npm package       | ✅ Implemented |
+| HTML    | None         | N/A             | Client-side JS        | Static HTML/CSS   | ✅ Implemented |
+| Mobile  | Kotlin/Swift | Room/CoreData\* | Retrofit/URLSession\* | Native projects\* | 🚧 Partial     |
 
 ### Database Support by Framework
 
-| Framework | PostgreSQL | MySQL | SQLite | In-Memory |
-|-----------|------------|-------|--------|-----------|
-| Spring Boot | ✅ | ✅ | ✅ | ✅ (H2) |
-| FastAPI | ✅ | ✅ | ✅ | ❌ |
-| Axum | ✅ | ✅ | ✅ | ❌ |
-| Fiber | ✅ | ✅ | ✅ | ❌ |
-| Fastify | ✅ | ✅ | ✅ | ❌ |
+| Framework   | PostgreSQL | MySQL | SQLite | In-Memory |
+| ----------- | ---------- | ----- | ------ | --------- |
+| Spring Boot | ✅         | ✅    | ✅     | ✅ (H2)   |
+| FastAPI     | ✅         | ✅    | ✅     | ❌        |
+| Axum        | ✅         | ✅    | ✅     | ❌        |
+| Fiber       | ✅         | ✅    | ✅     | ❌        |
+| Fastify     | ✅         | ✅    | ✅     | ❌        |
 
-**Note**: Framework selection is configured in `roeconfig.json`, not as file-level annotations. HTML target generates static frontend code without framework dependencies.
+**Note**: Framework selection is configured in `droeconfig.json`, not as file-level annotations. HTML target generates static frontend code without framework dependencies.
 
 ### Framework Usage Examples
 
 #### Example: User Management API
 
 **Shared Droelang Code (`src/api.droe`):**
+
 ```droe
 data User
     id is text key auto
@@ -1968,67 +2101,72 @@ end serve
 ```
 
 **Java Spring Boot Configuration:**
+
 ```json
 {
-    "target": "java",
-    "framework": "spring",
-    "package": "com.example.userapi",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/userdb"
-    }
+  "target": "java",
+  "framework": "spring",
+  "package": "com.example.userapi",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/userdb"
+  }
 }
 ```
 
 **Python FastAPI Configuration:**
+
 ```json
 {
-    "target": "python",
-    "framework": "fastapi",
-    "package": "user_api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/userdb"
-    }
+  "target": "python",
+  "framework": "fastapi",
+  "package": "user_api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/userdb"
+  }
 }
 ```
 
 **Go Fiber Configuration:**
+
 ```json
 {
-    "target": "go",
-    "framework": "fiber",
-    "package": "user_api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/userdb"
-    }
+  "target": "go",
+  "framework": "fiber",
+  "package": "user_api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/userdb"
+  }
 }
 ```
 
 **Rust Axum Configuration:**
+
 ```json
 {
-    "target": "rust",
-    "framework": "axum",
-    "package": "user-api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/userdb"
-    }
+  "target": "rust",
+  "framework": "axum",
+  "package": "user-api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/userdb"
+  }
 }
 ```
 
 **Node.js Fastify Configuration:**
+
 ```json
 {
-    "target": "node",
-    "framework": "fastify",
-    "package": "user-api",
-    "database": {
-        "type": "postgres",
-        "url": "postgresql://localhost/userdb"
-    }
+  "target": "node",
+  "framework": "fastify",
+  "package": "user-api",
+  "database": {
+    "type": "postgres",
+    "url": "postgresql://localhost/userdb"
+  }
 }
 ```
 
@@ -2045,11 +2183,12 @@ end serve
 Each framework adapter generates a complete, production-ready project:
 
 **Java Spring Boot:**
+
 ```
 src/main/java/com/example/userapi/
 ├── Application.java          # Main application class
 ├── model/User.java           # JPA entity
-├── repository/UserRepository.java  # Spring Data repository  
+├── repository/UserRepository.java  # Spring Data repository
 ├── service/UserService.java # Business logic
 └── controller/UserController.java  # REST endpoints
 src/main/resources/
@@ -2058,17 +2197,19 @@ pom.xml                      # Maven dependencies
 ```
 
 **Python FastAPI:**
+
 ```
 user_api/
 ├── main.py                  # FastAPI application
 ├── models.py                # SQLAlchemy models
 ├── database.py              # Database session
-├── routers.py               # API endpoints  
+├── routers.py               # API endpoints
 └── __init__.py
 requirements.txt             # Dependencies
 ```
 
 **Go Fiber:**
+
 ```
 ├── main.go                  # Fiber server
 ├── models.go                # GORM models
@@ -2078,7 +2219,7 @@ requirements.txt             # Dependencies
 ├── go.mod                   # Go module
 └── .env                     # Environment variables
 ```
-            
+
             for each post in posts
                 column class "post-card"
                     title bind post.title class "post-title"
@@ -2086,17 +2227,18 @@ requirements.txt             # Dependencies
                     text "By: " + post.author class "post-author"
                 end column
             end for
-            
+
             button "Load Posts" action loadPosts class "btn-primary"
         end column
     end layout
-    
+
     action loadPosts
         call "/api/posts" method GET into response
         set posts from response.body
     end action
 
 end module
+
 ```
 
 This single Droelang file generates:
@@ -2108,3 +2250,4 @@ This single Droelang file generates:
 ---
 
 *This specification covers Droelang version 3.0 with Database DSL, API DSL, and Framework Adapter support. For updates and examples, visit the official Droelang documentation.*
+```

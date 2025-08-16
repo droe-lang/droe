@@ -14,6 +14,10 @@ from .base import ParseError
 class StructureParser(UIComponentParser):
     """Parser for structural elements like modules, data definitions, layouts, and forms."""
     
+    def __init__(self, source: str):
+        super().__init__(source)
+        self.indent_size = None  # Store detected indentation size
+    
     def parse_module_definition(self) -> ModuleDefinition:
         """Parse Module definition."""
         name_line = self.consume_line()
@@ -28,7 +32,10 @@ class StructureParser(UIComponentParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end module':
                 break
             
             if next_line.strip().startswith('Export:'):
@@ -36,6 +43,8 @@ class StructureParser(UIComponentParser):
                 export_name = next_line.strip()[7:].strip()
                 export_name = self.extract_string_literal(export_name) or export_name
                 exports.append(export_name)
+            else:
+                self.consume_line()
         
         return ModuleDefinition(name, exports)
     
@@ -53,7 +62,10 @@ class StructureParser(UIComponentParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end data':
                 break
             
             if next_line.strip().startswith('Field:'):
@@ -66,6 +78,8 @@ class StructureParser(UIComponentParser):
                     field_name = field_name.strip()
                     field_type = field_type.strip()
                     fields.append(DataField(field_name, field_type))
+            else:
+                self.consume_line()
         
         return DataDefinition(name, fields)
     
@@ -83,11 +97,14 @@ class StructureParser(UIComponentParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end layout':
                 break
             
             self.consume_line()
-            component_line = next_line[4:].strip()
+            component_line = next_line.strip()
             
             # Skip Name line
             if component_line.startswith('Name:'):
@@ -114,11 +131,14 @@ class StructureParser(UIComponentParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end form':
                 break
             
             self.consume_line()
-            element_line = next_line[4:].strip()
+            element_line = next_line.strip()
             
             # Skip Name line
             if element_line.startswith('Name:'):
@@ -228,7 +248,14 @@ class StructureParser(UIComponentParser):
         module_name = parts[1]
         body = []
         
-        # Parse module body until 'end module'
+        # Debug: Write to file
+        with open("/tmp/droe_parser_debug.txt", "w") as f:
+            f.write(f"Parsing module '{module_name}'\n")
+        
+        # Detect indentation level from the first indented line (store as instance variable)
+        self.indent_size = None
+        
+        # Parse module body until 'end module' - ignore indentation, rely on explicit end markers
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
@@ -239,27 +266,52 @@ class StructureParser(UIComponentParser):
                 self.consume_line()  # consume 'end module'
                 break
                 
-            # Parse indented content
-            if next_line.startswith('    '):  # 4 spaces
+            # Skip empty lines
+            if not next_line.strip():
                 self.consume_line()
-                content = next_line.strip()
+                continue
                 
-                if content.startswith('data '):
-                    stmt = self.parse_data_spec_syntax(content)
-                    if stmt:
-                        body.append(stmt)
-                elif content.startswith('action '):
-                    stmt = self.parse_action_spec_syntax(content)
-                    if stmt:
-                        body.append(stmt)
+            # Parse any non-empty line that's not the end marker
+            self.consume_line()
+            content = next_line.strip()
+            
+            # Debug: Log what we're parsing
+            with open("/tmp/droe_parser_debug.txt", "a") as f:
+                f.write(f"  Parsing content: '{content}'\n")
+            
+            if content.startswith('data '):
+                stmt = self.parse_data_spec_syntax(content)
+                if stmt:
+                    body.append(stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added data: {stmt.name}\n")
+            elif content.startswith('action '):
+                stmt = self.parse_action_spec_syntax(content)
+                if stmt:
+                    body.append(stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added action: {stmt.name}\n")
+            elif content.startswith('layout '):
+                with open("/tmp/droe_parser_debug.txt", "a") as f:
+                    f.write(f"    Found layout line, calling parse_layout_spec_syntax\n")
+                stmt = self.parse_layout_spec_syntax(content)
+                if stmt:
+                    body.append(stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added layout: {stmt.name}\n")
                 else:
-                    # Parse as regular statement
-                    stmt = self.parse_statement(content)
-                    if stmt:
-                        body.append(stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    parse_layout_spec_syntax returned None\n")
             else:
-                # Non-indented line means end of module
-                break
+                # Parse as regular statement
+                stmt = self.parse_statement(content)
+                if stmt:
+                    body.append(stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added statement: {type(stmt).__name__}\n")
+        
+        with open("/tmp/droe_parser_debug.txt", "a") as f:
+            f.write(f"Module '{module_name}' finished with {len(body)} body statements\n")
         
         return ModuleDefinition(module_name, body)
     
@@ -284,16 +336,16 @@ class StructureParser(UIComponentParser):
                 self.consume_line()  # consume 'end data'
                 break
                 
-            # Parse indented field definitions (4 spaces for top-level, 8 for module-nested)
-            if (next_line.startswith('    ') or next_line.startswith('        ')) and ' is ' in next_line:
+            # Parse field definitions with 'is' keyword
+            if ' is ' in next_line:
                 self.consume_line()
                 field_line = next_line.strip()
                 field = self.parse_data_field(field_line)
                 if field:
                     fields.append(field)
             else:
-                # Non-field line means end of data definition
-                break
+                # Skip non-field lines
+                self.consume_line()
         
         return DataDefinition(data_name, fields)
     
@@ -343,15 +395,146 @@ class StructureParser(UIComponentParser):
                 self.consume_line()  # consume 'end action'
                 break
                 
-            # Skip indented content for now
-            if next_line.startswith('        '):  # 8 spaces for nested
-                self.consume_line()
-                content = next_line.strip()
-                # Parse action body content
-                stmt = self.parse_statement(content)
-                if stmt:
-                    body.append(stmt)
-            else:
-                break
+            # Parse action body content
+            self.consume_line()
+            content = next_line.strip()
+            stmt = self.parse_statement(content)
+            if stmt:
+                body.append(stmt)
         
         return ActionDefinition(action_name, body)
+    
+    def parse_layout_spec_syntax(self, line: str) -> LayoutDefinition:
+        """Parse layout with spec syntax: 'layout LayoutName'"""
+        # Extract layout name
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid layout definition: {line}")
+        
+        layout_name = parts[1]
+        children = []
+        layout_type = "column"  # Default layout type
+        
+        # Parse layout body until 'end layout' - ignore indentation, rely on explicit end markers
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == 'end layout':
+                self.consume_line()  # consume 'end layout'
+                break
+                
+            # Skip empty lines
+            if not next_line.strip():
+                self.consume_line()
+                continue
+                
+            # Parse any non-empty line that's not the end marker
+            self.consume_line()
+            content = next_line.strip()
+            
+            # Parse UI components within the layout
+            if content.startswith(('column', 'row', 'grid', 'stack', 'overlay')):
+                # Parse nested layout containers - these are also layout definitions
+                container_type = content.split()[0]
+                # If this is the first container, use its type for the layout type
+                if len(children) == 0:
+                    layout_type = container_type
+                
+                # Parse container as a nested layout
+                nested_layout = self.parse_container_layout(content, container_type)
+                if nested_layout:
+                    children.append(nested_layout)
+            else:
+                # Parse UI components
+                component_stmt = self.parse_component(content)
+                if component_stmt:
+                    children.append(component_stmt)
+                else:
+                    # Parse as regular statement
+                    stmt = self.parse_statement(content)
+                    if stmt:
+                        children.append(stmt)
+        
+        return LayoutDefinition(layout_name, layout_type, children)
+    
+    def parse_container_layout(self, line: str, container_type: str) -> LayoutDefinition:
+        """Parse a container component (column, row, etc.) as a nested layout"""
+        # Extract CSS classes and other attributes from the container line
+        css_classes = []
+        attributes = []
+        
+        # Parse class attribute if present
+        if 'class ' in line:
+            parts = line.split('class ')
+            if len(parts) > 1:
+                class_part = parts[1].strip()
+                if class_part.startswith('"') and '"' in class_part[1:]:
+                    class_value = class_part[1:class_part.index('"', 1)]
+                    css_classes = [class_value]
+        
+        # Generate a unique name for this container
+        container_name = f"{container_type}_container_{len(self.lines)}"
+        children = []
+        
+        # Debug container parsing
+        with open("/tmp/droe_parser_debug.txt", "a") as f:
+            f.write(f"    Parsing container '{container_type}' with classes: {css_classes}\n")
+        
+        # Parse container body until matching 'end container_type' - ignore indentation, rely on explicit end markers
+        end_marker = f'end {container_type}'
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == end_marker:
+                self.consume_line()  # consume end marker
+                with open("/tmp/droe_parser_debug.txt", "a") as f:
+                    f.write(f"    Found end marker: {end_marker}\n")
+                break
+                
+            # Skip empty lines
+            if not next_line.strip():
+                self.consume_line()
+                continue
+                
+            # Parse any non-empty line that's not the end marker
+            self.consume_line()
+            content = next_line.strip()
+            
+            with open("/tmp/droe_parser_debug.txt", "a") as f:
+                f.write(f"    Parsing container content: '{content}'\n")
+            
+            # Parse nested containers or components
+            if content.startswith(('column', 'row', 'grid', 'stack', 'overlay')):
+                nested_container_type = content.split()[0]
+                nested_layout = self.parse_container_layout(content, nested_container_type)
+                if nested_layout:
+                    children.append(nested_layout)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added nested container: {nested_container_type}\n")
+            else:
+                # Parse UI components
+                component_stmt = self.parse_component(content)
+                if component_stmt:
+                    children.append(component_stmt)
+                    with open("/tmp/droe_parser_debug.txt", "a") as f:
+                        f.write(f"    Added component: {type(component_stmt).__name__}\n")
+                else:
+                    # Parse as regular statement
+                    stmt = self.parse_statement(content)
+                    if stmt:
+                        children.append(stmt)
+                        with open("/tmp/droe_parser_debug.txt", "a") as f:
+                            f.write(f"    Added statement: {type(stmt).__name__}\n")
+        
+        with open("/tmp/droe_parser_debug.txt", "a") as f:
+            f.write(f"    Container '{container_type}' finished with {len(children)} children\n")
+        
+        layout_def = LayoutDefinition(container_name, container_type, children)
+        layout_def.css_classes = css_classes
+        return layout_def

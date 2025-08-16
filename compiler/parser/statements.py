@@ -26,7 +26,7 @@ class StatementParser(ExpressionParser):
         
         
         # Include statements
-        if line.startswith('Include '):
+        if line.startswith('@include '):
             return self.parse_include(line)
         
         # Database statements
@@ -38,61 +38,61 @@ class StatementParser(ExpressionParser):
             return self.parse_serve_statement(line)
         
         # Display statements
-        if line.startswith('Display ') or line.startswith('display '):
+        if line.startswith('display '):
             return self.parse_display(line)
         
         # API call statements
         if line.startswith(('call ', 'fetch ', 'update ', 'delete ')):
             return self.parse_api_call(line)
         
-        # Conditional statements
-        if line.startswith('If '):
-            return self.parse_if(line)
+        # Conditional statements  
+        if line.startswith('when '):
+            return self.parse_when(line)
         
         # Loop statements
-        if line == 'While:':
-            return self.parse_while_loop()
-        if line == 'ForEach:':
-            return self.parse_foreach_loop()
+        if line.startswith('while '):
+            return self.parse_while_loop(line)
+        if line.startswith('for each '):
+            return self.parse_foreach_loop(line)
         
         # Task statements
-        if line == 'Task:':
-            return self.parse_task_action()
-        if line.startswith('RunTask '):
+        if line.startswith('task '):
+            return self.parse_task_action(line)
+        if line.startswith('run task '):
             return self.parse_task_invocation(line)
         
         # Action statements
-        if line == 'Action:' or line.startswith('Action '):
-            return self.parse_action_definition()
-        if line.startswith('Return '):
+        if line.startswith('action '):
+            return self.parse_action_definition(line)
+        if line.startswith('give '):
             return self.parse_return_statement(line)
         
-        # Data instance creation
-        if line.startswith('Create '):
-            return self.parse_data_instance(line)
+        # Assignment and variable creation (set statements)
+        if line.startswith('set '):
+            return self.parse_set_statement(line)
         
         # Action invocation (before assignment check)
-        if '(' in line and ')' in line and not '=' in line:
+        if '(' in line and ')' in line and ' is ' not in line:
             return self.parse_action_invocation(line)
         
         # Assignment statements (must be last)
-        if '=' in line:
+        if ' is ' in line and not line.startswith('when ') and ' which is ' not in line:
             return self.parse_assignment(line)
         
         return None
     
     def parse_include(self, line: str) -> IncludeStatement:
-        """Parse Include statement."""
-        match = re.match(r'Include\s+(\w+)\s+from\s+"([^"]+)"', line)
+        """Parse @include statement."""
+        match = re.match(r'@include\s+(\w+)\s+from\s+"([^"]+)"', line)
         if not match:
-            match = re.match(r"Include\s+(\w+)\s+from\s+'([^']+)'", line)
+            match = re.match(r"@include\s+(\w+)\s+from\s+'([^']+)'", line)
         
         if not match:
             # Try without quotes
-            match = re.match(r'Include\s+(\w+)\s+from\s+(\S+)', line)
+            match = re.match(r'@include\s+(\w+)\s+from\s+(\S+)', line)
         
         if not match:
-            raise ParseError(f"Invalid Include statement: {line}")
+            raise ParseError(f"Invalid @include statement: {line}")
         
         module_name = match.group(1)
         file_path = match.group(2)
@@ -100,11 +100,11 @@ class StatementParser(ExpressionParser):
         return IncludeStatement(module_name, file_path)
     
     def parse_display(self, line: str) -> DisplayStatement:
-        """Parse Display/display statement."""
+        """Parse display statement."""
         if line.startswith('display '):
             content = line[8:].strip()  # Remove "display "
         else:
-            content = line[8:].strip()  # Remove "Display "
+            raise ParseError(f"Invalid display statement: {line}")
         
         # Check if content is a string literal
         if (content.startswith('"') and content.endswith('"')) or \
@@ -116,41 +116,50 @@ class StatementParser(ExpressionParser):
         
         return DisplayStatement(value)
     
-    def parse_if(self, line: str) -> IfStatement:
-        """Parse If statement with condition and body."""
-        # Extract condition
-        condition_match = re.match(r'If\s+(.+?):', line)
-        if not condition_match:
-            raise ParseError(f"Invalid If statement: {line}")
+    def parse_when(self, line: str) -> IfStatement:
+        """Parse when statement with condition and body."""
+        # Extract condition from 'when <condition> then'
+        if ' then' not in line:
+            raise ParseError(f"Invalid when statement - missing 'then': {line}")
         
-        condition_str = condition_match.group(1).strip()
+        condition_str = line[5:].split(' then')[0].strip()  # Remove 'when ' and everything after ' then'
         condition = self.parse_expression(condition_str)
         
-        # Parse body statements
+        # Check if this is a single-line when statement
+        then_part = line.split(' then', 1)[1].strip() if ' then' in line else ''
+        if then_part:
+            # Single line: when <condition> then <statement>
+            stmt = self.parse_statement(then_part)
+            return IfStatement(condition, [stmt] if stmt else [], None)
+        
+        # Multi-line when statement
         body = []
         else_body = []
-        in_else = False
+        in_otherwise = False
         
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
-                # Check for Else clause
-                if next_line and next_line.strip() == 'Else:':
-                    self.consume_line()
-                    in_else = True
-                    continue
-                else:
-                    break
+            if not next_line:
+                break
             
-            # Consume indented line
+            # Check for end marker or otherwise clause
+            if next_line.strip() == 'end when':
+                self.consume_line()
+                break
+            elif next_line.strip() == 'otherwise':
+                self.consume_line()
+                in_otherwise = True
+                continue
+            
+            # Parse any non-empty line that's not an end marker
             self.consume_line()
-            statement_line = next_line[4:]  # Remove indentation
+            statement_line = next_line.strip()
             
             # Parse the statement
             stmt = self.parse_statement(statement_line)
             if stmt:
-                if in_else:
+                if in_otherwise:
                     else_body.append(stmt)
                 else:
                     body.append(stmt)
@@ -158,36 +167,27 @@ class StatementParser(ExpressionParser):
         return IfStatement(condition, body, else_body if else_body else None)
     
     def parse_assignment(self, line: str) -> Assignment:
-        """Parse assignment statement."""
-        # Find the = sign (not ==)
-        eq_pos = -1
-        i = 0
-        while i < len(line):
-            if line[i] == '=' and (i + 1 >= len(line) or line[i + 1] != '=') and \
-               (i == 0 or line[i - 1] not in '!<>='):
-                eq_pos = i
-                break
-            i += 1
+        """Parse assignment statement using 'is' syntax."""
+        # Split on ' is ' (variable is value)
+        if ' is ' not in line:
+            raise ParseError(f"Invalid assignment syntax - missing 'is': {line}")
         
-        if eq_pos == -1:
+        parts = line.split(' is ', 1)
+        if len(parts) != 2:
             raise ParseError(f"Invalid assignment: {line}")
         
-        var_name = line[:eq_pos].strip()
-        value_str = line[eq_pos + 1:].strip()
+        var_name = parts[0].strip()
+        value_str = parts[1].strip()
         
         # Parse the value expression
         value = self.parse_expression(value_str)
         
         return Assignment(var_name, value)
     
-    def parse_while_loop(self) -> WhileLoop:
-        """Parse While loop."""
-        # Next line should contain condition
-        condition_line = self.consume_line()
-        if not condition_line or not condition_line.startswith('    Condition:'):
-            raise ParseError("While loop missing Condition")
-        
-        condition_str = condition_line.strip()[10:].strip()
+    def parse_while_loop(self, line: str) -> WhileLoop:
+        """Parse while loop."""
+        # Extract condition from 'while <condition>'
+        condition_str = line[6:].strip()  # Remove 'while '
         condition = self.parse_expression(condition_str)
         
         # Parse body
@@ -195,15 +195,15 @@ class StatementParser(ExpressionParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end while':
+                self.consume_line()
                 break
             
             self.consume_line()
-            statement_line = next_line[4:]
-            
-            # Skip Condition line
-            if statement_line.strip().startswith('Condition:'):
-                continue
+            statement_line = next_line.strip()
             
             stmt = self.parse_statement(statement_line)
             if stmt:
@@ -211,19 +211,12 @@ class StatementParser(ExpressionParser):
         
         return WhileLoop(condition, body)
     
-    def parse_foreach_loop(self) -> ForEachLoop:
-        """Parse ForEach loop."""
-        # Next line should contain the iteration spec
-        iter_line = self.consume_line()
-        if not iter_line or not iter_line.startswith('    '):
-            raise ParseError("ForEach loop missing iteration specification")
-        
-        iter_spec = iter_line.strip()
-        
-        # Parse iteration specification (e.g., "item in items:")
-        match = re.match(r'(\w+)\s+in\s+(.+?):', iter_spec)
+    def parse_foreach_loop(self, line: str) -> ForEachLoop:
+        """Parse for each loop."""
+        # Extract iteration spec from 'for each <item> in <collection>'
+        match = re.match(r'for each\s+(\w+)\s+in\s+(.+)', line)
         if not match:
-            raise ParseError(f"Invalid ForEach iteration: {iter_spec}")
+            raise ParseError(f"Invalid for each syntax: {line}")
         
         item_var = match.group(1)
         collection_expr = match.group(2).strip()
@@ -236,11 +229,15 @@ class StatementParser(ExpressionParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('        '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end for':
+                self.consume_line()
                 break
             
             self.consume_line()
-            statement_line = next_line[8:]  # Remove 8 spaces
+            statement_line = next_line.strip()
             
             stmt = self.parse_statement(statement_line)
             if stmt:
@@ -248,79 +245,73 @@ class StatementParser(ExpressionParser):
         
         return ForEachLoop(item_var, collection, body)
     
-    def parse_task_action(self) -> TaskAction:
-        """Parse Task action block."""
-        name_line = self.consume_line()
-        if not name_line or not name_line.startswith('    Name:'):
-            raise ParseError("Task missing Name")
-        
-        name = name_line.strip()[5:].strip()
+    def parse_task_action(self, line: str) -> TaskAction:
+        """Parse task definition."""
+        # Extract task name from 'task <name>'
+        name = line[5:].strip()  # Remove 'task '
         name = self.extract_string_literal(name) or name
         
-        # Parse Steps
+        # Parse steps
         steps = []
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
                 break
             
-            if next_line.strip().startswith('Step:'):
+            if next_line.strip() == 'end task':
                 self.consume_line()
-                step_content = next_line.strip()[5:].strip()
+                break
+            
+            if next_line.strip().startswith('step '):
+                self.consume_line()
+                step_content = next_line.strip()[5:].strip()  # Remove 'step '
                 step_content = self.extract_string_literal(step_content) or step_content
                 steps.append(step_content)
+            else:
+                self.consume_line()
         
         return TaskAction(name, steps)
     
     def parse_task_invocation(self, line: str) -> TaskInvocation:
-        """Parse RunTask statement."""
-        match = re.match(r'RunTask\s+"([^"]+)"', line)
-        if not match:
-            match = re.match(r"RunTask\s+'([^']+)'", line)
-        if not match:
-            match = re.match(r'RunTask\s+(\w+)', line)
-        
-        if not match:
-            raise ParseError(f"Invalid RunTask statement: {line}")
-        
-        task_name = match.group(1)
+        """Parse run task statement."""
+        # Extract task name from 'run task <name>'
+        task_name = line[9:].strip()  # Remove 'run task '
+        task_name = self.extract_string_literal(task_name) or task_name
         return TaskInvocation(task_name)
     
-    def parse_action_definition(self) -> ActionDefinition:
-        """Parse Action definition."""
-        # Check if the Action line has parameters
-        first_line = self.lines[self.current_line - 1].strip() if self.current_line > 0 else ""
+    def parse_action_definition(self, line: str) -> ActionDefinition:
+        """Parse action definition."""
+        # Parse action signature: 'action <name>' or 'action <name> with <params>'
+        parts = line[7:].strip().split()  # Remove 'action '
+        if not parts:
+            raise ParseError(f"Invalid action definition: {line}")
         
-        if '(' in first_line and ')' in first_line:
-            return self.parse_action_definition_with_params()
+        name = parts[0]
         
-        # Check if action name is inline (e.g., "Action sharePhoto:")
-        if first_line.startswith('Action ') and first_line.endswith(':'):
-            name = first_line[7:-1].strip()  # Remove "Action " and ":"
-        else:
-            # Old style with Name: on next line
-            name_line = self.consume_line()
-            if not name_line or not name_line.strip().startswith('Name:'):
-                raise ParseError("Action missing Name")
-            name = name_line.strip()[5:].strip()
-        
-        name = self.extract_string_literal(name) or name
+        # Parse parameters if present (action name with param1 which is type, param2 which is type)
+        params = []
+        if 'with' in line:
+            # Extract parameters after 'with'
+            with_index = line.find('with')
+            param_str = line[with_index + 4:].strip()
+            # Simple parameter parsing for now
+            # TODO: Implement full parameter parsing with types
         
         # Parse body
         body = []
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line or not next_line.startswith('    '):
+            if not next_line:
+                break
+            
+            if next_line.strip() == 'end action':
+                self.consume_line()
                 break
             
             self.consume_line()
-            statement_line = next_line[4:]
-            
-            # Skip Name line
-            if statement_line.strip().startswith('Name:'):
-                continue
+            statement_line = next_line.strip()
             
             stmt = self.parse_statement(statement_line)
             if stmt:
@@ -328,48 +319,10 @@ class StatementParser(ExpressionParser):
         
         return ActionDefinition(name, body)
     
-    def parse_action_definition_with_params(self) -> ActionDefinition:
-        """Parse Action definition with parameters."""
-        # Get the action line that was already consumed
-        action_line = self.lines[self.current_line - 1]
-        
-        # Extract name and parameters
-        match = re.match(r'Action\s+(\w+)\s*\(([^)]*)\)\s*:', action_line)
-        if not match:
-            raise ParseError(f"Invalid Action definition: {action_line}")
-        
-        name = match.group(1)
-        params_str = match.group(2).strip()
-        
-        # Parse parameters
-        params = []
-        if params_str:
-            for param in params_str.split(','):
-                param = param.strip()
-                params.append(param)
-        
-        # Parse body
-        body = []
-        while self.current_line < len(self.lines):
-            next_line = self.peek_line()
-            
-            if not next_line or not next_line.startswith('    '):
-                break
-            
-            self.consume_line()
-            statement_line = next_line[4:]
-            
-            stmt = self.parse_statement(statement_line)
-            if stmt:
-                body.append(stmt)
-        
-        # For now, treat as regular ActionDefinition
-        # You might want to create ActionDefinitionWithParams
-        return ActionDefinition(name, body)
     
     def parse_return_statement(self, line: str) -> ReturnStatement:
-        """Parse Return statement."""
-        value_str = line[7:].strip()  # Remove "Return "
+        """Parse give statement."""
+        value_str = line[5:].strip()  # Remove "give "
         
         if value_str:
             value = self.parse_expression(value_str)
@@ -378,36 +331,32 @@ class StatementParser(ExpressionParser):
         
         return ReturnStatement(value)
     
-    def parse_data_instance(self, line: str) -> DataInstance:
-        """Parse data instance creation."""
-        match = re.match(r'Create\s+(\w+)\s+(\w+):', line)
-        if not match:
-            raise ParseError(f"Invalid Create statement: {line}")
+    def parse_set_statement(self, line: str) -> Assignment:
+        """Parse set statement for variable declaration and assignment."""
+        # Parse 'set variable which is type to value' or 'set variable to value'
         
-        data_type = match.group(1)
-        instance_name = match.group(2)
+        # Remove 'set '
+        content = line[4:].strip()
         
-        # Parse field assignments
-        fields = []
-        while self.current_line < len(self.lines):
-            next_line = self.peek_line()
-            
-            if not next_line or not next_line.startswith('    '):
-                break
-            
-            self.consume_line()
-            field_line = next_line[4:]
-            
-            # Parse field assignment
-            if '=' in field_line:
-                field_name, value_str = field_line.split('=', 1)
-                field_name = field_name.strip()
-                value_str = value_str.strip()
-                
-                value = self.parse_expression(value_str)
-                fields.append(FieldAssignment(field_name, value))
+        # Look for ' to ' to split variable declaration from value
+        if ' to ' not in content:
+            raise ParseError(f"Invalid set statement - missing 'to': {line}")
         
-        return DataInstance(data_type, instance_name, fields)
+        var_part, value_str = content.split(' to ', 1)
+        
+        # Extract variable name (may include type declaration)
+        if ' which is ' in var_part:
+            var_name = var_part.split(' which is ')[0].strip()
+            var_type = var_part.split(' which is ')[1].strip()
+            # Type information extracted but current AST doesn't store it
+            # TODO: Extend AST to include type information
+        else:
+            var_name = var_part.strip()
+        
+        # Parse the value expression
+        value = self.parse_expression(value_str.strip())
+        
+        return Assignment(var_name, value)
     
     def parse_action_invocation(self, line: str) -> Optional[ActionInvocationWithArgs]:
         """Parse action invocation with arguments."""
@@ -717,15 +666,13 @@ class StatementParser(ExpressionParser):
                 self.consume_line()  # consume 'end serve'
                 break
             
-            if next_line.startswith('    '):  # Indented content
-                self.consume_line()
-                stmt_line = next_line.strip()
-                if stmt_line:
-                    # Parse the statement inside serve block
-                    stmt = self.parse_statement(stmt_line)
-                    if stmt:
-                        body.append(stmt)
-            else:
-                break
+            # Parse any non-empty line that's not an end marker
+            self.consume_line()
+            stmt_line = next_line.strip()
+            if stmt_line:
+                # Parse the statement inside serve block
+                stmt = self.parse_statement(stmt_line)
+                if stmt:
+                    body.append(stmt)
         
         return ServeStatement(method, endpoint, body)

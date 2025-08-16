@@ -1,4 +1,9 @@
 @target html
 
-set projectName which is text to "html-test"
-display "Hello from [projectName]!"
+module main_page
+  layout MainScreen
+    column class "main-container"
+      title "My App" class "app-title text-blue-400"
+    end column
+  end layout
+end module

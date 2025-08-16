@@ -106,24 +106,33 @@ class PuckCodeGenerator(BaseCodeGenerator):
         
         # Process layout children
         for child in layout.children:
-            if isinstance(child, str) and child == "row":
-                row_component = self._create_row_component()
-                section["children"].append(row_component)
-            elif isinstance(child, str) and child == "column":
-                column_component = self._create_column_component()
-                if section["children"] and section["children"][-1]["type"] == "Row":
-                    # Add column to the last row
-                    section["children"][-1]["children"].append(column_component)
+            if isinstance(child, LayoutDefinition):
+                # Handle nested layouts (containers like column, row)
+                if child.layout_type == "column":
+                    column_component = self._create_column_component(child)
+                    # Process the children of this column
+                    for nested_child in child.children:
+                        nested_component = self._convert_component(nested_child)
+                        if nested_component:
+                            column_component["children"].append(nested_component)
+                    section["children"].append(column_component)
+                elif child.layout_type == "row":
+                    row_component = self._create_row_component(child)
+                    # Process the children of this row
+                    for nested_child in child.children:
+                        nested_component = self._convert_component(nested_child)
+                        if nested_component:
+                            row_component["children"].append(nested_component)
+                    section["children"].append(row_component)
                 else:
-                    # Create a new row for the column
-                    row = self._create_row_component()
-                    row["children"].append(column_component)
-                    section["children"].append(row)
+                    # For other layout types, convert recursively
+                    nested_components = self._convert_layout(child)
+                    section["children"].extend(nested_components)
             elif hasattr(child, '__class__'):
                 # Convert specific component types
                 component = self._convert_component(child)
                 if component:
-                    self._add_component_to_layout(section, component)
+                    section["children"].append(component)
         
         components.append(section)
         return components
@@ -183,14 +192,21 @@ class PuckCodeGenerator(BaseCodeGenerator):
     def _convert_component(self, component: ASTNode) -> Optional[Dict[str, Any]]:
         """Convert individual DSL components to Puck components."""
         if isinstance(component, TitleComponent):
+            props = {
+                "text": component.text if isinstance(component.text, str) else str(component.text),
+                "level": component.level if hasattr(component, 'level') else 1,
+                "align": "left"
+            }
+            
+            # Add CSS classes to props for round-trip preservation
+            if hasattr(component, 'css_classes') and component.css_classes:
+                props["cssClasses"] = component.css_classes
+                props["className"] = " ".join(component.css_classes)
+            
             return {
                 "type": "Heading",
                 "id": self._generate_id(),
-                "props": {
-                    "text": component.text if isinstance(component.text, str) else str(component.text),
-                    "level": component.level if hasattr(component, 'level') else 1,
-                    "align": "left"
-                }
+                "props": props
             }
         elif isinstance(component, InputComponent):
             return {
@@ -342,31 +358,45 @@ class PuckCodeGenerator(BaseCodeGenerator):
         
         return [section]
     
-    def _create_row_component(self) -> Dict[str, Any]:
+    def _create_row_component(self, layout: Optional[LayoutDefinition] = None) -> Dict[str, Any]:
         """Create a Row component."""
+        props = {
+            "gap": 16,
+            "alignItems": "stretch",
+            "justifyContent": "flex-start",
+            "wrap": "wrap"
+        }
+        
+        # Add CSS classes to props for round-trip preservation
+        if layout and hasattr(layout, 'css_classes') and layout.css_classes:
+            props["cssClasses"] = layout.css_classes
+            props["className"] = " ".join(layout.css_classes)
+        
         return {
             "type": "Row",
             "id": self._generate_id(),
-            "props": {
-                "gap": 16,
-                "alignItems": "stretch",
-                "justifyContent": "flex-start",
-                "wrap": "wrap"
-            },
+            "props": props,
             "children": []
         }
     
-    def _create_column_component(self) -> Dict[str, Any]:
+    def _create_column_component(self, layout: Optional[LayoutDefinition] = None) -> Dict[str, Any]:
         """Create a Column component."""
+        props = {
+            "flex": "1",
+            "gap": 8,
+            "alignItems": "stretch",
+            "minWidth": 120
+        }
+        
+        # Add CSS classes to props for round-trip preservation
+        if layout and hasattr(layout, 'css_classes') and layout.css_classes:
+            props["cssClasses"] = layout.css_classes
+            props["className"] = " ".join(layout.css_classes)
+        
         return {
             "type": "Column",
             "id": self._generate_id(),
-            "props": {
-                "flex": "1",
-                "gap": 8,
-                "alignItems": "stretch",
-                "minWidth": 120
-            },
+            "props": props,
             "children": []
         }
     
@@ -397,3 +427,21 @@ class PuckCodeGenerator(BaseCodeGenerator):
         """Generate a unique component ID."""
         self.component_counter += 1
         return f"component-{self.component_counter}"
+    
+    def emit_expression(self, expr: ASTNode):
+        """Emit code for an expression.
+        
+        Note: This method is required by BaseCodeGenerator but not used
+        in Puck JSON generation since we build the structure directly.
+        """
+        # Not used in Puck generation - we handle expressions in _generate_puck_data
+        pass
+    
+    def emit_statement(self, stmt: ASTNode):
+        """Emit code for a statement.
+        
+        Note: This method is required by BaseCodeGenerator but not used
+        in Puck JSON generation since we build the structure directly.
+        """
+        # Not used in Puck generation - we handle statements in _collect_definitions
+        pass

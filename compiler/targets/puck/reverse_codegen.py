@@ -99,33 +99,53 @@ class PuckToDSLConverter:
                 self._add_line("end row")
             
             elif child_type == 'Column':
-                self._add_line("column")
-                self.indent_level += 1
                 self._convert_column(child)
-                self.indent_level -= 1
-                self._add_line("end column")
             
             else:
                 self._convert_component_to_dsl(child)
     
     def _convert_row(self, row: Dict[str, Any]):
         """Convert Row component."""
+        props = row.get('props', {})
+        
+        # Extract CSS classes if present
+        css_classes = props.get('cssClasses', [])
+        class_attr = ""
+        if css_classes:
+            class_attr = f' class "{" ".join(css_classes)}"'
+        
+        self._add_line(f"row{class_attr}")
+        self.indent_level += 1
+        
         children = row.get('children', [])
         for child in children:
             if child.get('type') == 'Column':
-                self._add_line("column")
-                self.indent_level += 1
                 self._convert_column(child)
-                self.indent_level -= 1
-                self._add_line("end column")
             else:
                 self._convert_component_to_dsl(child)
+        
+        self.indent_level -= 1
+        self._add_line("end row")
     
     def _convert_column(self, column: Dict[str, Any]):
         """Convert Column component."""
+        props = column.get('props', {})
+        
+        # Extract CSS classes if present
+        css_classes = props.get('cssClasses', [])
+        class_attr = ""
+        if css_classes:
+            class_attr = f' class "{" ".join(css_classes)}"'
+        
+        self._add_line(f"column{class_attr}")
+        self.indent_level += 1
+        
         children = column.get('children', [])
         for child in children:
             self._convert_component_to_dsl(child)
+        
+        self.indent_level -= 1
+        self._add_line("end column")
     
     def _convert_form_container(self, container: Dict[str, Any]):
         """Convert Container that represents a form."""
@@ -218,7 +238,18 @@ class PuckToDSLConverter:
         if component_type == 'Heading':
             text = props.get('text', 'Heading')
             level = props.get('level', 1)
-            self._add_line(f'heading{level} "{text}"')
+            
+            # Extract CSS classes if present
+            css_classes = props.get('cssClasses', [])
+            class_attr = ""
+            if css_classes:
+                class_attr = f' class "{" ".join(css_classes)}"'
+            
+            # Use appropriate component name based on level
+            if level == 1:
+                self._add_line(f'title "{text}"{class_attr}')
+            else:
+                self._add_line(f'heading{level} "{text}"{class_attr}')
         
         elif component_type == 'Text':
             text = props.get('text', 'Text')

@@ -38,10 +38,10 @@ jobs:
         mkdir -p release
         
         # Bundle for macOS/Linux (shell script installer)
-        tar -czf release/roe-macos-linux.tar.gz roe run.js compiler/
+        tar -czf release/droe-macos-linux.tar.gz droe run.js compiler/
         
         # Bundle for all platforms (includes everything)
-        tar -czf release/roe-complete.tar.gz roe run.js compiler/ *.md
+        tar -czf release/droe-complete.tar.gz droe run.js compiler/ *.md
         
         echo "✅ Platform bundles created:"
         ls -lh release/
@@ -70,9 +70,9 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.version }}
-        name: Roe Language ${{ steps.version.outputs.version }}
+        name: Droe Language ${{ steps.version.outputs.version }}
         body: |
-          # Roe Language ${{ steps.version.outputs.version }}
+          # Droe Language ${{ steps.version.outputs.version }}
           
           ## Installation
           
@@ -87,8 +87,8 @@ jobs:
           ## Downloads
           
           - `compiler.tar.gz` - Compiler module only
-          - `roe-macos-linux.tar.gz` - Complete bundle for macOS/Linux
-          - `roe-complete.tar.gz` - Complete bundle with documentation
+          - `droe-macos-linux.tar.gz` - Complete bundle for macOS/Linux
+          - `droe-complete.tar.gz` - Complete bundle with documentation
           
           ## Checksums
           SHA256 checksums are provided for all downloads.
@@ -103,7 +103,7 @@ jobs:
           compiler.tar.gz.sha256
           release/*.tar.gz
           release/*.sha256
-          roe
+          droe
           run.js
         draft: false
         prerelease: false

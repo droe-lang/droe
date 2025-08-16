@@ -25,42 +25,585 @@ class UIComponentParser(BaseParser):
         'Contact': 'contact'
     }
     
+    def _parse_tokens(self, content: str) -> List[str]:
+        """Parse content into tokens, respecting quoted strings."""
+        tokens = []
+        current = ""
+        in_quotes = False
+        quote_char = None
+        
+        for char in content:
+            if not in_quotes and (char == '"' or char == "'"):
+                in_quotes = True
+                quote_char = char
+                current += char
+            elif in_quotes and char == quote_char:
+                in_quotes = False
+                quote_char = None
+                current += char
+            elif not in_quotes and char == ' ':
+                if current.strip():
+                    tokens.append(current.strip())
+                current = ""
+            else:
+                current += char
+        
+        if current.strip():
+            tokens.append(current.strip())
+        
+        return tokens
+    
+    def _unquote(self, text: str) -> str:
+        """Remove quotes from a string if present."""
+        if (text.startswith('"') and text.endswith('"')) or \
+           (text.startswith("'") and text.endswith("'")):
+            return text[1:-1]
+        return text
+    
     def parse_component(self, line: str) -> Optional[ASTNode]:
         """Parse any UI component from a line."""
         line = line.strip()
         
-        # Standard components
-        if line.startswith('Title:'):
-            return self.parse_title_component(line)
-        elif line.startswith('Input:'):
-            return self.parse_input_component(line)
-        elif line.startswith('Textarea:'):
-            return self.parse_textarea_component(line)
-        elif line.startswith('Dropdown:'):
-            return self.parse_dropdown_component(line)
-        elif line.startswith('Toggle:'):
-            return self.parse_toggle_component(line)
-        elif line.startswith('Checkbox:'):
-            return self.parse_checkbox_component(line)
-        elif line.startswith('Radio:'):
-            return self.parse_radio_component(line)
-        elif line.startswith('Button:'):
-            return self.parse_button_component(line)
-        elif line.startswith('Image:'):
-            return self.parse_image_component(line)
-        elif line.startswith('Video:'):
-            return self.parse_video_component(line)
-        elif line.startswith('Audio:'):
-            return self.parse_audio_component(line)
-        elif line.startswith('Asset:'):
-            return self.parse_asset_include(line)
+        # New syntax (lowercase without colons) - preferred
+        if line.startswith('title '):
+            return self.parse_title_spec_syntax(line)
+        elif line.startswith('input '):
+            return self.parse_input_spec_syntax(line)
+        elif line.startswith('textarea '):
+            return self.parse_textarea_spec_syntax(line)
+        elif line.startswith('dropdown '):
+            return self.parse_dropdown_spec_syntax(line)
+        elif line.startswith('toggle '):
+            return self.parse_toggle_spec_syntax(line)
+        elif line.startswith('checkbox '):
+            return self.parse_checkbox_spec_syntax(line)
+        elif line.startswith('radio '):
+            return self.parse_radio_spec_syntax(line)
+        elif line.startswith('button '):
+            return self.parse_button_spec_syntax(line)
+        elif line.startswith('image '):
+            return self.parse_image_spec_syntax(line)
+        elif line.startswith('video '):
+            return self.parse_video_spec_syntax(line)
+        elif line.startswith('audio '):
+            return self.parse_audio_spec_syntax(line)
         
-        # Mobile-specific components
-        for component_name in self.MOBILE_COMPONENTS:
-            if line.startswith(f'{component_name}:'):
-                return self.parse_mobile_component(line, component_name)
         
         return None
+    
+    def parse_title_spec_syntax(self, line: str) -> TitleComponent:
+        """Parse title with new spec syntax: 'title "text" class "class-name"'"""
+        # Extract text and attributes
+        content = line[6:].strip()  # Remove "title "
+        
+        # Parse the title text (first quoted string)
+        if content.startswith('"'):
+            text_end = content.find('"', 1)
+            if text_end != -1:
+                text = content[1:text_end]
+                remaining = content[text_end + 1:].strip()
+            else:
+                text = content[1:]  # Rest of line if no closing quote
+                remaining = ""
+        else:
+            # Find first space or end of line for unquoted text
+            space_pos = content.find(' ')
+            if space_pos != -1:
+                text = content[:space_pos]
+                remaining = content[space_pos:].strip()
+            else:
+                text = content
+                remaining = ""
+        
+        # Parse CSS classes and other attributes from remaining content
+        css_classes = []
+        attributes = []
+        
+        if 'class ' in remaining:
+            # Extract class attribute
+            class_start = remaining.find('class ') + 6
+            class_content = remaining[class_start:].strip()
+            if class_content.startswith('"'):
+                class_end = class_content.find('"', 1)
+                if class_end != -1:
+                    class_value = class_content[1:class_end]
+                    css_classes = class_value.split()
+        
+        # Create TitleComponent with text and CSS classes
+        title_comp = TitleComponent(text)
+        title_comp.css_classes = css_classes
+        return title_comp
+    
+    def parse_input_spec_syntax(self, line: str) -> Optional[InputComponent]:
+        """Parse input with new spec syntax: 'input id name type placeholder bind validate class'"""
+        content = line[6:].strip()  # Remove "input "
+        
+        # Parse components
+        input_type = "text"
+        binding = None
+        attributes = []
+        element_id = None
+        placeholder = None
+        
+        # Split content into tokens while respecting quotes
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "type" and i + 1 < len(tokens):
+                input_type = tokens[i + 1]
+                i += 2
+            elif token == "placeholder" and i + 1 < len(tokens):
+                placeholder = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "validate" and i + 1 < len(tokens):
+                validate_value = tokens[i + 1]
+                attributes.append(ValidationAttribute(validate_value))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            else:
+                i += 1
+        
+        # Add placeholder as attribute if specified
+        if placeholder:
+            attributes.insert(0, AttributeDefinition('placeholder', placeholder))
+        
+        return InputComponent(
+            input_type=input_type,
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_textarea_spec_syntax(self, line: str) -> Optional[TextareaComponent]:
+        """Parse textarea with new spec syntax: 'textarea id placeholder bind rows class'"""
+        content = line[9:].strip()  # Remove "textarea "
+        
+        binding = None
+        attributes = []
+        element_id = None
+        placeholder = None
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "placeholder" and i + 1 < len(tokens):
+                placeholder = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "rows" and i + 1 < len(tokens):
+                rows = tokens[i + 1]
+                attributes.append(AttributeDefinition('rows', rows))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            else:
+                i += 1
+        
+        # Add placeholder as attribute if specified
+        if placeholder:
+            attributes.insert(0, AttributeDefinition('placeholder', placeholder))
+        
+        # Add default rows if not specified
+        if not any(attr.name == 'rows' for attr in attributes if hasattr(attr, 'name')):
+            attributes.append(AttributeDefinition('rows', '4'))
+        
+        return TextareaComponent(
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_dropdown_spec_syntax(self, line: str) -> Optional[DropdownComponent]:
+        """Parse dropdown with new spec syntax: 'dropdown id name bind class'"""
+        content = line[9:].strip()  # Remove "dropdown "
+        
+        options = []
+        binding = None
+        attributes = []
+        element_id = None
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif token == "default" and i + 1 < len(tokens):
+                default_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('default', default_value))
+                i += 2
+            else:
+                i += 1
+        
+        # Note: Options will be parsed from subsequent "option" lines in a multi-line context
+        # For now, return the dropdown with empty options that can be populated later
+        return DropdownComponent(
+            options=options,
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_toggle_spec_syntax(self, line: str) -> Optional[ToggleComponent]:
+        """Parse toggle with new spec syntax: 'toggle id "label" bind default class'"""
+        content = line[7:].strip()  # Remove "toggle "
+        
+        binding = None
+        attributes = []
+        element_id = None
+        label = None
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "default" and i + 1 < len(tokens):
+                default_value = tokens[i + 1]
+                attributes.append(AttributeDefinition('default', default_value))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif (token.startswith('"') or token.startswith("'")) and not label:
+                # First quoted string is the label
+                label = self._unquote(token)
+                i += 1
+            else:
+                i += 1
+        
+        # Add label as attribute if specified
+        if label:
+            attributes.insert(0, AttributeDefinition('label', label))
+        
+        return ToggleComponent(
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_checkbox_spec_syntax(self, line: str) -> Optional[CheckboxComponent]:
+        """Parse checkbox with new spec syntax: 'checkbox id "text" bind class'"""
+        content = line[9:].strip()  # Remove "checkbox "
+        
+        text = None
+        binding = None
+        attributes = []
+        element_id = None
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif (token.startswith('"') or token.startswith("'")) and not text:
+                # First quoted string is the text
+                text = self._unquote(token)
+                i += 1
+            else:
+                i += 1
+        
+        return CheckboxComponent(
+            text=text,
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_radio_spec_syntax(self, line: str) -> Optional[RadioComponent]:
+        """Parse radio with new spec syntax: 'radio id group "groupname" "text" bind default class'"""
+        content = line[6:].strip()  # Remove "radio "
+        
+        text = None
+        value = None
+        binding = None
+        attributes = []
+        element_id = None
+        group_name = None
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                i += 2
+            elif token == "group" and i + 1 < len(tokens):
+                group_name = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('name', group_name))
+                i += 2
+            elif token == "bind" and i + 1 < len(tokens):
+                binding = tokens[i + 1]
+                attributes.append(BindingAttribute(binding))
+                i += 2
+            elif token == "default" and i + 1 < len(tokens):
+                default_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('default', default_value))
+                value = default_value
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif (token.startswith('"') or token.startswith("'")) and not text:
+                # First quoted string is the text
+                text = self._unquote(token)
+                i += 1
+            else:
+                i += 1
+        
+        return RadioComponent(
+            text=text,
+            value=value,
+            binding=binding,
+            attributes=attributes,
+            element_id=element_id
+        )
+    
+    def parse_button_spec_syntax(self, line: str) -> Optional[ButtonComponent]:
+        """Parse button with new spec syntax: 'button "text" action actionName class "class-name"'"""
+        content = line[7:].strip()  # Remove "button "
+        
+        text = ""
+        action = None
+        attributes = []
+        
+        # Parse the button text (first quoted string or first token)
+        tokens = self._parse_tokens(content)
+        
+        if tokens and (tokens[0].startswith('"') or tokens[0].startswith("'")):
+            text = self._unquote(tokens[0])
+            tokens = tokens[1:]
+        elif tokens:
+            text = tokens[0]
+            tokens = tokens[1:]
+        
+        # Parse remaining tokens
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "action" and i + 1 < len(tokens):
+                action = tokens[i + 1]
+                attributes.append(ActionAttribute(action))
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                attributes.append(AttributeDefinition('id', element_id))
+                i += 2
+            else:
+                i += 1
+        
+        return ButtonComponent(text=text, action=action, attributes=attributes)
+    
+    def parse_image_spec_syntax(self, line: str) -> Optional[ImageComponent]:
+        """Parse image with new spec syntax: 'image source "path" alt "text" class "class-name"'"""
+        content = line[6:].strip()  # Remove "image "
+        
+        src = ""
+        alt = None
+        attributes = []
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "source" and i + 1 < len(tokens):
+                src = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "alt" and i + 1 < len(tokens):
+                alt = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                attributes.append(AttributeDefinition('id', element_id))
+                i += 2
+            else:
+                i += 1
+        
+        return ImageComponent(src=src, alt=alt, attributes=attributes)
+    
+    def parse_video_spec_syntax(self, line: str) -> Optional[VideoComponent]:
+        """Parse video with new spec syntax: 'video source "path" controls autoplay loop muted class "class-name"'"""
+        content = line[6:].strip()  # Remove "video "
+        
+        src = ""
+        controls = True
+        autoplay = False
+        loop = False
+        muted = False
+        attributes = []
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "source" and i + 1 < len(tokens):
+                src = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "controls":
+                controls = True
+                attributes.append(AttributeDefinition('controls', 'true'))
+                i += 1
+            elif token == "autoplay":
+                autoplay = True
+                attributes.append(AttributeDefinition('autoplay', 'true'))
+                i += 1
+            elif token == "loop":
+                loop = True
+                attributes.append(AttributeDefinition('loop', 'true'))
+                i += 1
+            elif token == "muted":
+                muted = True
+                attributes.append(AttributeDefinition('muted', 'true'))
+                i += 1
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                attributes.append(AttributeDefinition('id', element_id))
+                i += 2
+            else:
+                i += 1
+        
+        return VideoComponent(
+            src=src,
+            controls=controls,
+            autoplay=autoplay,
+            loop=loop,
+            muted=muted,
+            attributes=attributes
+        )
+    
+    def parse_audio_spec_syntax(self, line: str) -> Optional[AudioComponent]:
+        """Parse audio with new spec syntax: 'audio source "path" controls autoplay loop class "class-name"'"""
+        content = line[6:].strip()  # Remove "audio "
+        
+        src = ""
+        controls = True
+        autoplay = False
+        loop = False
+        attributes = []
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            if token == "source" and i + 1 < len(tokens):
+                src = self._unquote(tokens[i + 1])
+                i += 2
+            elif token == "controls":
+                controls = True
+                attributes.append(AttributeDefinition('controls', 'true'))
+                i += 1
+            elif token == "autoplay":
+                autoplay = True
+                attributes.append(AttributeDefinition('autoplay', 'true'))
+                i += 1
+            elif token == "loop":
+                loop = True
+                attributes.append(AttributeDefinition('loop', 'true'))
+                i += 1
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 2
+            elif token == "id" and i + 1 < len(tokens):
+                element_id = tokens[i + 1]
+                attributes.append(AttributeDefinition('id', element_id))
+                i += 2
+            else:
+                i += 1
+        
+        return AudioComponent(
+            src=src,
+            controls=controls,
+            autoplay=autoplay,
+            loop=loop,
+            attributes=attributes
+        )
     
     def parse_mobile_component(self, line: str, component_type: str) -> ASTNode:
         """Parse mobile-specific components like Camera, Location, etc."""
@@ -91,470 +634,6 @@ class UIComponentParser(BaseParser):
         # Create a button component that will be transformed by mobile generators
         return ButtonComponent(text=text, action=action, attributes=attributes)
     
-    def parse_title_component(self, line: str) -> TitleComponent:
-        """Parse Title component."""
-        content = line[6:].strip()  # Remove "Title:"
-        
-        # Check for attributes
-        attributes = []
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            content = content[:attr_start].strip()
-        
-        # Remove quotes if present
-        text = self.extract_string_literal(content) or content
-        
-        return TitleComponent(text=text, attributes=attributes)
-    
-    def parse_input_component(self, line: str) -> InputComponent:
-        """Parse Input component with attributes - fixed to match AST."""
-        content = line[6:].strip()  # Remove "Input:"
-        
-        # Parse component parts
-        input_type = "text"
-        binding = None
-        attributes = []
-        element_id = None
-        
-        # Check for attributes in square brackets
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            content = content[:attr_start].strip()
-        
-        # Parse placeholder and add it as an attribute
-        placeholder = self.extract_string_literal(content) or content
-        if placeholder:
-            attributes.insert(0, AttributeDefinition('placeholder', placeholder))
-        
-        # Extract specific values from attributes
-        for attr in attributes:
-            if attr.name == 'type':
-                input_type = attr.value
-            elif attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return InputComponent(
-            input_type=input_type,
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_textarea_component(self, line: str) -> TextareaComponent:
-        """Parse Textarea component - fixed to match AST."""
-        content = line[9:].strip()  # Remove "Textarea:"
-        
-        binding = None
-        attributes = []
-        element_id = None
-        
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            content = content[:attr_start].strip()
-        
-        # Parse placeholder and add as attribute
-        placeholder = self.extract_string_literal(content) or content
-        if placeholder:
-            attributes.insert(0, AttributeDefinition('placeholder', placeholder))
-        
-        # Also add rows attribute with default value
-        attributes.append(AttributeDefinition('rows', '4'))
-        
-        # Extract specific values
-        for attr in attributes:
-            if attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return TextareaComponent(
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_dropdown_component(self, line: str) -> DropdownComponent:
-        """Parse Dropdown component - fixed to match AST."""
-        content = line[9:].strip()  # Remove "Dropdown:"
-        
-        options = []
-        binding = None
-        attributes = []
-        element_id = None
-        
-        if '[' in content and ']' in content:
-            # Find the last set of brackets (attributes)
-            attr_start = content.rfind('[')
-            attr_end = content.rfind(']')
-            
-            # Check if these are attributes (contain '=' or known attribute names)
-            potential_attrs = content[attr_start + 1:attr_end]
-            if '=' in potential_attrs or any(x in potential_attrs for x in ['bind:', 'validate:', 'action:']):
-                attr_text = potential_attrs
-                attributes = self.parse_attributes(attr_text)
-                content = content[:attr_start].strip()
-        
-        # Parse options array and default value
-        default_value = None
-        if content.startswith('[') and ']' in content:
-            options_end = content.index(']')
-            options_str = content[1:options_end]
-            
-            for opt in options_str.split(','):
-                opt = opt.strip()
-                opt_val = self.extract_string_literal(opt) or opt
-                if opt_val:
-                    options.append(Literal(opt_val, 'string'))
-            
-            # Check for default value after options
-            remaining = content[options_end + 1:].strip()
-            if remaining.startswith('default:'):
-                default_val = remaining[8:].strip()
-                default_val = self.extract_string_literal(default_val) or default_val
-                if default_val:
-                    attributes.append(AttributeDefinition('default', default_val))
-        
-        # Extract specific values
-        for attr in attributes:
-            if attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return DropdownComponent(
-            options=options,
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_toggle_component(self, line: str) -> ToggleComponent:
-        """Parse Toggle component - fixed to match AST."""
-        content = line[7:].strip()  # Remove "Toggle:"
-        
-        binding = None
-        attributes = []
-        element_id = None
-        
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            content = content[:attr_start].strip()
-        
-        # Parse label and add as attribute
-        label = self.extract_string_literal(content) or content
-        if label:
-            attributes.insert(0, AttributeDefinition('label', label))
-        
-        # Extract specific values
-        for attr in attributes:
-            if attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return ToggleComponent(
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_checkbox_component(self, line: str) -> CheckboxComponent:
-        """Parse Checkbox component - fixed to match AST."""
-        content = line[9:].strip()  # Remove "Checkbox:"
-        
-        text = None
-        binding = None
-        attributes = []
-        element_id = None
-        
-        if '[' in content and ']' in content:
-            # Find the last set of brackets
-            attr_start = content.rfind('[')
-            attr_end = content.rfind(']')
-            
-            potential_attrs = content[attr_start + 1:attr_end]
-            if '=' in potential_attrs or any(x in potential_attrs for x in ['bind:', 'validate:', 'action:']):
-                attr_text = potential_attrs
-                attributes = self.parse_attributes(attr_text)
-                content = content[:attr_start].strip()
-        
-        # Parse options array as text
-        if content.startswith('[') and ']' in content:
-            options_end = content.index(']')
-            options_str = content[1:options_end]
-            
-            # Store options as attribute for generators to use
-            options = []
-            for opt in options_str.split(','):
-                opt = opt.strip()
-                opt = self.extract_string_literal(opt) or opt
-                if opt:
-                    options.append(opt)
-            
-            if options:
-                # Use first option as text, store all as attribute
-                text = options[0] if len(options) == 1 else None
-                attributes.insert(0, AttributeDefinition('options', ','.join(options)))
-        else:
-            # Single checkbox with text
-            text = self.extract_string_literal(content) or content
-        
-        # Extract specific values
-        for attr in attributes:
-            if attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return CheckboxComponent(
-            text=text,
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_radio_component(self, line: str) -> RadioComponent:
-        """Parse Radio component - fixed to match AST."""
-        content = line[6:].strip()  # Remove "Radio:"
-        
-        text = None
-        value = None
-        binding = None
-        attributes = []
-        element_id = None
-        
-        # Parse name/text
-        if content.startswith('"') or content.startswith("'"):
-            quote_char = content[0]
-            end_quote = content.index(quote_char, 1)
-            text = content[1:end_quote]
-            content = content[end_quote + 1:].strip()
-        
-        if '[' in content and ']' in content:
-            # Find the last set of brackets
-            attr_start = content.rfind('[')
-            attr_end = content.rfind(']')
-            
-            potential_attrs = content[attr_start + 1:attr_end]
-            if '=' in potential_attrs or any(x in potential_attrs for x in ['bind:', 'validate:', 'action:']):
-                attr_text = potential_attrs
-                attributes = self.parse_attributes(attr_text)
-                content = content[:attr_start].strip()
-        
-        # Parse options
-        if content.startswith('[') and ']' in content:
-            options_end = content.index(']')
-            options_str = content[1:options_end]
-            
-            options = []
-            for opt in options_str.split(','):
-                opt = opt.strip()
-                opt = self.extract_string_literal(opt) or opt
-                if opt:
-                    options.append(opt)
-            
-            # Store options and name as attributes
-            if options:
-                attributes.insert(0, AttributeDefinition('options', ','.join(options)))
-            if text:
-                attributes.insert(0, AttributeDefinition('name', text))
-            
-            # Check for default value
-            remaining = content[options_end + 1:].strip()
-            if remaining.startswith('default:'):
-                default_value = remaining[8:].strip()
-                default_value = self.extract_string_literal(default_value) or default_value
-                if default_value:
-                    attributes.append(AttributeDefinition('default', default_value))
-                    value = default_value
-        
-        # Extract specific values
-        for attr in attributes:
-            if attr.name == 'id':
-                element_id = attr.value
-            elif hasattr(attr, '__class__') and attr.__class__.__name__ == 'BindingAttribute':
-                binding = attr.binding_target
-        
-        return RadioComponent(
-            text=text,
-            value=value,
-            binding=binding,
-            attributes=attributes,
-            element_id=element_id
-        )
-    
-    def parse_button_component(self, line: str) -> ButtonComponent:
-        """Parse Button component - fixed to match AST."""
-        content = line[7:].strip()  # Remove "Button:"
-        
-        text = ""
-        action = None
-        attributes = []
-        
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            content = content[:attr_start].strip()
-        
-        text = self.extract_string_literal(content) or content
-        
-        # Extract action from attributes
-        for attr in attributes:
-            if hasattr(attr, '__class__') and attr.__class__.__name__ == 'ActionAttribute':
-                action = attr.action_name
-                break
-        
-        return ButtonComponent(text=text, action=action, attributes=attributes)
-    
-    def parse_image_component(self, line: str) -> ImageComponent:
-        """Parse Image component - fixed to match AST."""
-        content = line[6:].strip()  # Remove "Image:"
-        
-        src = ""
-        alt = None
-        attributes = []
-        
-        # Parse src
-        if content.startswith('"') or content.startswith("'"):
-            quote_char = content[0]
-            end_quote = content.index(quote_char, 1)
-            src = content[1:end_quote]
-            content = content[end_quote + 1:].strip()
-        
-        # Parse alt text
-        if content and (content.startswith('"') or content.startswith("'")):
-            quote_char = content[0]
-            end_quote = content.index(quote_char, 1)
-            alt = content[1:end_quote]
-            content = content[end_quote + 1:].strip()
-        
-        # Parse attributes
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-        
-        return ImageComponent(src=src, alt=alt, attributes=attributes)
-    
-    def parse_video_component(self, line: str) -> VideoComponent:
-        """Parse Video component - fixed to match AST."""
-        content = line[6:].strip()  # Remove "Video:"
-        
-        src = ""
-        controls = True
-        autoplay = False
-        loop = False
-        muted = False
-        attributes = []
-        
-        # Parse src
-        if content.startswith('"') or content.startswith("'"):
-            quote_char = content[0]
-            end_quote = content.index(quote_char, 1)
-            src = content[1:end_quote]
-            content = content[end_quote + 1:].strip()
-        
-        # Parse attributes
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            
-            # Extract video-specific attributes
-            for attr in attributes:
-                if attr.name == 'controls':
-                    controls = attr.value.lower() != 'false'
-                elif attr.name == 'autoplay':
-                    autoplay = attr.value.lower() == 'true'
-                elif attr.name == 'loop':
-                    loop = attr.value.lower() == 'true'
-                elif attr.name == 'muted':
-                    muted = attr.value.lower() == 'true'
-        
-        return VideoComponent(
-            src=src,
-            controls=controls,
-            autoplay=autoplay,
-            loop=loop,
-            muted=muted,
-            attributes=attributes
-        )
-    
-    def parse_audio_component(self, line: str) -> AudioComponent:
-        """Parse Audio component - fixed to match AST."""
-        content = line[6:].strip()  # Remove "Audio:"
-        
-        src = ""
-        controls = True
-        autoplay = False
-        loop = False
-        attributes = []
-        
-        # Parse src
-        if content.startswith('"') or content.startswith("'"):
-            quote_char = content[0]
-            end_quote = content.index(quote_char, 1)
-            src = content[1:end_quote]
-            content = content[end_quote + 1:].strip()
-        
-        # Parse attributes
-        if '[' in content and ']' in content:
-            attr_start = content.index('[')
-            attr_end = content.index(']')
-            attr_text = content[attr_start + 1:attr_end]
-            attributes = self.parse_attributes(attr_text)
-            
-            # Extract audio-specific attributes
-            for attr in attributes:
-                if attr.name == 'controls':
-                    controls = attr.value.lower() != 'false'
-                elif attr.name == 'autoplay':
-                    autoplay = attr.value.lower() == 'true'
-                elif attr.name == 'loop':
-                    loop = attr.value.lower() == 'true'
-        
-        return AudioComponent(
-            src=src,
-            controls=controls,
-            autoplay=autoplay,
-            loop=loop,
-            attributes=attributes
-        )
-    
-    def parse_asset_include(self, line: str) -> AssetInclude:
-        """Parse Asset include statement."""
-        content = line[6:].strip()  # Remove "Asset:"
-        
-        # Parse asset type and path
-        parts = content.split(maxsplit=1)
-        if len(parts) != 2:
-            raise ParseError(f"Invalid Asset statement: {line}")
-        
-        asset_type = parts[0]
-        path = parts[1].strip()
-        
-        # Remove quotes from path
-        path = self.extract_string_literal(path) or path
-        
-        return AssetInclude(asset_path=path, asset_type=asset_type)
     
     def parse_attributes(self, attr_text: str) -> List[AttributeDefinition]:
         """Parse component attributes from bracket notation."""

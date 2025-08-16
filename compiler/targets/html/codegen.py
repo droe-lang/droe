@@ -46,6 +46,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.validation_rules.clear()
         self.bindings.clear()
         
+        
         # First pass: collect data models, actions, layouts, and assets
         for stmt in program.statements:
             if isinstance(stmt, AssetInclude):
@@ -93,6 +94,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                         self._collect_forms_from_children(module_stmt.children)
                     elif isinstance(module_stmt, FormDefinition):
                         self.forms[module_stmt.name] = module_stmt
+        
         
         
         # Generate HTML document
@@ -162,19 +164,15 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.emit("<body>")
         self.indent_level += 1
         
-        # Generate body content
-        for stmt in program.statements:
-            if isinstance(stmt, LayoutDefinition):
-                self.generate_layout(stmt)
-            elif isinstance(stmt, FormDefinition):
-                self.generate_form(stmt)
-            elif isinstance(stmt, ModuleDefinition):
-                # Generate module content
-                for module_stmt in stmt.body:
-                    if isinstance(module_stmt, LayoutDefinition):
-                        self.generate_layout(module_stmt)
-                    elif isinstance(module_stmt, FormDefinition):
-                        self.generate_form(module_stmt)
+        
+        # Generate body content from collected layouts and forms
+        # Generate all layouts that were collected during the first pass
+        for layout_name, layout_def in self.layouts.items():
+            self.generate_layout(layout_def)
+        
+        # Generate all forms that were collected during the first pass
+        for form_name, form_def in self.forms.items():
+            self.generate_form(form_def)
         
         # Include external JavaScript files
         js_includes = [asset for asset in self.asset_includes if asset.asset_type == 'js']
@@ -352,15 +350,19 @@ class HTMLCodeGenerator(BaseCodeGenerator):
     
     def generate_layout(self, layout: LayoutDefinition):
         """Generate HTML for a layout definition."""
-        layout_id = f"layout-{layout.name}"
+        # Generate unique ID
+        if not hasattr(self, 'layout_counter'):
+            self.layout_counter = 0
+        self.layout_counter += 1
+        layout_id = f"layout-{layout.name}-{self.layout_counter}"
         
-        # Build CSS classes
-        classes = [f"layout-{layout.layout_type}"]
-        if hasattr(layout, 'css_classes') and layout.css_classes:
-            classes.extend(layout.css_classes)
+        # Only use explicitly declared CSS classes
+        classes = layout.css_classes if hasattr(layout, 'css_classes') and layout.css_classes else []
         
-        # Build attributes
-        attrs = [f'id="{layout_id}"', f'class="{" ".join(classes)}"']
+        # Build attributes - only add class attribute if there are explicit classes
+        attrs = [f'id="{layout_id}"']
+        if classes:
+            attrs.append(f'class="{" ".join(classes)}"')
         
         # Add style if present
         if hasattr(layout, 'style') and layout.style:
@@ -380,9 +382,9 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         """Generate HTML for a form definition."""
         form_id = f"form-{form.name}"
         
-        self.emit(f'<div class="form-container">')
+        self.emit(f'<div>')
         self.indent_level += 1
-        self.emit(f'<form id="{form_id}" class="layout-column">')
+        self.emit(f'<form id="{form_id}">')
         self.indent_level += 1
         
         for child in form.children:
@@ -425,9 +427,15 @@ class HTMLCodeGenerator(BaseCodeGenerator):
     
     def generate_title(self, title: TitleComponent):
         """Generate HTML for title component."""
-        classes = ['title'] + (title.css_classes if hasattr(title, 'css_classes') and title.css_classes else [])
-        class_attr = f'class="{" ".join(classes)}"'
-        self.emit(f'<h2 {class_attr}>{self.escape_html(title.text)}</h2>')
+        # Only use explicitly declared CSS classes
+        classes = title.css_classes if hasattr(title, 'css_classes') and title.css_classes else []
+        
+        # Only add class attribute if there are explicit classes
+        if classes:
+            class_attr = f'class="{" ".join(classes)}"'
+            self.emit(f'<h2 {class_attr}>{self.escape_html(title.text)}</h2>')
+        else:
+            self.emit(f'<h2>{self.escape_html(title.text)}</h2>')
     
     def generate_input(self, input_comp: InputComponent):
         """Generate HTML for input component."""
@@ -445,8 +453,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         # Generate input with validation attributes
         input_attrs = [
             f'id="{input_id}"',
-            f'type="{input_comp.input_type}"',
-            'class="input-field"'
+            f'type="{input_comp.input_type}"'
         ]
         
         # Add validation attributes
@@ -465,7 +472,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             input_attrs.append('placeholder="Enter your password"')
         
         self.emit(f'<input {" ".join(input_attrs)}>')
-        self.emit(f'<div id="{input_id}-error" class="error" style="display: none;"></div>')
+        self.emit(f'<div id="{input_id}-error" style="display: none;"></div>')
     
     def generate_textarea(self, textarea: TextareaComponent):
         """Generate HTML for textarea component."""
@@ -475,7 +482,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if textarea.binding:
             self.bindings[textarea_id] = textarea.binding
         
-        self.emit(f'<textarea id="{textarea_id}" class="textarea-field" rows="4"></textarea>')
+        self.emit(f'<textarea id="{textarea_id}" rows="4"></textarea>')
     
     def generate_dropdown(self, dropdown: DropdownComponent):
         """Generate HTML for dropdown component."""
@@ -489,7 +496,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if dropdown.binding:
             self.bindings[select_id] = dropdown.binding
         
-        self.emit(f'<select id="{select_id}" class="input-field">')
+        self.emit(f'<select id="{select_id}">')
         self.indent_level += 1
         
         for option in dropdown.options:
@@ -508,9 +515,9 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if toggle.binding:
             self.bindings[toggle_id] = toggle.binding
         
-        self.emit('<div class="layout-row">')
+        self.emit('<div>')
         self.indent_level += 1
-        self.emit(f'<input type="checkbox" id="{toggle_id}" class="toggle">')
+        self.emit(f'<input type="checkbox" id="{toggle_id}">')
         self.emit(f'<label for="{toggle_id}">Toggle</label>')
         self.indent_level -= 1
         self.emit("</div>")
@@ -527,7 +534,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if checkbox.binding:
             self.bindings[checkbox_id] = checkbox.binding
         
-        self.emit('<div class="layout-row">')
+        self.emit('<div>')
         self.indent_level += 1
         self.emit(f'<input type="checkbox" id="{checkbox_id}">')
         if checkbox.text:
@@ -547,7 +554,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         # Use binding as radio group name if available
         group_name = radio.binding or "radio-group"
         
-        self.emit('<div class="layout-row">')
+        self.emit('<div>')
         self.indent_level += 1
         
         radio_attrs = [
@@ -574,8 +581,7 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         
         button_attrs = [
             f'id="{button_id}"',
-            'type="button"',
-            'class="button"'
+            'type="button"'
         ]
         
         if button.action:
