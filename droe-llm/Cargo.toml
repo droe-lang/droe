@@ -1,0 +1,69 @@
+[package]
+name = "droe-llm"
+version = "0.1.0"
+edition = "2021"
+description = "Centralized LLM service for DROELANG - Adaptive AI for robotics and development"
+license = "MIT"
+authors = ["DROELANG Team"]
+
+[[bin]]
+name = "droe-llm"
+path = "src/main.rs"
+
+[lib]
+name = "droe_llm"
+path = "src/lib.rs"
+
+[dependencies]
+# Core async runtime
+tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+tokio-util = "0.7"
+async-stream = "0.3"
+futures = "0.3"
+
+# gRPC framework
+tonic = "0.10"
+prost = "0.12"
+
+# HTTP client for Ollama
+reqwest = { version = "0.11", features = ["json", "stream"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+uuid = { version = "1.0", features = ["v4"] }
+bytes = "1.0"
+regex = "1.0"
+
+# Configuration
+config = "0.14"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[features]
+default = ["ollama"]
+ollama = []
+openai = []
+anthropic = []
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = "z"
+
+[profile.dev]
+debug = true

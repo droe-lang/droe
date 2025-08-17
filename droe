@@ -752,6 +752,7 @@ def show_help():
     print("    init [name]             Initialize new Droelang project")
     print("    compile <file>          Compile .droe file to target language")
     print("    run <file>              Compile and run .droe file")
+    print("    lint <file>             Lint and validate .droe file")
     print("    build                   Build entire project")
     print("    clean                   Clean build directory")
     print("    install [package]       Install package dependencies")
@@ -780,6 +781,9 @@ def show_help():
     print("RUN OPTIONS:")
     print("    --watch                 Watch and rerun on changes")
     print("")
+    print("LINT OPTIONS:")
+    print("    --json                  Output diagnostics in JSON format")
+    print("")
     print("GLOBAL OPTIONS:")
     print("    -h, --help              Show this help message")
     print("    --version               Show version information")
@@ -798,6 +802,8 @@ def show_help():
     print("    droe compile src/main.droe --target java")
     print("    droe compile src/main.droe --format wasm --output dist/main.wasm")
     print("    droe run src/main.droe --watch")
+    print("    droe lint src/main.droe")
+    print("    droe lint src/main.droe --json")
     print("    droe build --clean --release")
     print("    droe clean")
     print("    droe clean --all")
@@ -1091,6 +1097,11 @@ def main():
     run_parser.add_argument('file', help='Source file to run')
     run_parser.add_argument('--watch', action='store_true', help='Watch and rerun on changes')
     
+    # Lint command
+    lint_parser = subparsers.add_parser('lint', help='Lint and validate .droe file')
+    lint_parser.add_argument('file', help='Source file to lint')
+    lint_parser.add_argument('--json', action='store_true', help='Output diagnostics in JSON format')
+    
     # Handle legacy usage patterns
     if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ['-h', '--help']):
         show_help()
@@ -1102,7 +1113,7 @@ def main():
         return
     
     # Handle legacy command patterns
-    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'clean', 'compile', 'run', 'reverse', '--version', '-h', '--help']:
+    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'clean', 'compile', 'run', 'reverse', 'lint', '--version', '-h', '--help']:
         if sys.argv[1] in ['-h', '--help']:
             show_help()
             return
@@ -1184,6 +1195,10 @@ def main():
     
     elif args.command == 'run':
         run_file(args.file, args.watch)
+        return
+    
+    elif args.command == 'lint':
+        lint_file(args.file, args.json)
         return
     
     else:
@@ -1602,6 +1617,154 @@ def run_mobile_app(roe_filename, watch=False):
             print("\n⏹️ Watch mode stopped")
     else:
         do_mobile_run()
+
+def lint_file(roe_filename, json_output=False):
+    """Lint and validate a .droe file, returning diagnostics."""
+    roe_file = Path(roe_filename)
+    if not roe_file.is_absolute():
+        roe_file = Path.cwd() / roe_filename
+    
+    if not roe_file.exists() or not roe_file.suffix == ".droe":
+        error_msg = f"File {roe_file} not found or not a .droe file"
+        if json_output:
+            print(json.dumps({"error": error_msg}))
+        else:
+            print(f"❌ Error: {error_msg}")
+        return False
+    
+    diagnostics = []
+    
+    try:
+        # Read the source file
+        with open(roe_file, 'r') as f:
+            source_content = f.read()
+        
+        # Import the compiler and parser
+        if hasattr(compiler, 'lint_file'):
+            # Use dedicated lint function if available
+            diagnostics = compiler.lint_file(str(roe_file))
+        else:
+            # Parse the file and collect errors/warnings
+            try:
+                # Import parser components
+                sys.path.insert(0, str(Path.home() / ".droelang"))
+                from compiler.parser import Parser
+                from compiler.type_checker import TypeChecker
+                from compiler import compiler as comp_module
+                
+                # Create parser and parse the file
+                parser = Parser(source_content)
+                ast = parser.parse()
+                
+                # Run type checker
+                type_checker = TypeChecker()
+                type_errors = type_checker.check(ast)
+                
+                # Convert errors to diagnostic format
+                for error in type_errors:
+                    diagnostics.append({
+                        "severity": "error",
+                        "message": str(error),
+                        "line": getattr(error, 'line', 1) - 1,  # Convert to 0-based
+                        "character": getattr(error, 'column', 0),
+                        "source": "droe-lint"
+                    })
+                
+            except ImportError:
+                # Fallback: Basic syntax validation using compilation
+                try:
+                    # Try to compile to check for basic syntax errors
+                    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.wat', delete=False)
+                    temp_file.close()
+                    
+                    compiler.compile_file(str(roe_file), output_path=temp_file.name, target='bytecode')
+                    
+                    # If compilation succeeded, no syntax errors
+                    os.unlink(temp_file.name)
+                    
+                except Exception as e:
+                    # Parse compilation error for line/column info
+                    error_msg = str(e)
+                    line_num = 1
+                    char_pos = 0
+                    
+                    # Try to extract line number from error message
+                    import re
+                    line_match = re.search(r'line (\d+)', error_msg, re.IGNORECASE)
+                    if line_match:
+                        line_num = int(line_match.group(1))
+                    
+                    diagnostics.append({
+                        "severity": "error",
+                        "message": error_msg,
+                        "line": line_num - 1,  # Convert to 0-based
+                        "character": char_pos,
+                        "source": "droe-compiler"
+                    })
+                    
+                    # Clean up temp file
+                    try:
+                        os.unlink(temp_file.name)
+                    except:
+                        pass
+            
+            except Exception as e:
+                # Try to extract line information from parser
+                line_num = 0
+                char_pos = 0
+                
+                # Check if the parser has line tracking
+                if hasattr(parser, 'current_line'):
+                    line_num = max(0, parser.current_line - 1)  # Convert to 0-based
+                
+                # Try to extract line number from error message
+                import re
+                line_match = re.search(r'line (\d+)', str(e), re.IGNORECASE)
+                if line_match:
+                    line_num = int(line_match.group(1)) - 1  # Convert to 0-based
+                
+                # Try to find the problematic line by looking for keywords in the error
+                error_msg = str(e).lower()
+                if 'when' in error_msg:
+                    # Find the line with 'when' statement
+                    for i, line in enumerate(source_content.split('\n')):
+                        if 'when' in line.strip().lower():
+                            line_num = i
+                            break
+                
+                diagnostics.append({
+                    "severity": "error", 
+                    "message": f"Parser error: {e}",
+                    "line": line_num,
+                    "character": char_pos,
+                    "source": "droe-parser"
+                })
+    
+    except Exception as e:
+        error_msg = f"Failed to read or parse file: {e}"
+        if json_output:
+            print(json.dumps({"error": error_msg}))
+        else:
+            print(f"❌ Error: {error_msg}")
+        return False
+    
+    # Output results
+    if json_output:
+        print(json.dumps({
+            "file": str(roe_file),
+            "diagnostics": diagnostics
+        }))
+    else:
+        if not diagnostics:
+            print(f"✅ {roe_file}: No issues found")
+        else:
+            print(f"🔍 {roe_file}: Found {len(diagnostics)} issue(s)")
+            for diag in diagnostics:
+                severity_icon = "❌" if diag["severity"] == "error" else "⚠️"
+                line_info = f":{diag['line'] + 1}:{diag['character']}" if diag['line'] > 0 else ""
+                print(f"  {severity_icon} {diag['message']} {line_info}")
+    
+    return len(diagnostics) == 0
 
 
 if __name__ == "__main__":

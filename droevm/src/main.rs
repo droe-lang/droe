@@ -37,11 +37,13 @@ enum Commands {
         output: PathBuf,
     },
     
+    
     /// Show version information
     Version,
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     // Check if this is a standalone executable with embedded bytecode
     match embed::extract_embedded_bytecode() {
         Ok(Some(embedded_bytecode)) => {
@@ -111,3 +113,4 @@ fn build_standalone(bytecode_path: PathBuf, output_path: PathBuf) -> Result<()> 
     
     Ok(())
 }
+

@@ -6,6 +6,7 @@ __pycache__/
 # Installer and build artifacts
 build/
 dist/
+target/
 *.spec
 
 # PyInstaller temp files

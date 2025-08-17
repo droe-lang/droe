@@ -57,6 +57,28 @@ if [ -d "droevm" ]; then
     fi
 fi
 
+# Build and sync DroeLLM
+if [ -d "droe-llm" ]; then
+    echo "🤖 Building DroeLLM service..."
+    cd droe-llm
+    if cargo build --release; then
+        echo "✅ DroeLLM built successfully: droe-llm/target/release/droe-llm"
+        ls -lh target/release/droe-llm
+        echo "🚀 DroeLLM build complete!"
+        
+        # Sync the binary
+        echo "🤖 Syncing DroeLLM binary..."
+        cp target/release/droe-llm ~/.droelang/droe-llm
+        chmod +x ~/.droelang/droe-llm
+        echo "✅ DroeLLM binary synced"
+    else
+        echo "❌ Failed to build DroeLLM"
+    fi
+    cd ..
+else
+    echo "⚠️  DroeLLM directory not found. Skipping DroeLLM build."
+fi
+
 # Create bin directory and symlink for PATH usage
 mkdir -p ~/.droelang/bin
 if [ ! -e ~/.droelang/bin/droe ]; then
@@ -77,6 +99,9 @@ fi
 if [ -f ~/.droelang/droevm ]; then
     echo "  • DroeVM binary: ~/.droelang/droevm"
 fi
+if [ -f ~/.droelang/droe-llm ]; then
+    echo "  • DroeLLM service: ~/.droelang/droe-llm"
+fi
 
 # Create compiler bundle for install-from-curl flow
 echo ""
@@ -92,3 +117,7 @@ echo "💡 Make sure ~/.droelang/bin is in your PATH:"
 echo "   export PATH=\"\$HOME/.droelang/bin:\$PATH\""
 echo ""
 echo "🚀 You can now test with: droe --help"
+echo ""
+echo "🤖 To start DroeLLM service:"
+echo "   ~/.droelang/droe-llm serve --port 50051"
+echo "   or: droe-llm serve --help"

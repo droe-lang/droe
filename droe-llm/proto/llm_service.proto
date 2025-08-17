@@ -1,0 +1,254 @@
+syntax = "proto3";
+
+package droevm.llm;
+
+// Main LLM service definition
+service DroeVMLLMService {
+    // Streaming generation for real-time token output
+    rpc GenerateDSLStream(LLMRequest) returns (stream LLMStreamResponse);
+    
+    // Non-streaming generation for simple requests
+    rpc GenerateDSL(LLMRequest) returns (LLMResponse);
+    
+    // Code validation service
+    rpc ValidateCode(ValidationRequest) returns (ValidationResponse);
+    
+    // Partial file update service
+    rpc ApplyPartialUpdate(PartialUpdateRequest) returns (PartialUpdateResponse);
+    
+    // Service information and health check
+    rpc GetServiceInfo(Empty) returns (ServiceInfo);
+    
+    // Cancel ongoing generation
+    rpc CancelGeneration(CancelRequest) returns (CancelResponse);
+}
+
+// Request for LLM generation
+message LLMRequest {
+    string prompt = 1;
+    optional string context = 2;
+    optional string file_path = 3;
+    optional string existing_content = 4;
+    string mode = 5; // "regular" or "robotics"
+    
+    // Generation parameters
+    optional float temperature = 6;
+    optional float top_p = 7;
+    optional int32 top_k = 8;
+    optional int32 max_tokens = 9;
+    repeated string stop_sequences = 10;
+    
+    // Session management
+    optional string session_id = 11;
+    optional string client_id = 12;
+    
+    // Streaming control
+    bool streaming = 13;
+}
+
+// Response for non-streaming generation
+message LLMResponse {
+    string generated_code = 1;
+    string mode_detected = 2;
+    float confidence = 3;
+    repeated string detected_keywords = 4;
+    optional ValidationResult validation = 5;
+    optional PartialUpdateResult partial_update = 6;
+    
+    // Session information
+    string session_id = 7;
+    int64 generation_time_ms = 8;
+    int32 token_count = 9;
+}
+
+// Streaming response chunk
+message LLMStreamResponse {
+    oneof event {
+        StreamToken token = 1;
+        StreamStatus status = 2;
+        StreamValidation validation = 3;
+        StreamError error = 4;
+        StreamComplete complete = 5;
+    }
+    
+    string session_id = 6;
+    int64 timestamp = 7;
+}
+
+// Individual token in stream
+message StreamToken {
+    string text = 1;
+    bool is_partial = 2;
+}
+
+// Status updates during generation
+message StreamStatus {
+    string status = 1; // "starting", "generating", "validating"
+    string mode_detected = 2;
+    float confidence = 3;
+    optional int32 estimated_tokens_remaining = 4;
+}
+
+// Real-time validation during generation
+message StreamValidation {
+    ValidationResult result = 1;
+    bool is_partial = 2;
+}
+
+// Error during streaming
+message StreamError {
+    string error_message = 1;
+    string error_code = 2;
+    bool is_recoverable = 3;
+}
+
+// Stream completion
+message StreamComplete {
+    string final_code = 1;
+    ValidationResult final_validation = 2;
+    int32 total_tokens = 3;
+    int64 generation_time_ms = 4;
+    optional PartialUpdateResult partial_update = 5;
+}
+
+// Validation request
+message ValidationRequest {
+    string code = 1;
+    string mode = 2; // "regular" or "robotics"
+    optional string file_path = 3;
+    optional WorkspaceBounds workspace_bounds = 4;
+}
+
+// Validation response
+message ValidationResponse {
+    ValidationResult result = 1;
+    int64 validation_time_ms = 2;
+}
+
+// Validation result structure
+message ValidationResult {
+    bool is_valid = 1;
+    repeated ValidationError errors = 2;
+    repeated ValidationWarning warnings = 3;
+    optional SafetyValidation safety = 4;
+}
+
+// Individual validation error
+message ValidationError {
+    string message = 1;
+    string error_type = 2; // "syntax", "safety", "ros2"
+    optional int32 line = 3;
+    optional int32 column = 4;
+    string severity = 5; // "error", "warning", "info"
+}
+
+// Individual validation warning
+message ValidationWarning {
+    string message = 1;
+    string warning_type = 2;
+    optional int32 line = 3;
+    optional int32 column = 4;
+}
+
+// Safety-specific validation for robotics mode
+message SafetyValidation {
+    bool workspace_bounds_valid = 1;
+    bool collision_free = 2;
+    bool emergency_stop_accessible = 3;
+    repeated string safety_warnings = 4;
+    optional ROS2Validation ros2 = 5;
+}
+
+// ROS2-specific validation
+message ROS2Validation {
+    bool services_available = 1;
+    bool topics_valid = 2;
+    repeated string missing_dependencies = 3;
+}
+
+// Workspace boundaries for robotics
+message WorkspaceBounds {
+    float x_min = 1;
+    float x_max = 2;
+    float y_min = 3;
+    float y_max = 4;
+    float z_min = 5;
+    float z_max = 6;
+    float max_distance = 7;
+    float max_rotation = 8;
+    float max_wait_time = 9;
+}
+
+// Partial update request
+message PartialUpdateRequest {
+    string file_path = 1;
+    string original_content = 2;
+    string llm_generated_code = 3;
+    string prompt = 4;
+    string update_strategy = 5; // "replace", "merge", "insert", "function"
+}
+
+// Partial update response
+message PartialUpdateResponse {
+    PartialUpdateResult result = 1;
+    int64 update_time_ms = 2;
+}
+
+// Partial update result
+message PartialUpdateResult {
+    string updated_content = 1;
+    repeated FileDelta deltas = 2;
+    DiffStats stats = 3;
+    string preview = 4;
+}
+
+// File delta for tracking changes
+message FileDelta {
+    string operation = 1; // "insert", "delete", "replace"
+    int32 start_line = 2;
+    int32 end_line = 3;
+    string old_content = 4;
+    string new_content = 5;
+    float confidence = 6;
+}
+
+// Statistics about the diff
+message DiffStats {
+    int32 lines_added = 1;
+    int32 lines_removed = 2;
+    int32 lines_modified = 3;
+    float similarity_score = 4;
+}
+
+// Service information
+message ServiceInfo {
+    string version = 1;
+    string build_date = 2;
+    repeated string supported_modes = 3;
+    repeated string available_providers = 4;
+    ServiceStats stats = 5;
+}
+
+// Service statistics
+message ServiceStats {
+    int64 total_requests = 1;
+    int64 successful_requests = 2;
+    int64 failed_requests = 3;
+    int32 active_sessions = 4;
+    float average_response_time_ms = 5;
+}
+
+// Cancellation request
+message CancelRequest {
+    string session_id = 1;
+    string reason = 2;
+}
+
+// Cancellation response
+message CancelResponse {
+    bool cancelled = 1;
+    string message = 2;
+}
+
+// Empty message for requests that don't need parameters
+message Empty {}
