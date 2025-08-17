@@ -1,0 +1,22 @@
+@target html
+
+module TestModule  
+    layout AppLayout
+        header class "app-header"
+            title "App Header"
+        end header
+        
+        main class "app-main"
+            slot "content"
+        end main
+        
+        footer class "app-footer"
+            title "App Footer"
+        end footer
+    end layout
+
+    screen HomeScreen layout="AppLayout"
+        title "Welcome Home"
+        title "This is screen content"
+    end screen
+end module

@@ -1,0 +1,61 @@
+{
+  "root": {
+    "props": {
+      "title": "Droelang Page"
+    }
+  },
+  "content": [
+    {
+      "type": "Heading",
+      "props": {
+        "text": "Heading",
+        "level": 1,
+        "align": "left",
+        "id": "Heading-0de6e757-aa44-44ff-a793-04946f46bb59"
+      }
+    },
+    {
+      "type": "Image",
+      "props": {
+        "id": "Image-fab2c5f6-3704-4294-baee-53c14dc7bbe1",
+        "src": "https://placehold.co/400x200",
+        "alt": "Placeholder image",
+        "width": "auto",
+        "rounded": "md"
+      }
+    },
+    {
+      "type": "Textarea",
+      "props": {
+        "id": "Textarea-8206ad4f-049a-42e3-889e-c9633feb0555",
+        "label": "Message",
+        "placeholder": "Enter your message here...",
+        "rows": 4,
+        "required": "false"
+      }
+    },
+    {
+      "type": "Select",
+      "props": {
+        "id": "Select-583d76ad-d82f-4957-8330-aec9cf924be7",
+        "label": "Select Option",
+        "options": [
+          {
+            "label": "Option 1",
+            "value": "Option 1"
+          },
+          {
+            "label": "Option 2",
+            "value": "Option 2"
+          },
+          {
+            "label": "Option 3",
+            "value": "Option 3"
+          }
+        ],
+        "required": "false"
+      }
+    }
+  ],
+  "zones": {}
+}

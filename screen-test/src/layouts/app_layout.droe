@@ -1,0 +1,31 @@
+// App Layout with header, footer, and main slots
+// This layout can be reused across multiple screens
+
+module AppLayoutModule
+    layout AppLayout
+        header class "app-header"
+            nav class "navbar"
+                title "My Application" class "logo"
+                button "Home" action="navigate_home"
+                button "About" action="navigate_about"
+                button "Contact" action="navigate_contact"
+            end nav
+        end header
+        
+        main class "app-main"
+            slot "content"
+        end main
+        
+        footer class "app-footer"
+            text "© 2024 My Application"
+            slot "footer-links"
+        end footer
+    end layout
+
+    // Simple layout with just main content
+    layout SimpleLayout
+        main class "simple-main"
+            slot "content"
+        end main
+    end layout
+end module

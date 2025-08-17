@@ -7,7 +7,7 @@ from ..ast import (
     DropdownComponent, ToggleComponent, CheckboxComponent, RadioComponent,
     ButtonComponent, ImageComponent, VideoComponent, AudioComponent,
     AssetInclude, AttributeDefinition, ValidationAttribute, 
-    BindingAttribute, ActionAttribute, Literal
+    BindingAttribute, ActionAttribute, Literal, SlotComponent
 )
 from .base import BaseParser, ParseError
 
@@ -17,12 +17,12 @@ class UIComponentParser(BaseParser):
     
     # Platform-specific component mappings
     MOBILE_COMPONENTS = {
-        'Camera': 'camera',
-        'Location': 'location', 
-        'Notification': 'notification',
-        'Storage': 'storage',
-        'Sensor': 'sensor',
-        'Contact': 'contact'
+        'camera': 'camera',
+        'location': 'location', 
+        'notification': 'notification',
+        'storage': 'storage',
+        'sensor': 'sensor',
+        'contact': 'contact'
     }
     
     def _parse_tokens(self, content: str) -> List[str]:
@@ -67,6 +67,8 @@ class UIComponentParser(BaseParser):
         # New syntax (lowercase without colons) - preferred
         if line.startswith('title '):
             return self.parse_title_spec_syntax(line)
+        elif line.startswith('text '):
+            return self.parse_text_spec_syntax(line)
         elif line.startswith('input '):
             return self.parse_input_spec_syntax(line)
         elif line.startswith('textarea '):
@@ -87,6 +89,8 @@ class UIComponentParser(BaseParser):
             return self.parse_video_spec_syntax(line)
         elif line.startswith('audio '):
             return self.parse_audio_spec_syntax(line)
+        elif line.startswith('slot '):
+            return self.parse_slot_spec_syntax(line)
         
         
         return None
@@ -119,20 +123,88 @@ class UIComponentParser(BaseParser):
         css_classes = []
         attributes = []
         
-        if 'class ' in remaining:
-            # Extract class attribute
-            class_start = remaining.find('class ') + 6
+        if 'classes ' in remaining:
+            # Extract classes attribute
+            class_start = remaining.find('classes ') + 8
             class_content = remaining[class_start:].strip()
             if class_content.startswith('"'):
                 class_end = class_content.find('"', 1)
                 if class_end != -1:
                     class_value = class_content[1:class_end]
-                    css_classes = class_value.split()
+                    css_classes = [cls.strip() for cls in class_value.split(',')]
         
-        # Create TitleComponent with text and CSS classes
+        # Parse styles if present
+        styles = None
+        if 'styles ' in remaining:
+            style_start = remaining.find('styles ') + 7
+            style_content = remaining[style_start:].strip()
+            if style_content.startswith('"'):
+                style_end = style_content.find('"', 1)
+                if style_end != -1:
+                    styles = style_content[1:style_end]
+        
+        # Create TitleComponent with text, CSS classes, and styles
         title_comp = TitleComponent(text)
-        title_comp.css_classes = css_classes
+        title_comp.classes = css_classes
+        title_comp.styles = styles
         return title_comp
+    
+    def parse_text_spec_syntax(self, line: str) -> 'TextComponent':
+        """Parse text with new spec syntax: 'text "content" class "class-name"'"""
+        # Extract text and attributes
+        content = line[5:].strip()  # Remove "text "
+        
+        # Parse the text content (first quoted string)
+        if content.startswith('"'):
+            text_end = content.find('"', 1)
+            if text_end != -1:
+                text = content[1:text_end]
+                remaining = content[text_end + 1:].strip()
+            else:
+                text = content[1:]  # Rest of line if no closing quote
+                remaining = ""
+        else:
+            # Find first space or end of line for unquoted text
+            space_pos = content.find(' ')
+            if space_pos != -1:
+                text = content[:space_pos]
+                remaining = content[space_pos:].strip()
+            else:
+                text = content
+                remaining = ""
+        
+        # Parse CSS classes and other attributes from remaining content
+        css_classes = []
+        attributes = []
+        
+        if 'classes ' in remaining:
+            # Extract classes attribute
+            class_start = remaining.find('classes ') + 8
+            class_content = remaining[class_start:].strip()
+            if class_content.startswith('"'):
+                class_end = class_content.find('"', 1)
+                if class_end != -1:
+                    class_value = class_content[1:class_end]
+                    css_classes = [cls.strip() for cls in class_value.split(',')]
+        
+        # Parse styles if present
+        styles = None
+        if 'styles ' in remaining:
+            style_start = remaining.find('styles ') + 7
+            style_content = remaining[style_start:].strip()
+            if style_content.startswith('"'):
+                style_end = style_content.find('"', 1)
+                if style_end != -1:
+                    styles = style_content[1:style_end]
+        
+        # Import TextComponent here to avoid circular imports
+        from ..ast import TextComponent
+        
+        # Create TextComponent with text, CSS classes, and styles
+        text_comp = TextComponent(text)
+        text_comp.classes = css_classes
+        text_comp.styles = styles
+        return text_comp
     
     def parse_input_spec_syntax(self, line: str) -> Optional[InputComponent]:
         """Parse input with new spec syntax: 'input id name type placeholder bind validate class'"""
@@ -188,18 +260,25 @@ class UIComponentParser(BaseParser):
         )
     
     def parse_textarea_spec_syntax(self, line: str) -> Optional[TextareaComponent]:
-        """Parse textarea with new spec syntax: 'textarea id placeholder bind rows class'"""
+        """Parse textarea with new spec syntax: 'textarea "label" placeholder="..." rows=4 class="..." id="..."'"""
         content = line[9:].strip()  # Remove "textarea "
         
         binding = None
         attributes = []
         element_id = None
         placeholder = None
+        label = None
+        rows = None
         
         # Parse tokens
         tokens = self._parse_tokens(content)
         
+        # First token could be the label if it's quoted
         i = 0
+        if tokens and (tokens[0].startswith('"') or tokens[0].startswith("'")):
+            label = self._unquote(tokens[0])
+            i = 1
+        
         while i < len(tokens):
             token = tokens[i]
             
@@ -209,48 +288,58 @@ class UIComponentParser(BaseParser):
             elif token == "placeholder" and i + 1 < len(tokens):
                 placeholder = self._unquote(tokens[i + 1])
                 i += 2
+            elif token.startswith("placeholder="):
+                placeholder = self._unquote(token[12:])  # Remove "placeholder="
+                i += 1
             elif token == "bind" and i + 1 < len(tokens):
                 binding = tokens[i + 1]
                 attributes.append(BindingAttribute(binding))
                 i += 2
             elif token == "rows" and i + 1 < len(tokens):
-                rows = tokens[i + 1]
-                attributes.append(AttributeDefinition('rows', rows))
+                rows = int(tokens[i + 1])
                 i += 2
+            elif token.startswith("rows="):
+                rows = int(token[5:])  # Remove "rows="
+                i += 1
             elif token == "class" and i + 1 < len(tokens):
                 class_value = self._unquote(tokens[i + 1])
                 attributes.append(AttributeDefinition('class', class_value))
                 i += 2
+            elif token.startswith("class="):
+                class_value = self._unquote(token[6:])  # Remove "class="
+                attributes.append(AttributeDefinition('class', class_value))
+                i += 1
             else:
                 i += 1
         
-        # Add placeholder as attribute if specified
-        if placeholder:
-            attributes.insert(0, AttributeDefinition('placeholder', placeholder))
-        
-        # Add default rows if not specified
-        if not any(attr.name == 'rows' for attr in attributes if hasattr(attr, 'name')):
-            attributes.append(AttributeDefinition('rows', '4'))
-        
         return TextareaComponent(
+            label=label,
+            placeholder=placeholder,
+            rows=rows or 4,
             binding=binding,
             attributes=attributes,
             element_id=element_id
         )
     
     def parse_dropdown_spec_syntax(self, line: str) -> Optional[DropdownComponent]:
-        """Parse dropdown with new spec syntax: 'dropdown id name bind class'"""
+        """Parse dropdown with new spec syntax: 'dropdown "label" options=[...] id name bind class'"""
         content = line[9:].strip()  # Remove "dropdown "
         
         options = []
         binding = None
         attributes = []
         element_id = None
+        label = None
         
         # Parse tokens
         tokens = self._parse_tokens(content)
         
+        # First token could be the label if it's quoted
         i = 0
+        if tokens and (tokens[0].startswith('"') or tokens[0].startswith("'")):
+            label = self._unquote(tokens[0])
+            i = 1
+        
         while i < len(tokens):
             token = tokens[i]
             
@@ -269,12 +358,28 @@ class UIComponentParser(BaseParser):
                 default_value = self._unquote(tokens[i + 1])
                 attributes.append(AttributeDefinition('default', default_value))
                 i += 2
+            elif token.startswith("options="):
+                # Parse options=[...] syntax - need to collect all tokens for the array
+                options_str = token[8:]  # Remove "options="
+                
+                # Collect remaining tokens that are part of the options array
+                while i + 1 < len(tokens) and not options_str.endswith(']'):
+                    i += 1
+                    options_str += ' ' + tokens[i]
+                
+                if options_str.startswith('[') and options_str.endswith(']'):
+                    options_str = options_str[1:-1]  # Remove brackets
+                    # Split by comma and clean up quotes
+                    option_items = [item.strip().strip('"\'').rstrip(',') for item in options_str.split(',')]
+                    options = [opt for opt in option_items if opt]
+                i += 1
             else:
                 i += 1
         
         # Note: Options will be parsed from subsequent "option" lines in a multi-line context
         # For now, return the dropdown with empty options that can be populated later
         return DropdownComponent(
+            label=label,
             options=options,
             binding=binding,
             attributes=attributes,
@@ -450,6 +555,13 @@ class UIComponentParser(BaseParser):
                 action = tokens[i + 1]
                 attributes.append(ActionAttribute(action))
                 i += 2
+            elif token == "type" and i + 1 < len(tokens):
+                button_type = tokens[i + 1]
+                attributes.append(AttributeDefinition('type', button_type))
+                # Handle mobile component types
+                if button_type in ['camera', 'location', 'notification', 'storage', 'sensor', 'contact']:
+                    attributes.append(AttributeDefinition('mobile_component', button_type))
+                i += 2
             elif token == "class" and i + 1 < len(tokens):
                 class_value = self._unquote(tokens[i + 1])
                 attributes.append(AttributeDefinition('class', class_value))
@@ -604,6 +716,39 @@ class UIComponentParser(BaseParser):
             loop=loop,
             attributes=attributes
         )
+    
+    def parse_slot_spec_syntax(self, line: str) -> Optional[SlotComponent]:
+        """Parse slot with spec syntax: 'slot "name"'"""
+        content = line[5:].strip()  # Remove "slot "
+        
+        # Parse the slot name (first quoted string)
+        slot_name = "content"  # Default slot name
+        attributes = []
+        css_classes = []
+        
+        # Parse tokens
+        tokens = self._parse_tokens(content)
+        
+        i = 0
+        while i < len(tokens):
+            token = tokens[i]
+            
+            # First token should be the slot name
+            if i == 0:
+                slot_name = self._unquote(token)
+                i += 1
+            elif token == "class" and i + 1 < len(tokens):
+                class_value = self._unquote(tokens[i + 1])
+                css_classes.append(class_value)
+                i += 2
+            elif token == "id" and i + 1 < len(tokens):
+                element_id = self._unquote(tokens[i + 1])
+                attributes.append(AttributeDefinition('id', element_id))
+                i += 2
+            else:
+                i += 1
+        
+        return SlotComponent(name=slot_name, attributes=attributes, css_classes=css_classes)
     
     def parse_mobile_component(self, line: str, component_type: str) -> ASTNode:
         """Parse mobile-specific components like Camera, Location, etc."""

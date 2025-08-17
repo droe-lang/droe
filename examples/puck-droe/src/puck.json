@@ -1,0 +1,80 @@
+{
+  "root": {
+    "props": {
+      "title": "Droelang Page",
+      "layout": "default",
+      "description": ""
+    }
+  },
+  "content": [
+    {
+      "type": "Form",
+      "props": {
+        "items": [
+          {
+            "type": "TextInput",
+            "props": {
+              "label": "Text Input",
+              "placeholder": "Enter text here...",
+              "required": "false",
+              "fullWidth": true,
+              "id": "TextInput-de4a55e9-f25b-4659-807a-86aeabe30a62"
+            }
+          },
+          {
+            "type": "Select",
+            "props": {
+              "label": "Select Option",
+              "options": [
+                { "label": "Option 1", "value": "option1" },
+                { "label": "Option 2", "value": "option2" },
+                { "label": "Option 3", "value": "option3" }
+              ],
+              "required": "false",
+              "id": "Select-105a7ef5-398b-46db-87c1-d3619aaa6875"
+            }
+          },
+          {
+            "type": "Textarea",
+            "props": {
+              "label": "Message",
+              "placeholder": "Enter your message here...",
+              "rows": 4,
+              "width": "w-full",
+              "required": "false",
+              "id": "Textarea-6b6da97d-cf90-4cb5-83cf-cd047e3e2c75"
+            }
+          },
+          {
+            "type": "FileInput",
+            "props": {
+              "label": "File Upload",
+              "accept": "",
+              "multiple": "false",
+              "required": "false",
+              "fullWidth": true,
+              "id": "FileInput-6155d955-ed08-4851-bb3b-c461d9f62442"
+            }
+          },
+          {
+            "type": "Button",
+            "props": {
+              "text": "Button",
+              "variant": "default",
+              "size": "lg",
+              "fullWidth": "false",
+              "id": "Button-719e5981-ee26-443b-8384-93d1789dbcbe"
+            }
+          }
+        ],
+        "action": "/submit",
+        "method": "post",
+        "name": "contact-form",
+        "enctype": "application/x-www-form-urlencoded",
+        "novalidate": "false",
+        "id": "Form-63aab8a1-6300-49f9-ae0b-1547cd50f72b"
+      }
+    }
+  ],
+  "zones": {}
+}

@@ -1,0 +1,19 @@
+@target html
+
+module DroelangScreen
+    layout DefaultLayout
+        main
+            slot "content"
+        end main
+    end layout
+
+    screen DroelangMainScreen layout="DefaultLayout"
+        form "contact-form" action="/submit" method="post"
+            input "Text Input" type="text" placeholder="Enter text here..."
+            dropdown "Select Option" options=["Option 1", "Option 2", "Option 3"]
+            textarea "Message" rows=4 placeholder="Enter your message here..."
+            input "File Upload" type="file"
+            button "Button"
+        end form
+    end screen
+end module

@@ -1,0 +1,8 @@
+{
+  "src": "src",
+  "build": "build",
+  "dist": "dist",
+  "modules": "modules",
+  "main": "src/main.droe",
+  "target": "puck"
+}

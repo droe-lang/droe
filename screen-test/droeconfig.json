@@ -1,0 +1,7 @@
+{
+  "src": "src",
+  "build": "build", 
+  "dist": "dist",
+  "main": "src/main.droe",
+  "target": "html"
+}

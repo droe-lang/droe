@@ -19,9 +19,9 @@
 // The core Include functionality is COMPLETE and ready for use!
 
 // Include the utility modules
-include "utils/MathUtils.droe"
-include "utils/StringUtils.droe"
-include "includes/UserManager.droe"
+@include utils_MathUtils from "utils/MathUtils.droe"
+@include utils_StringUtils from "utils/StringUtils.droe"
+@include includes_UserManager from "includes/UserManager.droe"
 
 // Use MathUtils actions
 display "=== Math Operations ==="

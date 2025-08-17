@@ -4,8 +4,9 @@ import re
 from typing import List, Optional
 from ..ast import (
     ModuleDefinition, DataDefinition, DataField, 
-    LayoutDefinition, FormDefinition, MetadataAnnotation,
-    ActionDefinition
+    FragmentDefinition, FormDefinition, MetadataAnnotation,
+    ActionDefinition, ScreenDefinition, FragmentReference,
+    SlotComponent
 )
 from .ui_components import UIComponentParser
 from .base import ParseError
@@ -83,39 +84,6 @@ class StructureParser(UIComponentParser):
         
         return DataDefinition(name, fields)
     
-    def parse_layout_definition(self) -> LayoutDefinition:
-        """Parse Layout definition."""
-        name_line = self.consume_line()
-        if not name_line or not name_line.startswith('    Name:'):
-            raise ParseError("Layout missing Name")
-        
-        name = name_line.strip()[5:].strip()
-        name = self.extract_string_literal(name) or name
-        
-        # Parse components
-        components = []
-        while self.current_line < len(self.lines):
-            next_line = self.peek_line()
-            
-            if not next_line:
-                break
-            
-            if next_line.strip() == 'end layout':
-                break
-            
-            self.consume_line()
-            component_line = next_line.strip()
-            
-            # Skip Name line
-            if component_line.startswith('Name:'):
-                continue
-            
-            # Parse UI component
-            component = self.parse_component(component_line)
-            if component:
-                components.append(component)
-        
-        return LayoutDefinition(name, 'column', components)
     
     def parse_form_definition(self) -> FormDefinition:
         """Parse Form definition."""
@@ -151,57 +119,6 @@ class StructureParser(UIComponentParser):
         
         return FormDefinition(name, elements)  # elements are the children
     
-    def parse_inline_layout(self, line: str) -> LayoutDefinition:
-        """Parse inline layout definition like Layout "name": [components]."""
-        match = re.match(r'Layout\s+"([^"]+)"\s*:\s*\[(.*)\]', line, re.DOTALL)
-        if not match:
-            match = re.match(r"Layout\s+'([^']+)'\s*:\s*\[(.*)\]", line, re.DOTALL)
-        
-        if not match:
-            raise ParseError(f"Invalid inline Layout: {line}")
-        
-        name = match.group(1)
-        components_str = match.group(2).strip()
-        
-        # Parse components
-        components = []
-        if components_str:
-            # Split by commas at the top level (not inside brackets)
-            component_parts = []
-            current = ""
-            depth = 0
-            in_string = False
-            string_char = None
-            
-            for char in components_str:
-                if not in_string and (char == '"' or char == "'"):
-                    in_string = True
-                    string_char = char
-                elif in_string and char == string_char:
-                    in_string = False
-                    string_char = None
-                elif not in_string:
-                    if char in '[({':
-                        depth += 1
-                    elif char in '])}':
-                        depth -= 1
-                    elif char == ',' and depth == 0:
-                        component_parts.append(current.strip())
-                        current = ""
-                        continue
-                
-                current += char
-            
-            if current.strip():
-                component_parts.append(current.strip())
-            
-            # Parse each component
-            for comp_str in component_parts:
-                component = self.parse_component(comp_str)
-                if component:
-                    components.append(component)
-        
-        return LayoutDefinition(name, 'column', components)
     
     def parse_metadata(self, line: str) -> Optional[MetadataAnnotation]:
         """Parse metadata annotation like @metadata(key="value") or @target html."""
@@ -248,9 +165,6 @@ class StructureParser(UIComponentParser):
         module_name = parts[1]
         body = []
         
-        # Debug: Write to file
-        with open("/tmp/droe_parser_debug.txt", "w") as f:
-            f.write(f"Parsing module '{module_name}'\n")
         
         # Detect indentation level from the first indented line (store as instance variable)
         self.indent_size = None
@@ -259,7 +173,7 @@ class StructureParser(UIComponentParser):
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line:
+            if next_line is None:
                 break
                 
             if next_line.strip() == 'end module':
@@ -275,43 +189,29 @@ class StructureParser(UIComponentParser):
             self.consume_line()
             content = next_line.strip()
             
-            # Debug: Log what we're parsing
-            with open("/tmp/droe_parser_debug.txt", "a") as f:
-                f.write(f"  Parsing content: '{content}'\n")
             
             if content.startswith('data '):
                 stmt = self.parse_data_spec_syntax(content)
                 if stmt:
                     body.append(stmt)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added data: {stmt.name}\n")
             elif content.startswith('action '):
                 stmt = self.parse_action_spec_syntax(content)
                 if stmt:
                     body.append(stmt)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added action: {stmt.name}\n")
-            elif content.startswith('layout '):
-                with open("/tmp/droe_parser_debug.txt", "a") as f:
-                    f.write(f"    Found layout line, calling parse_layout_spec_syntax\n")
-                stmt = self.parse_layout_spec_syntax(content)
+            elif content.startswith('fragment '):
+                stmt = self.parse_fragment_spec_syntax(content)
                 if stmt:
                     body.append(stmt)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added layout: {stmt.name}\n")
-                else:
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    parse_layout_spec_syntax returned None\n")
+            elif content.startswith('screen '):
+                stmt = self.parse_screen_spec_syntax(content)
+                if stmt:
+                    body.append(stmt)
             else:
                 # Parse as regular statement
                 stmt = self.parse_statement(content)
                 if stmt:
                     body.append(stmt)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added statement: {type(stmt).__name__}\n")
         
-        with open("/tmp/droe_parser_debug.txt", "a") as f:
-            f.write(f"Module '{module_name}' finished with {len(body)} body statements\n")
         
         return ModuleDefinition(module_name, body)
     
@@ -404,26 +304,25 @@ class StructureParser(UIComponentParser):
         
         return ActionDefinition(action_name, body)
     
-    def parse_layout_spec_syntax(self, line: str) -> LayoutDefinition:
-        """Parse layout with spec syntax: 'layout LayoutName'"""
-        # Extract layout name
+    def parse_fragment_spec_syntax(self, line: str) -> FragmentDefinition:
+        """Parse fragment with spec syntax: 'fragment FragmentName'"""
+        # Extract fragment name
         parts = line.strip().split()
         if len(parts) < 2:
-            raise ParseError(f"Invalid layout definition: {line}")
+            raise ParseError(f"Invalid fragment definition: {line}")
         
-        layout_name = parts[1]
-        children = []
-        layout_type = "column"  # Default layout type
+        fragment_name = parts[1]
+        slots = []
         
-        # Parse layout body until 'end layout' - ignore indentation, rely on explicit end markers
+        # Parse fragment body until 'end fragment'
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line:
+            if next_line is None:
                 break
                 
-            if next_line.strip() == 'end layout':
-                self.consume_line()  # consume 'end layout'
+            if next_line.strip() == 'end fragment':
+                self.consume_line()  # consume 'end fragment'
                 break
                 
             # Skip empty lines
@@ -435,66 +334,78 @@ class StructureParser(UIComponentParser):
             self.consume_line()
             content = next_line.strip()
             
-            # Parse UI components within the layout
-            if content.startswith(('column', 'row', 'grid', 'stack', 'overlay')):
-                # Parse nested layout containers - these are also layout definitions
-                container_type = content.split()[0]
-                # If this is the first container, use its type for the layout type
-                if len(children) == 0:
-                    layout_type = container_type
-                
-                # Parse container as a nested layout
-                nested_layout = self.parse_container_layout(content, container_type)
-                if nested_layout:
-                    children.append(nested_layout)
+            # Parse slot definitions within the fragment
+            if content.startswith('slot '):
+                slot = self.parse_slot_definition(content)
+                if slot:
+                    slots.append(slot)
             else:
-                # Parse UI components
-                component_stmt = self.parse_component(content)
-                if component_stmt:
-                    children.append(component_stmt)
-                else:
-                    # Parse as regular statement
-                    stmt = self.parse_statement(content)
-                    if stmt:
-                        children.append(stmt)
+                # Parse as regular statement/component for default content
+                stmt = self.parse_statement(content)
+                if stmt:
+                    # Add to first slot as default content if no slots defined yet
+                    if not slots:
+                        default_slot = SlotComponent("default", [stmt])
+                        slots.append(default_slot)
+                    else:
+                        slots[-1].default_content.append(stmt)
         
-        return LayoutDefinition(layout_name, layout_type, children)
+        return FragmentDefinition(fragment_name, slots)
     
-    def parse_container_layout(self, line: str, container_type: str) -> LayoutDefinition:
-        """Parse a container component (column, row, etc.) as a nested layout"""
-        # Extract CSS classes and other attributes from the container line
-        css_classes = []
-        attributes = []
+    def parse_slot_definition(self, line: str) -> SlotComponent:
+        """Parse a slot definition within a fragment"""
+        # Extract slot name and attributes
+        match = re.match(r'slot\s+["\']([^"\']*)["\'](.*)' , line)
+        if not match:
+            # Try without quotes
+            match = re.match(r'slot\s+(\w+)(.*)', line)
+            
+        if not match:
+            raise ParseError(f"Invalid slot definition: {line}")
         
-        # Parse class attribute if present
-        if 'class ' in line:
-            parts = line.split('class ')
-            if len(parts) > 1:
-                class_part = parts[1].strip()
-                if class_part.startswith('"') and '"' in class_part[1:]:
-                    class_value = class_part[1:class_part.index('"', 1)]
-                    css_classes = [class_value]
+        slot_name = match.group(1)
+        attributes_str = match.group(2).strip() if match.group(2) else ""
         
-        # Generate a unique name for this container
-        container_name = f"{container_type}_container_{len(self.lines)}"
-        children = []
+        # Parse classes and styles from attributes
+        classes = []
+        styles = None
         
-        # Debug container parsing
-        with open("/tmp/droe_parser_debug.txt", "a") as f:
-            f.write(f"    Parsing container '{container_type}' with classes: {css_classes}\n")
+        if 'classes ' in attributes_str:
+            class_match = re.search(r'classes\s+["\']([^"\']*)["\']', attributes_str)
+            if class_match:
+                classes = [cls.strip() for cls in class_match.group(1).split(',')]
         
-        # Parse container body until matching 'end container_type' - ignore indentation, rely on explicit end markers
-        end_marker = f'end {container_type}'
+        if 'styles ' in attributes_str:
+            style_match = re.search(r'styles\s+["\']([^"\']*)["\']', attributes_str)
+            if style_match:
+                styles = style_match.group(1)
+        
+        # Parse slot content if any
+        default_content = []
+        
+        return SlotComponent(slot_name, default_content, [], classes, styles)
+    
+    
+    def parse_screen_spec_syntax(self, line: str) -> ScreenDefinition:
+        """Parse screen with spec syntax: 'screen ScreenName'"""
+        # Extract screen name
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid screen definition: {line}")
+        
+        screen_name = parts[1]
+        fragments = []
+        
+        # Parse screen body until 'end screen'
+        end_marker = 'end screen'
         while self.current_line < len(self.lines):
             next_line = self.peek_line()
             
-            if not next_line:
+            if next_line is None:
                 break
                 
             if next_line.strip() == end_marker:
                 self.consume_line()  # consume end marker
-                with open("/tmp/droe_parser_debug.txt", "a") as f:
-                    f.write(f"    Found end marker: {end_marker}\n")
                 break
                 
             # Skip empty lines
@@ -506,35 +417,151 @@ class StructureParser(UIComponentParser):
             self.consume_line()
             content = next_line.strip()
             
-            with open("/tmp/droe_parser_debug.txt", "a") as f:
-                f.write(f"    Parsing container content: '{content}'\n")
-            
-            # Parse nested containers or components
-            if content.startswith(('column', 'row', 'grid', 'stack', 'overlay')):
-                nested_container_type = content.split()[0]
-                nested_layout = self.parse_container_layout(content, nested_container_type)
-                if nested_layout:
-                    children.append(nested_layout)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added nested container: {nested_container_type}\n")
+            # Parse fragment references
+            if content.startswith('fragment '):
+                fragment_ref = self.parse_fragment_reference(content)
+                if fragment_ref:
+                    fragments.append(fragment_ref)
+            elif content.startswith('form '):
+                stmt = self.parse_form_spec_syntax(content)
+                if stmt:
+                    # Wrap form in a default fragment reference
+                    default_fragment = FragmentReference("form_fragment", {"default": [stmt]})
+                    fragments.append(default_fragment)
             else:
-                # Parse UI components
+                # Parse UI components or other statements
                 component_stmt = self.parse_component(content)
                 if component_stmt:
-                    children.append(component_stmt)
-                    with open("/tmp/droe_parser_debug.txt", "a") as f:
-                        f.write(f"    Added component: {type(component_stmt).__name__}\n")
-                else:
-                    # Parse as regular statement
-                    stmt = self.parse_statement(content)
-                    if stmt:
-                        children.append(stmt)
-                        with open("/tmp/droe_parser_debug.txt", "a") as f:
-                            f.write(f"    Added statement: {type(stmt).__name__}\n")
+                    # Wrap component in a default fragment reference
+                    default_fragment = FragmentReference("default_fragment", {"default": [component_stmt]})
+                    fragments.append(default_fragment)
         
-        with open("/tmp/droe_parser_debug.txt", "a") as f:
-            f.write(f"    Container '{container_type}' finished with {len(children)} children\n")
+        return ScreenDefinition(screen_name, fragments)
+    
+    def parse_fragment_reference(self, line: str) -> FragmentReference:
+        """Parse a fragment reference within a screen"""
+        # Extract fragment name
+        parts = line.strip().split()
+        if len(parts) < 2:
+            raise ParseError(f"Invalid fragment reference: {line}")
         
-        layout_def = LayoutDefinition(container_name, container_type, children)
-        layout_def.css_classes = css_classes
-        return layout_def
+        fragment_name = parts[1]
+        slot_contents = {}
+        
+        # Parse slot content assignments until 'end fragment'
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if next_line is None:
+                break
+                
+            if next_line.strip() == 'end fragment':
+                self.consume_line()  # consume 'end fragment'
+                break
+                
+            # Skip empty lines
+            if not next_line.strip():
+                self.consume_line()
+                continue
+                
+            # Parse slot content assignments
+            self.consume_line()
+            content = next_line.strip()
+            
+            # Check if we're defining slot content
+            if content.startswith('slot ') and ':' in content:
+                # Parse slot content definition like 'slot "header":'
+                slot_match = re.match(r'slot\s+["\'](.*?)["\']\s*:', content)
+                if slot_match:
+                    slot_name = slot_match.group(1)
+                    slot_content = self.parse_slot_content_block()
+                    slot_contents[slot_name] = slot_content
+        
+        return FragmentReference(fragment_name, slot_contents)
+    
+    def parse_slot_content_block(self) -> List:
+        """Parse content for a specific slot until 'end slot'"""
+        content = []
+        
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if next_line is None:
+                break
+                
+            if next_line.strip() == 'end slot':
+                self.consume_line()  # consume 'end slot'
+                break
+                
+            # Skip empty lines
+            if not next_line.strip():
+                self.consume_line()
+                continue
+                
+            # Parse content line
+            self.consume_line()
+            content_line = next_line.strip()
+            
+            
+            # Parse UI components or other statements
+            component_stmt = self.parse_component(content_line)
+            if component_stmt:
+                content.append(component_stmt)
+            else:
+                # Parse as regular statement
+                stmt = self.parse_statement(content_line)
+                if stmt:
+                    content.append(stmt)
+        
+        return content
+    
+    def parse_form_spec_syntax(self, line: str) -> FormDefinition:
+        """Parse form with spec syntax: 'form "FormName"'"""
+        # Extract form name
+        match = re.match(r'form\s+"([^"]+)"', line)
+        if not match:
+            match = re.match(r"form\s+'([^']+)'", line)
+        
+        if not match:
+            # Try without quotes
+            parts = line.strip().split()
+            if len(parts) >= 2:
+                form_name = parts[1]
+            else:
+                raise ParseError(f"Invalid form definition: {line}")
+        else:
+            form_name = match.group(1)
+        
+        children = []
+        
+        # Parse form body until 'end form'
+        while self.current_line < len(self.lines):
+            next_line = self.peek_line()
+            
+            if not next_line:
+                break
+                
+            if next_line.strip() == 'end form':
+                self.consume_line()  # consume 'end form'
+                break
+                
+            # Skip empty lines
+            if not next_line.strip():
+                self.consume_line()
+                continue
+                
+            # Parse form elements
+            self.consume_line()
+            content = next_line.strip()
+            
+            # Parse UI components within the form
+            component_stmt = self.parse_component(content)
+            if component_stmt:
+                children.append(component_stmt)
+            else:
+                # Parse as regular statement
+                stmt = self.parse_statement(content)
+                if stmt:
+                    children.append(stmt)
+        
+        return FormDefinition(form_name, children)

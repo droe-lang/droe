@@ -1,6 +1,7 @@
 """Puck editor JSON format code generator for Droelang DSL."""
 
 import json
+import uuid
 from typing import Dict, Any, List, Optional, Union
 from ...ast import (
     ASTNode, Program, DisplayStatement, IfStatement,
@@ -85,57 +86,31 @@ class PuckCodeGenerator(BaseCodeGenerator):
             content = self._create_default_layout()
         
         return {
+            "root": {"props": root_props},
             "content": content,
-            "root": {"props": root_props}
+            "zones": {}
         }
     
     def _convert_layout(self, layout: LayoutDefinition) -> List[Dict[str, Any]]:
         """Convert a layout definition to Puck components."""
         components = []
         
-        # Create a Section component for the layout
-        section = {
-            "type": "Section",
-            "id": self._generate_id(),
-            "props": {
-                "padding": 32,
-                "background": "transparent"
-            },
-            "children": []
-        }
+        # Create direct components without nesting - flatten everything
+        def extract_components(layout_obj):
+            extracted = []
+            for child in layout_obj.children:
+                if isinstance(child, LayoutDefinition):
+                    # Recursively extract from nested layouts
+                    extracted.extend(extract_components(child))
+                elif hasattr(child, '__class__'):
+                    # Convert leaf components
+                    component = self._convert_component(child)
+                    if component:
+                        extracted.append(component)
+            return extracted
         
-        # Process layout children
-        for child in layout.children:
-            if isinstance(child, LayoutDefinition):
-                # Handle nested layouts (containers like column, row)
-                if child.layout_type == "column":
-                    column_component = self._create_column_component(child)
-                    # Process the children of this column
-                    for nested_child in child.children:
-                        nested_component = self._convert_component(nested_child)
-                        if nested_component:
-                            column_component["children"].append(nested_component)
-                    section["children"].append(column_component)
-                elif child.layout_type == "row":
-                    row_component = self._create_row_component(child)
-                    # Process the children of this row
-                    for nested_child in child.children:
-                        nested_component = self._convert_component(nested_child)
-                        if nested_component:
-                            row_component["children"].append(nested_component)
-                    section["children"].append(row_component)
-                else:
-                    # For other layout types, convert recursively
-                    nested_components = self._convert_layout(child)
-                    section["children"].extend(nested_components)
-            elif hasattr(child, '__class__'):
-                # Convert specific component types
-                component = self._convert_component(child)
-                if component:
-                    section["children"].append(component)
-        
-        components.append(section)
-        return components
+        # Extract all components and return flat list
+        return extract_components(layout)
     
     def _convert_form(self, form: FormDefinition) -> List[Dict[str, Any]]:
         """Convert a form definition to Puck components."""
@@ -144,47 +119,47 @@ class PuckCodeGenerator(BaseCodeGenerator):
         # Create a Container component for the form
         container = {
             "type": "Container",
-            "id": self._generate_id(),
+            "id": self._generate_id("Container"),
             "props": {
                 "padding": 16,
                 "background": "white",
-                "border": "light"
-            },
-            "children": []
+                "border": "light",
+                "items": []
+            }
         }
         
         # Add form title if exists
         if hasattr(form, 'title') and form.title:
             title = {
                 "type": "Heading",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Heading"),
                     "text": form.title,
                     "level": 2,
                     "align": "left"
                 }
             }
-            container["children"].append(title)
+            container["props"]["items"].append(title)
         
         # Process form fields
         for field in form.fields:
             field_component = self._convert_form_field(field)
             if field_component:
-                container["children"].append(field_component)
+                container["props"]["items"].append(field_component)
         
         # Add submit button if form has action
         if hasattr(form, 'action') and form.action:
             submit_button = {
                 "type": "Button",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Button"),
                     "text": "Submit",
                     "variant": "default",
                     "size": "default",
                     "fullWidth": "false"
                 }
             }
-            container["children"].append(submit_button)
+            container["props"]["items"].append(submit_button)
         
         components.append(container)
         return components
@@ -195,7 +170,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
             props = {
                 "text": component.text if isinstance(component.text, str) else str(component.text),
                 "level": component.level if hasattr(component, 'level') else 1,
-                "align": "left"
+                "align": "left",
+                "id": self._generate_id("Heading")  # ID goes inside props
             }
             
             # Add CSS classes to props for round-trip preservation
@@ -205,25 +181,24 @@ class PuckCodeGenerator(BaseCodeGenerator):
             
             return {
                 "type": "Heading",
-                "id": self._generate_id(),
                 "props": props
             }
         elif isinstance(component, InputComponent):
             return {
                 "type": "TextInput",
-                "id": self._generate_id(),
                 "props": {
                     "label": component.label if hasattr(component, 'label') else "Input",
                     "placeholder": component.placeholder if hasattr(component, 'placeholder') else "",
                     "required": "true" if hasattr(component, 'required') and component.required else "false",
-                    "fullWidth": "true"
+                    "fullWidth": "true",
+                    "id": self._generate_id("TextInput")
                 }
             }
         elif isinstance(component, TextareaComponent):
             return {
                 "type": "Textarea",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Textarea"),
                     "label": component.label if hasattr(component, 'label') else "Message",
                     "placeholder": component.placeholder if hasattr(component, 'placeholder') else "",
                     "rows": component.rows if hasattr(component, 'rows') else 4,
@@ -233,8 +208,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
         elif isinstance(component, ButtonComponent):
             return {
                 "type": "Button",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Button"),
                     "text": component.text if hasattr(component, 'text') else "Button",
                     "variant": "default",
                     "size": "default",
@@ -244,8 +219,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
         elif isinstance(component, ImageComponent):
             return {
                 "type": "Image",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Image"),
                     "src": component.src if hasattr(component, 'src') else "https://placehold.co/400x200",
                     "alt": component.alt if hasattr(component, 'alt') else "Image",
                     "width": "auto",
@@ -258,8 +233,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
                 options = [{"label": opt, "value": opt} for opt in component.options]
             return {
                 "type": "Select",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Select"),
                     "label": component.label if hasattr(component, 'label') else "Select",
                     "options": options,
                     "required": "false"
@@ -268,8 +243,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
         elif isinstance(component, CheckboxComponent):
             return {
                 "type": "Checkbox",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Checkbox"),
                     "label": component.label if hasattr(component, 'label') else "Options",
                     "name": "checkbox-group",
                     "options": [{"label": "Option 1", "value": "option1"}],
@@ -279,8 +254,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
         elif isinstance(component, RadioComponent):
             return {
                 "type": "Radio",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Radio"),
                     "label": component.label if hasattr(component, 'label') else "Choose",
                     "name": "radio-group",
                     "options": [{"label": "Option 1", "value": "option1"}],
@@ -292,8 +267,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
             text_value = self._extract_text_value(component.message)
             return {
                 "type": "Text",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Text"),
                     "text": text_value,
                     "size": "base",
                     "align": "left"
@@ -310,51 +285,51 @@ class PuckCodeGenerator(BaseCodeGenerator):
         """Create a default layout when no explicit layouts are defined."""
         section = {
             "type": "Section",
-            "id": self._generate_id(),
+            "id": self._generate_id("Section"),
             "props": {
                 "padding": 32,
-                "background": "transparent"
-            },
-            "children": []
+                "background": "transparent",
+                "items": []
+            }
         }
         
         # Add a heading
         heading = {
             "type": "Heading",
-            "id": self._generate_id(),
+            "id": self._generate_id("Heading"),
             "props": {
                 "text": "Droelang Application",
                 "level": 1,
                 "align": "center"
             }
         }
-        section["children"].append(heading)
+        section["props"]["items"].append(heading)
         
         # Add data model info if available
         if self.data_models:
             text = {
                 "type": "Text",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Text"),
                     "text": f"Data Models: {', '.join(self.data_models.keys())}",
                     "size": "base",
                     "align": "left"
                 }
             }
-            section["children"].append(text)
+            section["props"]["items"].append(text)
         
         # Add action info if available
         if self.actions:
             text = {
                 "type": "Text",
-                "id": self._generate_id(),
                 "props": {
+                    "id": self._generate_id("Text"),
                     "text": f"Actions: {', '.join(self.actions.keys())}",
                     "size": "base",
                     "align": "left"
                 }
             }
-            section["children"].append(text)
+            section["props"]["items"].append(text)
         
         return [section]
     
@@ -364,7 +339,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
             "gap": 16,
             "alignItems": "stretch",
             "justifyContent": "flex-start",
-            "wrap": "wrap"
+            "wrap": "wrap",
+            "items": []
         }
         
         # Add CSS classes to props for round-trip preservation
@@ -374,9 +350,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
         
         return {
             "type": "Row",
-            "id": self._generate_id(),
-            "props": props,
-            "children": []
+            "id": self._generate_id("Row"),
+            "props": props
         }
     
     def _create_column_component(self, layout: Optional[LayoutDefinition] = None) -> Dict[str, Any]:
@@ -385,7 +360,8 @@ class PuckCodeGenerator(BaseCodeGenerator):
             "flex": "1",
             "gap": 8,
             "alignItems": "stretch",
-            "minWidth": 120
+            "minWidth": 120,
+            "items": []
         }
         
         # Add CSS classes to props for round-trip preservation
@@ -395,21 +371,20 @@ class PuckCodeGenerator(BaseCodeGenerator):
         
         return {
             "type": "Column",
-            "id": self._generate_id(),
-            "props": props,
-            "children": []
+            "id": self._generate_id("Column"),
+            "props": props
         }
     
     def _add_component_to_layout(self, layout: Dict[str, Any], component: Dict[str, Any]):
         """Add a component to the appropriate place in the layout."""
-        if layout["children"]:
-            last_child = layout["children"][-1]
+        if layout["props"]["items"]:
+            last_child = layout["props"]["items"][-1]
             if last_child["type"] in ["Row", "Column", "Container"]:
-                last_child["children"].append(component)
+                last_child["props"]["items"].append(component)
             else:
-                layout["children"].append(component)
+                layout["props"]["items"].append(component)
         else:
-            layout["children"].append(component)
+            layout["props"]["items"].append(component)
     
     def _extract_text_value(self, node: ASTNode) -> str:
         """Extract text value from various node types."""
@@ -423,10 +398,9 @@ class PuckCodeGenerator(BaseCodeGenerator):
         else:
             return str(node)
     
-    def _generate_id(self) -> str:
-        """Generate a unique component ID."""
-        self.component_counter += 1
-        return f"component-{self.component_counter}"
+    def _generate_id(self, component_type: str = "Component") -> str:
+        """Generate a unique component ID using UUID in Puck format."""
+        return f"{component_type}-{uuid.uuid4()}"
     
     def emit_expression(self, expr: ASTNode):
         """Emit code for an expression.

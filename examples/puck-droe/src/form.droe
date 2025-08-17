@@ -1,0 +1,10 @@
+@target html
+
+module VisualApp
+    layout DroelangPage
+        title "Heading"
+        image source "https://placehold.co/400x200" alt "Placeholder image"
+        textarea "Message" rows=4 placeholder="Enter your message here..."
+        dropdown "Select Option" options=["Option 1", "Option 2", "Option 3"]
+    end layout
+end module

@@ -57,6 +57,8 @@ class Parser(StructureParser, StatementParser):
                 stmt = self.parse_form_definition()
             elif line_stripped.startswith('layout ') and '[' in line_stripped:
                 stmt = self.parse_inline_layout(line_stripped)
+            elif line_stripped.startswith('screen '):
+                stmt = self.parse_screen_spec_syntax(line_stripped)
             
             # Parse UI components (spec syntax only)
             elif any(line_stripped.startswith(prefix + ' ') for prefix in [

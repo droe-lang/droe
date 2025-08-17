@@ -26,16 +26,51 @@ class PuckToDSLConverter:
                 self.output_lines.append(f"@target {target}")
                 self.output_lines.append("")
         
-        # Add module wrapper
-        self.output_lines.append("module VisualApp")
+        # Convert root to get screen information
+        root = puck_json.get('root', {})
+        root_props = root.get('props', {})
+        title = root_props.get('title', 'Screen')
+        layout_type = root_props.get('layout', 'default')
+        description = root_props.get('description', '')
+        
+        # Create meaningful module name from title
+        def to_pascal_case(text: str) -> str:
+            # Remove special characters and split on word boundaries
+            words = text.replace('-', ' ').replace('_', ' ').split()
+            # Capitalize each word and join
+            return ''.join(word.capitalize() for word in words if word.isalnum())
+        
+        module_name = to_pascal_case(title) if title else 'Screen'
+        if not module_name or not module_name.replace('_', '').replace('-', '').isalnum():
+            module_name = 'Screen'
+        
+        # Add module wrapper with meaningful name
+        self.output_lines.append(f"module {module_name}")
         self.indent_level += 1
         
-        # Convert content
+        # Generate layout definition based on layout type
+        self._generate_layout_definition(layout_type)
+        
+        # Generate screen that uses the layout
+        screen_name = f"{module_name}Screen"
+        layout_name = self._get_layout_name(layout_type)
+        
+        self._add_line(f"screen {screen_name} layout=\"{layout_name}\"")
+        self.indent_level += 1
+        
+        if description:
+            self._add_line(f"// {description}")
+        
+        # Convert content as screen content
         content = puck_json.get('content', [])
         if content:
-            self._convert_content(content)
+            self._convert_content_items(content)
         else:
-            self._add_line("// Empty layout")
+            self._add_line("// Empty screen content")
+        
+        # Close screen
+        self.indent_level -= 1
+        self._add_line("end screen")
         
         # Close module
         self.indent_level -= 1
@@ -43,46 +78,116 @@ class PuckToDSLConverter:
         
         return '\n'.join(self.output_lines)
     
-    def _convert_content(self, content: List[Dict[str, Any]]):
-        """Convert Puck content components to DSL."""
-        layouts_found = False
-        forms_found = False
+    def _generate_layout_definition(self, layout_type: str):
+        """Generate layout definition based on layout type."""
+        layout_name = self._get_layout_name(layout_type)
         
+        self._add_line(f"layout {layout_name}")
+        self.indent_level += 1
+        
+        if layout_type == "header-footer":
+            self._add_line("header")
+            self.indent_level += 1
+            self._add_line("nav \"Main Navigation\"")
+            self.indent_level -= 1
+            self._add_line("end header")
+            self._add_line("")
+            self._add_line("main")
+            self.indent_level += 1
+            self._add_line("slot \"content\"")
+            self.indent_level -= 1
+            self._add_line("end main")
+            self._add_line("")
+            self._add_line("footer")
+            self.indent_level += 1
+            self._add_line("text \"© 2024 Company\"")
+            self.indent_level -= 1
+            self._add_line("end footer")
+        
+        elif layout_type == "sidebar":
+            self._add_line("div class=\"flex\"")
+            self.indent_level += 1
+            self._add_line("aside class=\"w-64\"")
+            self.indent_level += 1
+            self._add_line("nav \"Sidebar Navigation\"")
+            self.indent_level -= 1
+            self._add_line("end aside")
+            self._add_line("main class=\"flex-1\"")
+            self.indent_level += 1
+            self._add_line("slot \"content\"")
+            self.indent_level -= 1
+            self._add_line("end main")
+            self.indent_level -= 1
+            self._add_line("end div")
+        
+        elif layout_type == "fullwidth":
+            self._add_line("div class=\"w-full\"")
+            self.indent_level += 1
+            self._add_line("slot \"content\"")
+            self.indent_level -= 1
+            self._add_line("end div")
+        
+        elif layout_type == "landing":
+            self._add_line("header class=\"hero\"")
+            self.indent_level += 1
+            self._add_line("nav \"Top Navigation\"")
+            self.indent_level -= 1
+            self._add_line("end header")
+            self._add_line("main")
+            self.indent_level += 1
+            self._add_line("slot \"content\"")
+            self.indent_level -= 1
+            self._add_line("end main")
+            self._add_line("footer")
+            self.indent_level += 1
+            self._add_line("text \"Contact Info\"")
+            self.indent_level -= 1
+            self._add_line("end footer")
+        
+        else:  # default layout
+            self._add_line("main")
+            self.indent_level += 1
+            self._add_line("slot \"content\"")
+            self.indent_level -= 1
+            self._add_line("end main")
+        
+        self.indent_level -= 1
+        self._add_line("end layout")
+        self._add_line("")
+    
+    def _get_layout_name(self, layout_type: str) -> str:
+        """Get layout name based on layout type."""
+        layout_names = {
+            "default": "DefaultLayout",
+            "header-footer": "HeaderFooterLayout", 
+            "sidebar": "SidebarLayout",
+            "fullwidth": "FullWidthLayout",
+            "landing": "LandingPageLayout"
+        }
+        return layout_names.get(layout_type, "DefaultLayout")
+    
+    def _convert_content_items(self, content: List[Dict[str, Any]]):
+        """Convert Puck content components to DSL."""
         for component in content:
             component_type = component.get('type')
             
-            if component_type == 'Section':
-                if not layouts_found:
-                    self._add_line("layout MainLayout")
-                    self.indent_level += 1
-                    layouts_found = True
-                
-                self._convert_section(component)
-            
+            if component_type == 'Column':
+                self._convert_column(component)
             elif component_type == 'Container':
                 # Check if this looks like a form
-                children = component.get('children', [])
+                items = component.get('props', {}).get('items', [])
                 has_form_elements = any(
-                    child.get('type') in ['TextInput', 'Textarea', 'Select', 'Button', 'Checkbox', 'Radio'] 
-                    for child in children
+                    item.get('type') in ['TextInput', 'Textarea', 'Select', 'Button', 'Checkbox', 'Radio'] 
+                    for item in items
                 )
                 
                 if has_form_elements:
-                    if not forms_found:
-                        if layouts_found:
-                            self.indent_level -= 1
-                            self._add_line("end layout")
-                            self._add_line("")
-                        forms_found = True
-                    
                     self._convert_form_container(component)
                 else:
                     self._convert_container(component)
-        
-        # Close any open blocks
-        if layouts_found:
-            self.indent_level -= 1
-            self._add_line("end layout")
+            else:
+                # Handle direct components (Heading, Text, etc.)
+                self._convert_component_to_dsl(component)
     
     def _convert_section(self, section: Dict[str, Any]):
         """Convert Section component to DSL layout elements."""
@@ -132,17 +237,18 @@ class PuckToDSLConverter:
         props = column.get('props', {})
         
         # Extract CSS classes if present
-        css_classes = props.get('cssClasses', [])
+        css_classes = props.get('classes', '')
         class_attr = ""
         if css_classes:
-            class_attr = f' class "{" ".join(css_classes)}"'
+            class_attr = f' class "{css_classes}"'
         
         self._add_line(f"column{class_attr}")
         self.indent_level += 1
         
-        children = column.get('children', [])
-        for child in children:
-            self._convert_component_to_dsl(child)
+        # Handle items array in props
+        items = props.get('items', [])
+        for item in items:
+            self._convert_component_to_dsl(item)
         
         self.indent_level -= 1
         self._add_line("end column")
@@ -258,7 +364,7 @@ class PuckToDSLConverter:
         elif component_type == 'Image':
             src = props.get('src', 'image.jpg')
             alt = props.get('alt', 'Image')
-            self._add_line(f'image "{src}" alt="{alt}"')
+            self._add_line(f'image source "{src}" alt "{alt}"')
         
         elif component_type == 'Button':
             text = props.get('text', 'Button')
@@ -267,6 +373,73 @@ class PuckToDSLConverter:
         elif component_type == 'Spacer':
             height = props.get('height', '20px')
             self._add_line(f'spacer height={height}')
+        
+        elif component_type == 'Textarea':
+            label = props.get('label', 'Message')
+            rows = props.get('rows', 4)
+            placeholder = props.get('placeholder', '')
+            
+            line = f'textarea "{label}" rows={rows}'
+            if placeholder:
+                line += f' placeholder="{placeholder}"'
+            self._add_line(line)
+        
+        elif component_type == 'Select':
+            label = props.get('label', 'Select Option')
+            options = props.get('options', [])
+            
+            line = f'dropdown "{label}"'
+            if options:
+                option_values = [opt.get('label', opt.get('value', '')) for opt in options]
+                formatted_options = ', '.join(f'"{opt}"' for opt in option_values)
+                line += f' options=[{formatted_options}]'
+            self._add_line(line)
+        
+        elif component_type == 'Form':
+            action = props.get('action', '/submit')
+            method = props.get('method', 'post')
+            name = props.get('name', 'form')
+            
+            # Start form block
+            line = f'form "{name}" action="{action}" method="{method}"'
+            self._add_line(line)
+            self.indent_level += 1
+            
+            # Process form items
+            items = props.get('items', [])
+            for item in items:
+                self._convert_component_to_dsl(item)
+            
+            # End form block
+            self.indent_level -= 1
+            self._add_line('end form')
+        
+        elif component_type == 'TextInput':
+            label = props.get('label', 'Input')
+            placeholder = props.get('placeholder', '')
+            required = props.get('required', 'false')
+            
+            line = f'input "{label}" type="text"'
+            if placeholder:
+                line += f' placeholder="{placeholder}"'
+            if required == 'true':
+                line += ' required="true"'
+            self._add_line(line)
+        
+        elif component_type == 'FileInput':
+            label = props.get('label', 'File Upload')
+            accept = props.get('accept', '')
+            multiple = props.get('multiple', 'false')
+            required = props.get('required', 'false')
+            
+            line = f'input "{label}" type="file"'
+            if accept:
+                line += f' accept="{accept}"'
+            if multiple == 'true':
+                line += ' multiple="true"'
+            if required == 'true':
+                line += ' required="true"'
+            self._add_line(line)
         
         elif component_type == 'Divider':
             style = props.get('style', 'solid')
@@ -354,7 +527,7 @@ if __name__ == "__main__":
                 ]
             }
         ],
-        "root": {"props": {"title": "Sample Page"}}
+        "root": {"props": {"title": "Sample Screen"}}
     }
     
     metadata = {"target": "html"}

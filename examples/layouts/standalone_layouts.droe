@@ -1,0 +1,46 @@
+// Standalone layout definitions that can be included and reused
+// These layouts define the structural templates for screens
+
+layout AppLayout
+    header class "app-header"
+        nav class "navbar"
+            slot "navigation"
+        end nav
+    end header
+    
+    main class "app-main"
+        slot "content"
+    end main
+    
+    footer class "app-footer"
+        slot "footer-content"
+    end footer
+end layout
+
+layout SidebarLayout
+    div class "layout-container"
+        aside class "sidebar"
+            slot "sidebar"
+        end aside
+        
+        main class="main-content"
+            header class="content-header"
+                slot "header"
+            end header
+            
+            div class="content-body"
+                slot "content"  
+            end div
+            
+            footer class="content-footer"
+                slot "footer"
+            end footer
+        end main
+    end div
+end layout
+
+layout SimpleLayout
+    main class="simple-main"
+        slot "content"
+    end main
+end layout

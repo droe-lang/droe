@@ -9,9 +9,9 @@ from ...ast import (
     ModuleDefinition, DataDefinition, DataField, ActionDefinitionWithParams,
     ActionParameter, ActionInvocationWithArgs, StringInterpolation,
     DataInstance, FieldAssignment, FormatExpression,
-    LayoutDefinition, FormDefinition, TitleComponent,
+    FragmentDefinition, ScreenDefinition, SlotComponent, FormDefinition, TitleComponent, TextComponent,
     InputComponent, TextareaComponent, DropdownComponent, ToggleComponent,
-    CheckboxComponent, RadioComponent, ButtonComponent, 
+    CheckboxComponent, RadioComponent, ButtonComponent, FragmentReference,
     ImageComponent, VideoComponent, AudioComponent, AssetInclude,
     AttributeDefinition, ValidationAttribute, BindingAttribute, ActionAttribute,
     ApiCallStatement, ApiHeader
@@ -27,7 +27,8 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         super().__init__()
         self.data_models: Dict[str, DataDefinition] = {}
         self.actions: Dict[str, ActionDefinitionWithParams] = {}
-        self.layouts: Dict[str, LayoutDefinition] = {}
+        self.fragments: Dict[str, FragmentDefinition] = {}
+        self.screens: Dict[str, ScreenDefinition] = {}
         self.forms: Dict[str, FormDefinition] = {}
         self.component_counter = 0
         self.validation_rules: Set[str] = set()
@@ -40,7 +41,8 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.clear_output()
         self.data_models.clear()
         self.actions.clear()
-        self.layouts.clear()
+        self.fragments.clear()
+        self.screens.clear()
         self.forms.clear()
         self.component_counter = 0
         self.validation_rules.clear()
@@ -64,10 +66,10 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                     return_type=getattr(stmt, 'return_type', None)
                 )
                 self.actions[stmt.name] = action_with_params
-            elif isinstance(stmt, LayoutDefinition):
-                self.layouts[stmt.name] = stmt
-                # Recursively collect forms from layout children
-                self._collect_forms_from_children(stmt.children)
+            elif isinstance(stmt, FragmentDefinition):
+                self.fragments[stmt.name] = stmt
+            elif isinstance(stmt, ScreenDefinition):
+                self.screens[stmt.name] = stmt
             elif isinstance(stmt, FormDefinition):
                 self.forms[stmt.name] = stmt
             elif isinstance(stmt, ModuleDefinition):
@@ -88,9 +90,11 @@ class HTMLCodeGenerator(BaseCodeGenerator):
                             return_type=getattr(module_stmt, 'return_type', None)
                         )
                         self.actions[module_stmt.name] = action_with_params
-                    elif isinstance(module_stmt, LayoutDefinition):
-                        self.layouts[module_stmt.name] = module_stmt
-                        # Recursively collect forms from layout children
+                    elif isinstance(module_stmt, FragmentDefinition):
+                        self.fragments[module_stmt.name] = module_stmt
+                    elif isinstance(module_stmt, ScreenDefinition):
+                        self.screens[module_stmt.name] = module_stmt
+                        # Recursively collect forms from screen children
                         self._collect_forms_from_children(module_stmt.children)
                     elif isinstance(module_stmt, FormDefinition):
                         self.forms[module_stmt.name] = module_stmt
@@ -165,10 +169,15 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.indent_level += 1
         
         
-        # Generate body content from collected layouts and forms
-        # Generate all layouts that were collected during the first pass
-        for layout_name, layout_def in self.layouts.items():
-            self.generate_layout(layout_def)
+        # Generate body content from collected screens and layouts
+        # If we have screens, render them (which will use their layouts)
+        if self.screens:
+            for screen_name, screen_def in self.screens.items():
+                self.generate_screen(screen_def)
+        else:
+            # Fallback: Generate standalone layouts if no screens
+            for layout_name, layout_def in self.layouts.items():
+                self.generate_layout(layout_def)
         
         # Generate all forms that were collected during the first pass
         for form_name, form_def in self.forms.items():
@@ -368,10 +377,252 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if hasattr(layout, 'style') and layout.style:
             attrs.append(f'style="{self.escape_html(layout.style)}"')
         
-        self.emit(f'<div {" ".join(attrs)}>')
+        # Choose appropriate HTML tag based on layout type
+        html_tag = self.get_html_tag_for_layout(layout)
+        
+        self.emit(f'<{html_tag} {" ".join(attrs)}>')
         self.indent_level += 1
         
         for child in layout.children:
+            self.generate_component(child)
+        
+        self.indent_level -= 1
+        self.emit(f"</{html_tag}>")
+        self.emit("")
+    
+    def get_html_tag_for_layout(self, layout: LayoutDefinition) -> str:
+        """Get appropriate HTML tag for a layout based on its type."""
+        layout_type = getattr(layout, 'layout_type', 'div')
+        
+        # Map layout types to HTML tags
+        tag_mapping = {
+            'header': 'header',
+            'main': 'main', 
+            'footer': 'footer',
+            'nav': 'nav',
+            'section': 'section',
+            'article': 'article',
+            'aside': 'aside',
+            'column': 'div',
+            'row': 'div',
+            'grid': 'div',
+            'stack': 'div',
+            'overlay': 'div'
+        }
+        
+        return tag_mapping.get(layout_type, 'div')
+    
+    def generate_screen(self, screen: ScreenDefinition):
+        """Generate HTML for a screen definition using fragments."""
+        # Generate unique ID for the screen
+        if not hasattr(self, 'screen_counter'):
+            self.screen_counter = 0
+        self.screen_counter += 1
+        screen_id = f"screen-{screen.name}-{self.screen_counter}"
+        
+        # Build screen container attributes
+        attrs = [f'id="{screen_id}"']
+        if hasattr(screen, 'classes') and screen.classes:
+            attrs.append(f'class="{" ".join(screen.classes)}"')
+        if hasattr(screen, 'styles') and screen.styles:
+            attrs.append(f'style="{screen.styles}"')
+        
+        self.emit(f'<div {" ".join(attrs)}>')
+        self.indent()
+        
+        # Process each fragment reference in the screen
+        for fragment_ref in screen.fragments:
+            self.generate_fragment_reference(fragment_ref)
+        
+        self.dedent()
+        self.emit('</div>')
+    
+    def generate_fragment_reference(self, fragment_ref: FragmentReference):
+        """Generate HTML for a fragment reference with slot content."""
+        # Look up the fragment definition
+        if fragment_ref.fragment_name not in self.fragments:
+            raise CodeGenError(f"Fragment '{fragment_ref.fragment_name}' not found")
+        
+        fragment = self.fragments[fragment_ref.fragment_name]
+        
+        # Generate fragment container
+        fragment_id = f"fragment-{fragment.name}-{self.component_counter}"
+        self.component_counter += 1
+        
+        # Build fragment container attributes
+        attrs = [f'id="{fragment_id}"', f'data-fragment="{fragment.name}"']
+        if hasattr(fragment, 'classes') and fragment.classes:
+            attrs.append(f'class="{" ".join(fragment.classes)}"')
+        if hasattr(fragment, 'styles') and fragment.styles:
+            attrs.append(f'style="{fragment.styles}"')
+        
+        # Use semantic tag based on fragment name or default to div
+        tag = self.get_semantic_tag_for_fragment(fragment.name)
+        
+        self.emit(f'<{tag} {" ".join(attrs)}>')
+        self.indent()
+        
+        # Generate content for each slot in the fragment
+        for slot in fragment.slots:
+            self.generate_slot_with_content(slot, fragment_ref.slot_contents.get(slot.name, []))
+        
+        self.dedent()
+        self.emit(f'</{tag}>')
+    
+    def get_semantic_tag_for_fragment(self, fragment_name: str) -> str:
+        """Get appropriate semantic HTML tag based on fragment name."""
+        semantic_mapping = {
+            'header': 'header',
+            'footer': 'footer', 
+            'nav': 'nav',
+            'navigation': 'nav',
+            'main': 'main',
+            'content': 'main',
+            'sidebar': 'aside',
+            'aside': 'aside',
+            'article': 'article',
+            'section': 'section'
+        }
+        
+        # Check for partial matches
+        for keyword, tag in semantic_mapping.items():
+            if keyword in fragment_name.lower():
+                return tag
+        
+        return 'div'  # Default fallback
+    
+    def generate_slot_with_content(self, slot: SlotComponent, content: List[ASTNode]):
+        """Generate HTML for a slot with its assigned content."""
+        slot_id = f"slot-{slot.name}-{self.component_counter}"
+        self.component_counter += 1
+        
+        # Build slot attributes
+        attrs = [f'id="{slot_id}"', f'data-slot="{slot.name}"']
+        if hasattr(slot, 'classes') and slot.classes:
+            attrs.append(f'class="{" ".join(slot.classes)}"')
+        if hasattr(slot, 'styles') and slot.styles:
+            attrs.append(f'style="{slot.styles}"')
+        
+        self.emit(f'<div {" ".join(attrs)}>')
+        self.indent()
+        
+        # Generate content assigned to this slot, or default content if no assignment
+        if content:
+            for component in content:
+                self.generate_component(component)
+        elif slot.default_content:
+            for component in slot.default_content:
+                self.generate_component(component)
+        
+        self.dedent()
+        self.emit('</div>')
+    
+    def generate_screen_with_layout(self, screen: ScreenDefinition, layout: LayoutDefinition):
+        """Generate screen content within a layout, filling slots appropriately."""
+        # Generate unique ID for the screen
+        if not hasattr(self, 'screen_counter'):
+            self.screen_counter = 0
+        self.screen_counter += 1
+        screen_id = f"screen-{screen.name}-{self.screen_counter}"
+        
+        # Create a copy of the layout but fill slots with screen content
+        layout_id = f"layout-{layout.name}-{self.screen_counter}"
+        
+        # Only use explicitly declared CSS classes
+        classes = layout.css_classes if hasattr(layout, 'css_classes') and layout.css_classes else []
+        
+        # Build attributes
+        attrs = [f'id="{layout_id}"']
+        if classes:
+            attrs.append(f'class="{" ".join(classes)}"')
+        
+        # Choose appropriate HTML tag based on layout type
+        html_tag = self.get_html_tag_for_layout(layout)
+        
+        self.emit(f'<{html_tag} {" ".join(attrs)}>')
+        self.indent_level += 1
+        
+        # Process layout children, replacing slots with screen content
+        for child in layout.children:
+            self.generate_component_with_slot_filling(child, screen)
+        
+        self.indent_level -= 1
+        self.emit(f"</{html_tag}>")
+        self.emit("")
+    
+    def generate_component_with_slot_filling(self, component: ASTNode, screen: ScreenDefinition):
+        """Generate a component, filling slots with screen content if found."""
+        if isinstance(component, SlotComponent):
+            # Fill this slot with screen content
+            if component.name == "content" or component.name in screen.slot_contents:
+                # Use specific slot content if available, otherwise use main screen content
+                slot_content = screen.slot_contents.get(component.name, screen.children if component.name == "content" else [])
+                for content_item in slot_content:
+                    self.generate_component(content_item)
+            else:
+                # Use default slot content if no screen content for this slot
+                for default_item in component.default_content:
+                    self.generate_component(default_item)
+        elif isinstance(component, LayoutDefinition):
+            # For layout components (like containers), render them but process their children for slots
+            self.generate_layout_with_slot_filling(component, screen)
+        else:
+            # Regular component
+            self.generate_component(component)
+    
+    def generate_layout_with_slot_filling(self, layout: LayoutDefinition, screen: ScreenDefinition):
+        """Generate a layout container but process its children for slot filling."""
+        # Generate unique ID
+        if not hasattr(self, 'layout_counter'):
+            self.layout_counter = 0
+        self.layout_counter += 1
+        layout_id = f"layout-{layout.name}-{self.layout_counter}"
+        
+        # Only use explicitly declared CSS classes
+        classes = layout.css_classes if hasattr(layout, 'css_classes') and layout.css_classes else []
+        
+        # Build attributes - only add class attribute if there are explicit classes
+        attrs = [f'id="{layout_id}"']
+        if classes:
+            attrs.append(f'class="{" ".join(classes)}"')
+        
+        # Add style if present
+        if hasattr(layout, 'style') and layout.style:
+            attrs.append(f'style="{self.escape_html(layout.style)}"')
+        
+        # Choose appropriate HTML tag based on layout type
+        html_tag = self.get_html_tag_for_layout(layout)
+        
+        self.emit(f'<{html_tag} {" ".join(attrs)}>')
+        self.indent_level += 1
+        
+        # Process children with slot filling
+        for child in layout.children:
+            self.generate_component_with_slot_filling(child, screen)
+        
+        self.indent_level -= 1
+        self.emit(f"</{html_tag}>")
+        self.emit("")
+    
+    def generate_screen_standalone(self, screen: ScreenDefinition):
+        """Generate screen without a layout."""
+        # Generate unique ID
+        if not hasattr(self, 'screen_counter'):
+            self.screen_counter = 0
+        self.screen_counter += 1
+        screen_id = f"screen-{screen.name}-{self.screen_counter}"
+        
+        # Build attributes
+        classes = screen.css_classes if hasattr(screen, 'css_classes') and screen.css_classes else []
+        attrs = [f'id="{screen_id}"']
+        if classes:
+            attrs.append(f'class="{" ".join(classes)}"')
+        
+        self.emit(f'<div {" ".join(attrs)}>')
+        self.indent_level += 1
+        
+        # Generate screen content directly
+        for child in screen.children:
             self.generate_component(child)
         
         self.indent_level -= 1
@@ -404,6 +655,8 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             self.generate_form(component)
         elif isinstance(component, TitleComponent):
             self.generate_title(component)
+        elif isinstance(component, TextComponent):
+            self.generate_text(component)
         elif isinstance(component, InputComponent):
             self.generate_input(component)
         elif isinstance(component, TextareaComponent):
@@ -424,18 +677,46 @@ class HTMLCodeGenerator(BaseCodeGenerator):
             self.generate_video(component)
         elif isinstance(component, AudioComponent):
             self.generate_audio(component)
+        elif isinstance(component, SlotComponent):
+            self.generate_slot(component)
     
     def generate_title(self, title: TitleComponent):
         """Generate HTML for title component."""
-        # Only use explicitly declared CSS classes
-        classes = title.css_classes if hasattr(title, 'css_classes') and title.css_classes else []
+        # Build attributes
+        attrs = []
         
-        # Only add class attribute if there are explicit classes
-        if classes:
-            class_attr = f'class="{" ".join(classes)}"'
-            self.emit(f'<h2 {class_attr}>{self.escape_html(title.text)}</h2>')
+        # Add classes if present
+        if hasattr(title, 'classes') and title.classes:
+            attrs.append(f'class="{" ".join(title.classes)}"')
+        
+        # Add styles if present
+        if hasattr(title, 'styles') and title.styles:
+            attrs.append(f'style="{title.styles}"')
+        
+        # Generate with attributes if any, or plain if none
+        if attrs:
+            self.emit(f'<h2 {" ".join(attrs)}>{self.escape_html(title.text)}</h2>')
         else:
             self.emit(f'<h2>{self.escape_html(title.text)}</h2>')
+    
+    def generate_text(self, text: TextComponent):
+        """Generate HTML for text component."""
+        # Build attributes
+        attrs = []
+        
+        # Add classes if present
+        if hasattr(text, 'classes') and text.classes:
+            attrs.append(f'class="{" ".join(text.classes)}"')
+        
+        # Add styles if present
+        if hasattr(text, 'styles') and text.styles:
+            attrs.append(f'style="{text.styles}"')
+        
+        # Generate with attributes if any, or plain if none
+        if attrs:
+            self.emit(f'<p {" ".join(attrs)}>{self.escape_html(text.text)}</p>')
+        else:
+            self.emit(f'<p>{self.escape_html(text.text)}</p>')
     
     def generate_input(self, input_comp: InputComponent):
         """Generate HTML for input component."""
@@ -450,29 +731,72 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if input_comp.binding:
             self.bindings[input_id] = input_comp.binding
         
-        # Generate input with validation attributes
+        # Get label from attributes or generate one
+        label = ""
+        placeholder = ""
+        name = input_id  # Default name to id
+        required = False
+        disabled = False
+        readonly = False
+        
+        # Extract attributes from the component
+        for attr in input_comp.attributes:
+            if isinstance(attr, AttributeDefinition):
+                if attr.name == 'label':
+                    label = attr.value
+                elif attr.name == 'placeholder':
+                    placeholder = attr.value
+                elif attr.name == 'name':
+                    name = attr.value
+                elif attr.name == 'required':
+                    required = attr.value.lower() == 'true'
+                elif attr.name == 'disabled':
+                    disabled = attr.value.lower() == 'true'
+                elif attr.name == 'readonly':
+                    readonly = attr.value.lower() == 'true'
+            elif isinstance(attr, ValidationAttribute):
+                self.validation_rules.add(attr.validation_type)
+                if attr.validation_type == 'required':
+                    required = True
+        
+        # Wrap in div container
+        self.emit('<div class="form-group">')
+        self.indent_level += 1
+        
+        # Generate label if present
+        if label:
+            self.emit(f'<label for="{input_id}">{self.escape_html(label)}</label>')
+        
+        # Generate input with all attributes
         input_attrs = [
             f'id="{input_id}"',
+            f'name="{name}"',
             f'type="{input_comp.input_type}"'
         ]
         
-        # Add validation attributes
-        for attr in input_comp.attributes:
-            if isinstance(attr, ValidationAttribute):
-                self.validation_rules.add(attr.validation_type)
-                if attr.validation_type == 'required':
-                    input_attrs.append('required')
-                elif attr.validation_type == 'email':
-                    input_attrs.append('pattern="[^@]+@[^@]+\.[^@]+"')
-        
-        # Add placeholder if input type suggests one
-        if input_comp.input_type == 'email':
+        if placeholder:
+            input_attrs.append(f'placeholder="{self.escape_html(placeholder)}"')
+        elif input_comp.input_type == 'email' and not placeholder:
             input_attrs.append('placeholder="Enter your email"')
-        elif input_comp.input_type == 'password':
+        elif input_comp.input_type == 'password' and not placeholder:
             input_attrs.append('placeholder="Enter your password"')
         
+        if required:
+            input_attrs.append('required')
+        if disabled:
+            input_attrs.append('disabled')
+        if readonly:
+            input_attrs.append('readonly')
+        
+        # Add validation patterns
+        if input_comp.input_type == 'email':
+            input_attrs.append('pattern="[^@]+@[^@]+\.[^@]+"')
+        
         self.emit(f'<input {" ".join(input_attrs)}>')
-        self.emit(f'<div id="{input_id}-error" style="display: none;"></div>')
+        self.emit(f'<div id="{input_id}-error" class="error-message" style="display: none;"></div>')
+        
+        self.indent_level -= 1
+        self.emit('</div>')
     
     def generate_textarea(self, textarea: TextareaComponent):
         """Generate HTML for textarea component."""
@@ -482,7 +806,65 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if textarea.binding:
             self.bindings[textarea_id] = textarea.binding
         
-        self.emit(f'<textarea id="{textarea_id}" rows="4"></textarea>')
+        # Get attributes from the new fields and attributes
+        rows = textarea.rows if hasattr(textarea, 'rows') and textarea.rows else 4
+        placeholder = textarea.placeholder if hasattr(textarea, 'placeholder') and textarea.placeholder else ""
+        label = textarea.label if hasattr(textarea, 'label') and textarea.label else ""
+        name = textarea_id  # Default name to id
+        required = False
+        disabled = False
+        readonly = False
+        cols = None
+        maxlength = None
+        
+        # Extract additional attributes
+        for attr in textarea.attributes:
+            if isinstance(attr, AttributeDefinition):
+                if attr.name == 'name':
+                    name = attr.value
+                elif attr.name == 'required':
+                    required = attr.value.lower() == 'true'
+                elif attr.name == 'disabled':
+                    disabled = attr.value.lower() == 'true'
+                elif attr.name == 'readonly':
+                    readonly = attr.value.lower() == 'true'
+                elif attr.name == 'cols':
+                    cols = attr.value
+                elif attr.name == 'maxlength':
+                    maxlength = attr.value
+        
+        # Wrap in div container
+        self.emit('<div class="form-group">')
+        self.indent_level += 1
+        
+        # Generate label if present
+        if label:
+            self.emit(f'<label for="{textarea_id}">{self.escape_html(label)}</label>')
+        
+        # Generate textarea with all attributes
+        attrs = [
+            f'id="{textarea_id}"',
+            f'name="{name}"',
+            f'rows="{rows}"'
+        ]
+        
+        if cols:
+            attrs.append(f'cols="{cols}"')
+        if placeholder:
+            attrs.append(f'placeholder="{self.escape_html(placeholder)}"')
+        if maxlength:
+            attrs.append(f'maxlength="{maxlength}"')
+        if required:
+            attrs.append('required')
+        if disabled:
+            attrs.append('disabled')
+        if readonly:
+            attrs.append('readonly')
+        
+        self.emit(f'<textarea {" ".join(attrs)}></textarea>')
+        
+        self.indent_level -= 1
+        self.emit('</div>')
     
     def generate_dropdown(self, dropdown: DropdownComponent):
         """Generate HTML for dropdown component."""
@@ -496,16 +878,72 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         if dropdown.binding:
             self.bindings[select_id] = dropdown.binding
         
-        self.emit(f'<select id="{select_id}">')
+        # Get attributes from the new fields and attributes
+        label = dropdown.label if hasattr(dropdown, 'label') and dropdown.label else ""
+        name = select_id  # Default name to id
+        required = False
+        disabled = False
+        multiple = False
+        size = None
+        
+        # Extract additional attributes
+        for attr in dropdown.attributes:
+            if isinstance(attr, AttributeDefinition):
+                if attr.name == 'name':
+                    name = attr.value
+                elif attr.name == 'required':
+                    required = attr.value.lower() == 'true'
+                elif attr.name == 'disabled':
+                    disabled = attr.value.lower() == 'true'
+                elif attr.name == 'multiple':
+                    multiple = attr.value.lower() == 'true'
+                elif attr.name == 'size':
+                    size = attr.value
+        
+        # Wrap in div container
+        self.emit('<div class="form-group">')
         self.indent_level += 1
         
-        for option in dropdown.options:
-            if isinstance(option, Literal):
-                value = self.escape_html(str(option.value))
-                self.emit(f'<option value="{value}">{value}</option>')
+        # Generate label if present
+        if label:
+            self.emit(f'<label for="{select_id}">{self.escape_html(label)}</label>')
+        
+        # Generate select with all attributes
+        select_attrs = [
+            f'id="{select_id}"',
+            f'name="{name}"'
+        ]
+        
+        if required:
+            select_attrs.append('required')
+        if disabled:
+            select_attrs.append('disabled')
+        if multiple:
+            select_attrs.append('multiple')
+        if size:
+            select_attrs.append(f'size="{size}"')
+        
+        self.emit(f'<select {" ".join(select_attrs)}>')
+        self.indent_level += 1
+        
+        # Handle both old structure (Literal objects) and new structure (string list)
+        if hasattr(dropdown, 'options') and dropdown.options:
+            if isinstance(dropdown.options, list):
+                for option in dropdown.options:
+                    if isinstance(option, str):
+                        # New format: simple string options
+                        value = self.escape_html(option)
+                        self.emit(f'<option value="{value}">{value}</option>')
+                    elif isinstance(option, Literal):
+                        # Old format: Literal objects
+                        value = self.escape_html(str(option.value))
+                        self.emit(f'<option value="{value}">{value}</option>')
         
         self.indent_level -= 1
         self.emit("</select>")
+        
+        self.indent_level -= 1
+        self.emit('</div>')
     
     def generate_toggle(self, toggle: ToggleComponent):
         """Generate HTML for toggle component."""
@@ -692,6 +1130,28 @@ class HTMLCodeGenerator(BaseCodeGenerator):
         self.emit(f'<audio {" ".join(audio_attrs)}>')
         self.emit('  Your browser does not support the audio element.')
         self.emit('</audio>')
+    
+    def generate_slot(self, slot: SlotComponent):
+        """Generate HTML for slot component - renders default content."""
+        # Generate unique ID
+        self.component_counter += 1
+        slot_id = f"slot-{slot.name}-{self.component_counter}"
+        
+        # Build attributes
+        classes = slot.css_classes if slot.css_classes else []
+        attrs = [f'id="{slot_id}"', f'data-slot="{slot.name}"']
+        if classes:
+            attrs.append(f'class="{" ".join(classes)}"')
+        
+        self.emit(f'<div {" ".join(attrs)}>')
+        self.indent_level += 1
+        
+        # Render default content
+        for content_item in slot.default_content:
+            self.generate_component(content_item)
+        
+        self.indent_level -= 1
+        self.emit('</div>')
     
     def generate_javascript(self, program: Program):
         """Generate JavaScript for data binding and validation."""

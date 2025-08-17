@@ -1102,7 +1102,7 @@ def main():
         return
     
     # Handle legacy command patterns
-    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'clean', 'compile', 'run', '--version', '-h', '--help']:
+    if len(sys.argv) >= 2 and sys.argv[1] not in ['init', 'install', 'build', 'clean', 'compile', 'run', 'reverse', '--version', '-h', '--help']:
         if sys.argv[1] in ['-h', '--help']:
             show_help()
             return
