@@ -52,7 +52,8 @@ droe/
 ├── droe                  # Command-line interface
 ├── examples/             # Sample projects and tutorials
 ├── tests/                # Comprehensive test suite
-└── DROELANG_LANGUAGE_SPECIFICATION.md
+├── specs/                # Language specifications
+└── models/               # AI models and configurations
 ```
 
 ## Quick Start
@@ -194,7 +195,7 @@ tar -czf compiler.tar.gz compiler/ droe run.js
 
 ## Documentation
 
-- **Language Specification**: [DROELANG_LANGUAGE_SPECIFICATION.md](DROELANG_LANGUAGE_SPECIFICATION.md)
+- **Language Specification**: [specs/DROELANG_LANGUAGE_SPECIFICATION.md](specs/DROELANG_LANGUAGE_SPECIFICATION.md)
 - **Examples**: [examples/](examples/)
 - **API Documentation**: [droe-lang.github.io](https://droe-lang.github.io)
 
