@@ -1,2 +1,35 @@
-set greeting which is text to "Hello World"
-display "[greeting]"
+module customer_api
+    data Customer
+        id is text key auto
+        name is text required
+        email is text required unique
+        phone is text optional
+        address is text optional
+    end data
+    action create_customer with name which is text, email which is text, phone which is text gives Customer
+        set new_customer which is Customer
+        set new_customer.name to name
+        set new_customer.email to email
+        set new_customer.phone to phone
+        db create Customer from new_customer
+        display "Customer created: [name]"
+        give new_customer
+    end action
+    action get_customers gives list of Customer
+        set customers which are list of Customer from db find all Customer order by id
+        give customers
+    end action
+    action update_customer with customer_id which is text, name which is text, email which is text, phone which is text
+        db update Customer where id equals customer_id set name is name, email is email, phone is phone
+        display "Customer updated"
+    end action
+    action delete_customer with customer_id which is text
+        db delete Customer where id equals customer_id
+        display "Customer deleted"
+    end action
+end module
+// Execute API operations
+set new_customer which is Customer from run customer_api.create_customer with "John Doe", "john@email.com", "1234567890"
+run customer_api.get_customers
+set updated_customer which is Customer from run customer_api.update_customer with new_customer.id, "Jane Doe", "jane@email.com", "0987654321"
+run customer_api.delete_customer with new_customer.id

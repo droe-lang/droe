@@ -268,7 +268,7 @@ impl Default for SessionManager {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SessionStats {
     pub total_sessions: usize,
     pub client_counts: HashMap<String, usize>,

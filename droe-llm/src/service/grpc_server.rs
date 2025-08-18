@@ -1,8 +1,13 @@
+#[cfg(feature = "grpc")]
 use std::pin::Pin;
+#[cfg(feature = "grpc")]
 use tokio_stream::{Stream, StreamExt};
+#[cfg(feature = "grpc")]
 use tonic::{Request, Response, Status};
 
+#[cfg(feature = "grpc")]
 use crate::service::{LLMService, LLMStreamEvent};
+#[cfg(feature = "grpc")]
 use crate::intelligence::InferenceMode;
 
 // Include the generated protobuf code

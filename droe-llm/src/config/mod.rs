@@ -67,7 +67,7 @@ impl Default for LLMConfig {
             llm: LLMSettings {
                 model: "droe-scribe:latest".to_string(),
                 ollama_url: "http://localhost:11434".to_string(),
-                timeout_ms: 30000,
+                timeout_ms: 120000, // Increased to 2 minutes for testing
             },
             modes: ModeConfigs {
                 regular: ModeConfig {

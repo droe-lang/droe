@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use crate::{InferenceMode, config::WorkspaceBounds, LLMError};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ValidationResult {
     pub is_valid: bool,
     pub is_safe: bool,

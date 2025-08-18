@@ -161,28 +161,24 @@ fn show_help() {
     println!();
 }
 
-pub async fn start_grpc_server(port: u16, provider: &str) -> Result<()> {
-    println!("{} Starting gRPC LLM server on port {} with provider {}...", 
+pub async fn start_jsonrpc_server(port: u16, provider: &str) -> Result<()> {
+    println!("{} Starting JSON-RPC LLM server on port {} with provider {}...", 
         style("[INFO]").cyan(), 
         port, 
         provider
     );
     
-    // Start the gRPC server using droe-llm
+    // Start the JSON-RPC server using droe-llm
     let llm_service = droe_llm::LLMService::new(droe_llm::LLMConfig::default());
-    let _service = droe_llm::LLMServiceImpl::new(llm_service);
+    let jsonrpc_server = droe_llm::JsonRpcServer::new(llm_service, port);
     
-    let _addr: std::net::SocketAddr = format!("0.0.0.0:{}", port).parse()
-        .map_err(|e| anyhow::anyhow!("Invalid address: {}", e))?;
-    
-    // This would use tonic to serve the gRPC service
-    // For now, just simulate it
-    println!("{} gRPC LLM server started! VSCode extension can connect.", 
+    println!("{} JSON-RPC LLM server started! VSCode extension can connect.", 
         style("[SUCCESS]").green()
     );
     
-    // Keep the server running
-    loop {
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-    }
+    // Start the server
+    jsonrpc_server.start().await
+        .map_err(|e| anyhow::anyhow!("JSON-RPC server error: {}", e))?;
+    
+    Ok(())
 }

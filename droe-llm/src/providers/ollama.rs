@@ -323,26 +323,37 @@ fn parse_streaming_chunk_static(chunk: Bytes) -> Result<Option<String>, OllamaEr
     let chunk_str = String::from_utf8_lossy(&chunk);
     
     // Ollama sends JSON lines, we need to parse each line
+    // But HTTP chunks can split JSON in the middle, so we need to be defensive
     for line in chunk_str.lines() {
-        if line.trim().is_empty() {
+        let line = line.trim();
+        if line.is_empty() {
             continue;
         }
 
-        let response: OllamaResponse = serde_json::from_str(line)?;
-        
-        if let Some(error) = response.error {
-            return Err(OllamaError::StreamError(error));
-        }
+        // Try to parse as JSON, but be defensive about partial chunks
+        match serde_json::from_str::<OllamaResponse>(line) {
+            Ok(response) => {
+                if let Some(error) = response.error {
+                    return Err(OllamaError::StreamError(error));
+                }
 
-        if let Some(text) = response.response {
-            if !text.is_empty() {
-                return Ok(Some(text));
+                if let Some(text) = response.response {
+                    if !text.is_empty() {
+                        return Ok(Some(text));
+                    }
+                }
+
+                // Check if done
+                if response.done == Some(true) {
+                    return Ok(None); // Signal end of stream
+                }
             }
-        }
-
-        // Check if done
-        if response.done == Some(true) {
-            return Ok(None); // Signal end of stream
+            Err(e) => {
+                // If JSON parsing fails, it might be a partial chunk
+                // Log the error but don't fail completely - just skip this chunk
+                tracing::debug!("Skipping partial JSON chunk: {} (error: {})", line, e);
+                continue;
+            }
         }
     }
 

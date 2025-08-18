@@ -135,10 +135,10 @@ pub enum Commands {
         #[arg(short, long)]
         model: Option<String>,
     },
-    /// Start gRPC LLM service for VSCode extension
+    /// Start JSON-RPC LLM service for VSCode extension
     LlmServer {
         /// Server port
-        #[arg(short, long, default_value = "50051")]
+        #[arg(short, long, default_value = "8080")]
         port: u16,
         /// LLM provider
         #[arg(long, default_value = "ollama")]
@@ -229,7 +229,7 @@ async fn main() -> Result<()> {
             llm::start_chat(&provider, model.as_ref()).await
         }
         Commands::LlmServer { port, provider } => {
-            llm::start_grpc_server(port, &provider).await
+            llm::start_jsonrpc_server(port, &provider).await
         }
         Commands::Vm { command } => {
             match command {

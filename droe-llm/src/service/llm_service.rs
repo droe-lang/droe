@@ -95,19 +95,21 @@ impl LLMService {
     ) -> Result<Pin<Box<dyn Stream<Item = LLMStreamEvent> + Send>>, LLMError> {
         let session_id = request.session_id.clone();
         
-        // Ensure session exists
-        if self.session_manager.get_session(&session_id).await.is_none() {
+        // Ensure session exists or create it
+        let actual_session_id = if session_id.is_empty() || session_id == "auto" || self.session_manager.get_session(&session_id).await.is_none() {
             let mode_hint = request.mode_hint.unwrap_or(InferenceMode::Regular);
             self.session_manager
                 .create_session(request.client_id.clone(), mode_hint)
-                .await?;
-        }
+                .await?
+        } else {
+            session_id
+        };
 
         let cancellation_token = self
             .session_manager
-            .get_cancellation_token(&session_id)
+            .get_cancellation_token(&actual_session_id)
             .await
-            .ok_or_else(|| LLMError::SessionNotFound(session_id.clone()))?;
+            .ok_or_else(|| LLMError::SessionNotFound(actual_session_id.clone()))?;
 
         let service = self.clone();
         let stream = stream! {
@@ -237,12 +239,12 @@ impl LLMService {
                         validation_result: final_validation,
                         tokens_used: token_count,
                         inference_time_ms: inference_time,
-                        session_id: session_id.clone(),
+                        session_id: actual_session_id.clone(),
                         file_updates,
                     };
 
                     // Update session activity
-                    if let Err(e) = service.session_manager.update_session_activity(&session_id, token_count).await {
+                    if let Err(e) = service.session_manager.update_session_activity(&actual_session_id, token_count).await {
                         tracing::warn!("Failed to update session activity: {}", e);
                     }
 
@@ -261,6 +263,18 @@ impl LLMService {
 
     pub async fn generate_dsl(&self, request: LLMRequest) -> Result<LLMResponse, LLMError> {
         // Non-streaming implementation for edge/robotics
+        
+        // Handle session creation like streaming version
+        let session_id = request.session_id.clone();
+        let actual_session_id = if session_id.is_empty() || session_id == "auto" || self.session_manager.get_session(&session_id).await.is_none() {
+            let mode_hint = request.mode_hint.unwrap_or(InferenceMode::Regular);
+            self.session_manager
+                .create_session(request.client_id.clone(), mode_hint)
+                .await?
+        } else {
+            session_id
+        };
+        
         let mode_result = self.detect_mode(&request.prompt, &request.context, &request);
         
         let base_params = InferenceParams {
@@ -301,11 +315,9 @@ impl LLMService {
             None
         };
 
-        // Update session activity if session exists
-        if self.session_manager.get_session(&request.session_id).await.is_some() {
-            let tokens_used = raw_response.split_whitespace().count() as u32; // Rough token estimate
-            let _ = self.session_manager.update_session_activity(&request.session_id, tokens_used).await;
-        }
+        // Update session activity 
+        let tokens_used = raw_response.split_whitespace().count() as u32; // Rough token estimate
+        let _ = self.session_manager.update_session_activity(&actual_session_id, tokens_used).await;
 
         Ok(LLMResponse {
             generated_code: raw_response,
@@ -314,7 +326,7 @@ impl LLMService {
             validation_result: validation,
             tokens_used: 0, // Would need actual token count from Ollama
             inference_time_ms: inference_time,
-            session_id: request.session_id,
+            session_id: actual_session_id,
             file_updates,
         })
     }
@@ -389,6 +401,10 @@ impl LLMService {
             server_info,
             session_stats,
         })
+    }
+
+    pub async fn create_session(&self, client_id: String, mode: InferenceMode) -> Result<String, LLMError> {
+        self.session_manager.create_session(client_id, mode).await
     }
 
     fn detect_mode(&self, prompt: &str, context: &Option<String>, request: &LLMRequest) -> ModeResult {

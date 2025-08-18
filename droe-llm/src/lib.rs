@@ -6,13 +6,19 @@ pub mod providers;
 pub mod intelligence;
 pub mod session;
 pub mod config;
+pub mod client;
 
 // Re-export main types
-pub use service::{LLMService, LLMRequest, LLMResponse, LLMStreamEvent, LLMServiceImpl};
+pub use service::{LLMService, LLMRequest, LLMResponse, LLMStreamEvent, ServiceInfo, JsonRpcServer};
+#[cfg(feature = "grpc")]
+pub use service::LLMServiceImpl;
 pub use providers::{OllamaClient, OllamaError, InferenceParams};
 pub use intelligence::{ModeDetector, InferenceMode, ModeResult, ValidationEngine, ValidationResult, PartialUpdateEngine, PartialUpdateResult};
 pub use session::{SessionManager, SessionInfo};
 pub use config::{LLMConfig, WorkspaceBounds};
+pub use client::{JsonRpcClient, GenerateResponse, ValidationResultResponse, PartialUpdateResultResponse, StreamEvent, ServiceInfoResponse};
+#[cfg(feature = "grpc")]
+pub use client::{GrpcClient, GrpcClientWrapper, GrpcWrapperConfig, GrpcWrapperConfigBuilder};
 
 use thiserror::Error;
 
@@ -42,6 +48,7 @@ pub enum LLMError {
     #[error("Partial update error: {0}")]
     PartialUpdateError(String),
     
+    #[cfg(feature = "grpc")]
     #[error("gRPC error: {0}")]
     GrpcError(#[from] tonic::Status),
     
