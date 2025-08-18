@@ -3,10 +3,9 @@
 //! This module generates pure Python code from Droe AST, handling only core language features.
 //! Framework-specific code generation is handled by separate adapters.
 
-use crate::ast::{Program, Node, LiteralValue, DisplayStatement, Assignment, IfStatement, 
-                WhileLoop, ForEachLoop, ActionDefinition, DataDefinition, ModuleDefinition,
-                ServeStatement, DatabaseStatement, ApiCallStatement, BinaryOp, ArithmeticOp,
-                ArrayLiteral, StringInterpolation, FormatExpression, ReturnStatement};
+use crate::ast::{Program, Node, LiteralValue, IfStatement, 
+                WhileLoop, ForEachLoop, ForEachCharLoop, ActionDefinition, DataDefinition, ModuleDefinition,
+                ServeStatement, DatabaseStatement, ApiCallStatement, StringInterpolation, FormatExpression};
 use crate::codegen::CodeGenerator;
 
 /// Core Python code generator - handles only language fundamentals
@@ -99,6 +98,9 @@ impl PythonGenerator {
             }
             Node::ForEachLoop(for_loop) => {
                 self.generate_for_loop(for_loop)?;
+            }
+            Node::ForEachCharLoop(char_loop) => {
+                self.generate_for_char_loop(char_loop)?;
             }
             Node::ActionDefinition(action) => {
                 self.generate_action_definition(action)?;
@@ -207,6 +209,18 @@ impl PythonGenerator {
         Ok(())
     }
 
+    fn generate_for_char_loop(&mut self, char_loop: &ForEachCharLoop) -> Result<(), String> {
+        let string_expr = self.generate_expression(&char_loop.string_expr)?;
+        self.main_code.push(format!("        for {} in {}:", char_loop.variable, string_expr));
+        
+        // Generate loop body
+        for _stmt in &char_loop.body {
+            self.main_code.push("            # Character loop body".to_string());
+        }
+
+        Ok(())
+    }
+
     fn generate_action_definition(&mut self, action: &ActionDefinition) -> Result<(), String> {
         let mut method_lines = vec![
             format!("    def {}(self):", action.name),
@@ -261,7 +275,7 @@ impl PythonGenerator {
         // Process module body
         for stmt in &module.body {
             if let Node::ActionDefinition(action) = stmt {
-                class_lines.push(format!("    @staticmethod"));
+                class_lines.push("    @staticmethod".to_string());
                 class_lines.push(format!("    def {}():", action.name));
                 class_lines.push("        # Module action".to_string());
             }

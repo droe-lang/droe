@@ -207,16 +207,16 @@ impl HTMLGenerator {
         Ok(())
     }
     
-    fn generate_body_content(&mut self, program: &Program) -> Result<(), CodeGenError> {
+    fn generate_body_content(&mut self, _program: &Program) -> Result<(), CodeGenError> {
         // Generate screens and layouts
         let screens = self.screens.clone();
-        for (_, screen) in &screens {
+        for screen in screens.values() {
             self.generate_screen(screen)?;
         }
         
         // Generate standalone forms
         let forms = self.forms.clone();
-        for (_, form) in &forms {
+        for form in forms.values() {
             self.generate_form(form)?;
         }
         
@@ -833,7 +833,7 @@ impl HTMLGenerator {
         Ok(self.context.get_output())
     }
     
-    fn generate_javascript_file(&mut self, program: &Program) -> Result<String, CodeGenError> {
+    fn generate_javascript_file(&mut self, _program: &Program) -> Result<String, CodeGenError> {
         self.context.clear_output();
         
         self.context.emit("// Droe Application JavaScript");
@@ -913,7 +913,7 @@ impl HTMLGenerator {
     }
     
     fn generate_form_handlers(&mut self) -> Result<(), CodeGenError> {
-        for (form_name, _) in &self.forms {
+        for form_name in self.forms.keys() {
             self.context.emit(&format!("// Handler for {}", form_name));
             self.context.emit(&format!("window.submit_{} = async function(actionName) {{", form_name));
             self.context.indent();

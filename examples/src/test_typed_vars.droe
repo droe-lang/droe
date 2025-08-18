@@ -1,0 +1,10 @@
+display "Testing typed variables"
+
+set answer which is int to 42
+display answer
+
+set flag which is flag to true
+display flag
+
+set message which is text to "Hello World"
+display message

@@ -126,6 +126,7 @@ impl BytecodeGenerator {
             Node::IfStatement(n) => self.visit_if_statement(n),
             Node::WhileLoop(n) => self.visit_while_loop(n),
             Node::ForEachLoop(n) => self.visit_for_each_loop(n),
+            Node::ForEachCharLoop(n) => self.visit_for_each_char_loop(n),
             Node::ReturnStatement(n) => self.visit_return_statement(n),
             
             // Definitions
@@ -237,6 +238,20 @@ impl BytecodeGenerator {
         self.visit(&node.right)?;
         
         let op = match node.operator.as_str() {
+            // Natural language comparison operators
+            "is greater than" => "Gt",
+            "is less than" => "Lt",
+            "is greater than or equal to" => "Gte",
+            "is less than or equal to" => "Lte",
+            "equals" => "Eq",
+            "does not equal" => "Neq",
+            "is" => "Eq",
+            
+            // Logical operators
+            "and" => "And",
+            "or" => "Or",
+            
+            // Symbolic operators (for backwards compatibility)
             "==" => "Eq",
             "!=" => "Neq", 
             ">" => "Gt",
@@ -247,6 +262,7 @@ impl BytecodeGenerator {
             "-" => "Sub",
             "*" => "Mul",
             "/" => "Div",
+            
             _ => return Err(format!("Unknown operator: {}", node.operator)),
         };
         
@@ -271,29 +287,39 @@ impl BytecodeGenerator {
         Ok(())
     }
 
-    /// Visit if statement
+    /// Visit if statement with else-if support
     fn visit_if_statement(&mut self, node: &IfStatement) -> Result<(), String> {
-        let else_label = self.create_label();
+        let mut next_label = self.create_label();
         let end_label = self.create_label();
         
-        // Evaluate condition
+        // Main condition
         self.visit(&node.condition)?;
+        self.emit_jump("JumpIfFalse", &next_label);
         
-        // Jump to else if false
-        self.emit_jump("JumpIfFalse", &else_label);
-        
-        // Then body
+        // Main then body
         for stmt in &node.then_body {
             self.visit(stmt)?;
         }
-        
-        // Jump to end
         self.emit_jump("Jump", &end_label);
         
-        // Else label
-        self.mark_label(&else_label);
+        // Process else-if clauses
+        for elseif_clause in &node.elseif_clauses {
+            self.mark_label(&next_label);
+            next_label = self.create_label();
+            
+            // Evaluate else-if condition
+            self.visit(&elseif_clause.condition)?;
+            self.emit_jump("JumpIfFalse", &next_label);
+            
+            // Else-if body
+            for stmt in &elseif_clause.body {
+                self.visit(stmt)?;
+            }
+            self.emit_jump("Jump", &end_label);
+        }
         
-        // Else body
+        // Final else body (if present)
+        self.mark_label(&next_label);
         if let Some(else_body) = &node.else_body {
             for stmt in else_body {
                 self.visit(stmt)?;
@@ -340,10 +366,28 @@ impl BytecodeGenerator {
     }
 
     /// Visit for each loop
-    fn visit_for_each_loop(&mut self, node: &ForEachLoop) -> Result<(), String> {
+    fn visit_for_each_loop(&mut self, _node: &ForEachLoop) -> Result<(), String> {
         // This is a simplified implementation
         // In a real VM, we'd need iterator support
-        return Err("ForEach loops not yet implemented in bytecode".to_string());
+        Err("ForEach loops not yet implemented in bytecode".to_string())
+    }
+
+    /// Visit for each char loop
+    fn visit_for_each_char_loop(&mut self, node: &ForEachCharLoop) -> Result<(), String> {
+        // Generate code for string character iteration
+        // For now, we'll generate a comment indicating the feature
+        self.emit("COMMENT", vec![serde_json::json!(format!("for each {} in string", node.variable))]);
+        
+        // Visit the string expression to get it on the stack
+        self.visit(&node.string_expr)?;
+        
+        // Generate loop body (simplified)
+        for stmt in &node.body {
+            self.visit(stmt)?;
+        }
+        
+        self.emit("COMMENT", vec![serde_json::json!("end for each char")]);
+        Ok(())
     }
 
     /// Visit array literal
@@ -391,7 +435,7 @@ impl BytecodeGenerator {
         // Fix the task end address
         for instruction in &mut self.instructions {
             if instruction.op == "DefineTask" && 
-               instruction.args.len() > 0 &&
+               !instruction.args.is_empty() &&
                instruction.args[0] == Value::String(node.name.clone()) {
                 if let Some(&end_addr) = self.labels.get(&end_label) {
                     instruction.args[2] = serde_json::json!(end_addr);
@@ -433,24 +477,24 @@ impl BytecodeGenerator {
 
     /// Visit string interpolation
     fn visit_string_interpolation(&mut self, node: &StringInterpolation) -> Result<(), String> {
-        let mut result_parts = Vec::new();
-        
-        for part in &node.parts {
-            match part {
-                Node::Literal(literal) => {
-                    if let LiteralValue::String(s) = &literal.value {
-                        result_parts.push(s.clone());
-                    }
-                }
-                _ => {
-                    // For now, just convert to string placeholder
-                    // In a real implementation, we'd need string conversion
-                    result_parts.push("[var]".to_string());
-                }
-            }
+        // If only one part, just emit it directly
+        if node.parts.len() == 1 {
+            return self.visit(&node.parts[0]);
         }
         
-        self.emit_value(&Value::String(result_parts.join("")));
+        // For multiple parts, we need to concatenate them
+        // First, push all parts onto the stack
+        for part in &node.parts {
+            self.visit(part)?;
+            // Convert to string if needed
+            self.emit("ToString", vec![]);
+        }
+        
+        // Now concatenate all parts (n-1 concatenations for n parts)
+        for _ in 1..node.parts.len() {
+            self.emit("Concat", vec![]);
+        }
+        
         Ok(())
     }
 
@@ -821,7 +865,7 @@ impl BytecodeGenerator {
                 }
                 // Simple operations without arguments
                 "Display" | "Add" | "Sub" | "Mul" | "Div" | "Eq" | "Neq" | "Lt" | "Gt" | "Lte" | "Gte" |
-                "Pop" | "Dup" | "Return" | "Halt" | "Nop" | "EndHandler" => {
+                "Pop" | "Dup" | "Return" | "Halt" | "Nop" | "EndHandler" | "ToString" | "Concat" => {
                     result.push(Value::String(op.clone()));
                 }
                 _ => {

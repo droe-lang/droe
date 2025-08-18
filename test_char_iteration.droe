@@ -1,0 +1,9 @@
+display "Testing string character iteration"
+
+set input which is text to "hello"
+
+for each char in input
+    display "Character: [char]"
+end for
+
+display "Character iteration test complete"

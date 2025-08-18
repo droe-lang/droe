@@ -4,7 +4,7 @@
 //! with full support for core libraries, advanced features, and runtime generation.
 
 use crate::ast::*;
-use crate::symbols::{SymbolTable, VariableType, Variable};
+use crate::symbols::VariableType;
 use crate::codegen_base::{BaseCodeGenerator, CodeGenError, CodeGenContext, TypeSystemHelpers};
 use super::{CodeGenerator, wasm_runtime::WasmRuntimeBuilder};
 use std::collections::HashMap;
@@ -53,17 +53,6 @@ impl WebAssemblyGenerator {
         output.push_str("  (import \"env\" \"print\" (func $print (param i32 i32)))\n");
         output.push_str("  (import \"env\" \"print_i32\" (func $print_i32 (param i32)))\n");
         output.push_str("  (import \"env\" \"print_string_from_offset\" (func $print_string_from_offset (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_no_newline\" (func $print_no_newline (param i32 i32)))\n");
-        output.push_str("  (import \"env\" \"print_newline\" (func $print_newline))\n");
-        output.push_str("  (import \"env\" \"print_i32_no_newline\" (func $print_i32_no_newline (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_string_from_offset_no_newline\" (func $print_string_from_offset_no_newline (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_decimal\" (func $print_decimal (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_decimal_no_newline\" (func $print_decimal_no_newline (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_date\" (func $print_date (param i32)))\n");
-        output.push_str("  (import \"env\" \"print_date_no_newline\" (func $print_date_no_newline (param i32)))\n");
-        output.push_str("  (import \"env\" \"format_date\" (func $format_date (param i32 i32) (result i32)))\n");
-        output.push_str("  (import \"env\" \"format_decimal\" (func $format_decimal (param i32 i32) (result i32)))\n");
-        output.push_str("  (import \"env\" \"format_number\" (func $format_number (param i32 i32) (result i32)))\n");
         
         // Import core library functions if enabled
         output.push_str(&self.emit_core_library_imports());
@@ -176,15 +165,12 @@ impl WebAssemblyGenerator {
     }
     
     fn collect_variables_from_node(&mut self, node: &Node) -> Result<(), CodeGenError> {
-        match node {
-            Node::Assignment(assignment) => {
-                if !self.context.symbol_table.has_variable(&assignment.variable) {
-                    let var_type = self.infer_type(&assignment.value, &self.context.symbol_table);
-                    self.context.symbol_table.add_variable(assignment.variable.clone(), var_type)
-                        .map_err(|e| CodeGenError::SymbolError { message: e })?;
-                }
+        if let Node::Assignment(assignment) = node {
+            if !self.context.symbol_table.has_variable(&assignment.variable) {
+                let var_type = self.infer_type(&assignment.value, &self.context.symbol_table);
+                self.context.symbol_table.add_variable(assignment.variable.clone(), var_type)
+                    .map_err(|e| CodeGenError::SymbolError { message: e })?;
             }
-            _ => {}
         }
         Ok(())
     }
@@ -248,9 +234,50 @@ impl WebAssemblyGenerator {
                     });
                 }
             }
+            Node::StringInterpolation(interp) => {
+                output.push_str(&self.emit_string_interpolation(interp)?);
+            }
             _ => {
                 output.push_str("    ;; display complex expression\n");
             }
+        }
+        
+        Ok(output)
+    }
+    
+    fn emit_string_interpolation(&mut self, interp: &StringInterpolation) -> Result<String, CodeGenError> {
+        let mut output = String::new();
+        output.push_str("    ;; string interpolation\n");
+        
+        // For simple cases like "[variable]", just print the variable
+        if interp.parts.len() == 1 {
+            match &interp.parts[0] {
+                Node::Identifier(identifier) => {
+                    if let Some(var) = self.context.symbol_table.get_variable(&identifier.name) {
+                        if self.is_text_type(&var.var_type) {
+                            output.push_str(&format!("    local.get {}\n", var.wasm_index.unwrap_or(0)));
+                            output.push_str("    call $print_string_from_offset\n");
+                        } else if self.is_numeric_type(&var.var_type) {
+                            output.push_str(&format!("    local.get {}\n", var.wasm_index.unwrap_or(0)));
+                            if var.var_type == VariableType::Decimal {
+                                output.push_str("    call $print_decimal\n");
+                            } else {
+                                output.push_str("    call $print_i32\n");
+                            }
+                        }
+                    } else {
+                        return Err(CodeGenError::UnknownVariable { 
+                            name: identifier.name.clone() 
+                        });
+                    }
+                }
+                _ => {
+                    output.push_str("    ;; non-identifier in string interpolation\n");
+                }
+            }
+        } else {
+            // For complex interpolation, concatenate strings and variables
+            output.push_str("    ;; complex string interpolation not yet implemented\n");
         }
         
         Ok(output)
@@ -386,16 +413,13 @@ impl WebAssemblyGenerator {
     }
     
     fn collect_strings_from_expression(&mut self, expr: &Node) {
-        match expr {
-            Node::Literal(literal) => {
-                if let LiteralValue::String(s) = &literal.value {
-                    if !self.string_constants.contains_key(s) {
-                        self.string_constants.insert(s.clone(), self.next_string_index);
-                        self.next_string_index += 1;
-                    }
+        if let Node::Literal(literal) = expr {
+            if let LiteralValue::String(s) = &literal.value {
+                if !self.string_constants.contains_key(s) {
+                    self.string_constants.insert(s.clone(), self.next_string_index);
+                    self.next_string_index += 1;
                 }
             }
-            _ => {}
         }
     }
     
@@ -480,7 +504,7 @@ impl WebAssemblyGenerator {
         Ok(output)
     }
     
-    fn emit_foreach_loop(&mut self, for_each: &ForEachLoop) -> Result<String, CodeGenError> {
+    fn emit_foreach_loop(&mut self, _for_each: &ForEachLoop) -> Result<String, CodeGenError> {
         let mut output = String::new();
         output.push_str("    ;; foreach loop\n");
         
@@ -515,7 +539,7 @@ impl WebAssemblyGenerator {
         Ok(output)
     }
     
-    fn emit_return_statement(&mut self, ret: &ReturnStatement) -> Result<String, CodeGenError> {
+    fn emit_return_statement(&mut self, _ret: &ReturnStatement) -> Result<String, CodeGenError> {
         let mut output = String::new();
         output.push_str("    ;; return statement\n");
         // The actual return value emission is handled in action invocations

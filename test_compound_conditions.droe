@@ -1,0 +1,27 @@
+display "Testing compound conditions"
+
+set age which is int to 25
+set status which is text to "active"
+set score which is int to 85
+
+display "1. Simple comparison with 'greater than or equal to':"
+when age is greater than or equal to 18 then
+    display "Age check passed"
+end when
+
+display "2. Compound condition with AND:"
+when age is greater than or equal to 18 and status equals "active" then
+    display "User is an active adult"
+end when
+
+display "3. Compound condition with OR:"
+when score is greater than 90 or status equals "active" then
+    display "User qualifies for benefits"
+end when
+
+display "4. Complex condition with parentheses:"
+when (age is greater than or equal to 18 and status equals "active") or score is greater than 95 then
+    display "Complex condition met"
+end when
+
+display "Compound conditions test complete"

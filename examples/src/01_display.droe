@@ -1,16 +1,16 @@
-show "Welcome to Roelang!"
-show "This example demonstrates the 'show' statement"
+display "Welcome to Droelang!"
+display "This example demonstrates the 'display' statement"
 
-show "You can display text with double quotes:"
-show "Hello, World!"
+display "You can display text with double quotes:"
+display "Hello, World!"
 
-show "Or with single quotes:"
-show 'Single quotes work too!'
+display "Or with single quotes:"
+display 'Single quotes work too!'
 
-show "Numbers can be displayed via variables:"
-set answer to 42
-show answer
+display "Numbers can be displayed via variables:"
+set answer which is int to 42
+display "Answer is [answer]"
 
-show "Boolean values via variables:"
-set flag to true
-show flag
+display "Boolean values via variables:"
+set status which is flag to true
+display "Status is [status]"

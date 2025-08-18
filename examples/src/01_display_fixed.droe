@@ -1,0 +1,2 @@
+set greeting which is text to "Hello World"
+display "[greeting]"

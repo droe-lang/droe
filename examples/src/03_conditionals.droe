@@ -1,22 +1,22 @@
-show "Conditionals in Roelang"
-show "======================"
+display "Conditionals in Roelang"
+display "======================"
 
-show "1. Numeric comparisons:"
-when 5 is greater than 3 then show "5 > 3 is true"
-when 10 is less than 20 then show "10 < 20 is true"
-when 7 is greater than or equal to 7 then show "7 >= 7 is true"
-when 8 is less than or equal to 9 then show "8 <= 9 is true"
-when 42 equals 42 then show "42 == 42 is true"
-when 1 does not equal 2 then show "1 != 2 is true"
+display "1. Numeric comparisons:"
+when 5 is greater than 3 then display "5 > 3 is true"
+when 10 is less than 20 then display "10 < 20 is true"
+when 7 is greater than or equal to 7 then display "7 >= 7 is true"
+when 8 is less than or equal to 9 then display "8 <= 9 is true"
+when 42 equals 42 then display "42 == 42 is true"
+when 1 does not equal 2 then display "1 != 2 is true"
 
-show "2. Boolean conditions:"
-when true equals true then show "true == true"
-when false is not true then show "false != true"
-when the condition is true then show "Boolean literal works"
+display "2. Boolean conditions:"
+when true equals true then display "true == true"
+when false is not true then display "false != true"
+when the condition is true then display "Boolean literal works"
 
-show "3. Variable comparisons:"
+display "3. Variable comparisons:"
 set age which is int to 25
 set limit which is int to 18
 
-when age is greater than limit then show "You are an adult"
-when age equals 25 then show "Age is exactly 25"
+when age is greater than limit then display "You are an adult"
+when age equals 25 then display "Age is exactly 25"

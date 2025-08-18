@@ -1,0 +1,6 @@
+display "Line 1"
+display "Line 2"  
+display "Line 3"
+display "Line 4"
+invalid_keyword "This should cause an error"
+display "Line 6"

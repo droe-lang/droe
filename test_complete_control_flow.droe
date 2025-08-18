@@ -1,0 +1,53 @@
+display "Complete Control Flow Test"
+display "========================="
+
+set age which is int to 25
+set status which is text to "active"  
+set score which is int to 85
+set role which is text to "user"
+
+display "1. Basic comparisons with natural language operators:"
+when age is greater than or equal to 18 then
+    display "✓ Adult age verified"
+end when
+
+display "2. Compound conditions with AND:"
+when age is greater than 18 and status equals "active" then
+    display "✓ Active adult user confirmed"
+end when
+
+display "3. Compound conditions with OR:"
+when role equals "admin" or score is greater than 80 then
+    display "✓ Qualified user (high score)"
+end when
+
+display "4. Complex conditions with parentheses:"
+when (age is greater than 21 and status equals "active") or score is greater than 90 then
+    display "✓ Complex condition met"
+end when
+
+display "5. Comprehensive else-if chain:"
+when score is greater than or equal to 95 then
+    display "✓ Exceptional performance!"
+otherwise when score is greater than or equal to 85 then
+    display "✓ Very good performance!"
+otherwise when score is greater than or equal to 75 then
+    display "Good performance"
+otherwise when score is greater than or equal to 65 then
+    display "Acceptable performance"
+otherwise
+    display "Needs improvement"
+end when
+
+display "6. Nested conditions with compound logic:"
+when age is greater than or equal to 18 then
+    when (status equals "active" and score is greater than 70) or role equals "admin" then
+        display "✓ Full access granted"
+    otherwise
+        display "Limited access"
+    end when
+otherwise
+    display "Access denied - underage"
+end when
+
+display "All control flow tests completed successfully!"

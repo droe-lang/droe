@@ -1,0 +1,19 @@
+display "Testing else-if (otherwise when) functionality"
+
+set score which is int to 85
+
+display "Score-based grading system:"
+
+when score is greater than or equal to 90 then
+    display "Grade: A - Excellent!"
+otherwise when score is greater than or equal to 80 then
+    display "Grade: B - Very Good!"
+otherwise when score is greater than or equal to 70 then
+    display "Grade: C - Good"
+otherwise when score is greater than or equal to 60 then
+    display "Grade: D - Passing"
+otherwise
+    display "Grade: F - Needs improvement"
+end when
+
+display "Else-if test completed!"

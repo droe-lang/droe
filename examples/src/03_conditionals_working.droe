@@ -1,0 +1,16 @@
+display "Simple Conditionals in Droelang"
+display "================================"
+
+display "1. Single-line conditionals:"
+set condition which is flag to true
+when condition then display "Condition is true"
+
+display "2. Multi-line conditionals:"
+set age which is int to 25
+
+when age
+  display "Age is set"
+  display "Inside when block"
+end when
+
+display "Conditionals example completed!"

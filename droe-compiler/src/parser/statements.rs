@@ -2,7 +2,6 @@
 
 use crate::ast::*;
 use crate::lexer::TokenType;
-use crate::expressions::ExpressionParser;
 use super::base::{BaseParser, ParserContext};
 use super::ui_components::UIComponentParser;
 use super::database::DatabaseParser;
@@ -158,26 +157,56 @@ impl StatementParser {
         }))
     }
     
-    /// Parse set statement
+    /// Parse set statement - supports both 'set var to value' and 'set var which is type to value'
     fn parse_set_statement(ctx: &mut ParserContext) -> ParseResult<Node> {
         let line = ctx.peek().line;
         ctx.consume(&TokenType::Set, "Expected 'set'")?;
         
-        let variable = match &ctx.advance().token_type {
-            TokenType::Identifier(name) => name.clone(),
-            _ => return Err(ParseError {
-                message: "Expected variable name".to_string(),
-                line: ctx.previous().line,
-                column: ctx.previous().column,
-            }),
+        // Collect all tokens until we find 'to' to reconstruct the full line text
+        let mut content_tokens = Vec::new();
+        while !ctx.check(&TokenType::To) && !ctx.is_at_end() {
+            content_tokens.push(ctx.advance().lexeme.clone());
+        }
+        
+        if !ctx.check(&TokenType::To) {
+            return Err(ParseError {
+                message: "Invalid set statement - missing 'to'".to_string(),
+                line,
+                column: 0, // Use 0 since we don't track specific column within the set statement
+            });
+        }
+        
+        let var_part = content_tokens.join(" ");
+        ctx.advance(); // consume 'to'
+        
+        // Parse the value expression
+        let value = Self::parse_expression(ctx)?;
+        
+        // Extract variable name and type declaration
+        let (variable, declared_type) = if var_part.contains(" which is ") {
+            let parts: Vec<&str> = var_part.split(" which is ").collect();
+            let var_name = parts[0].trim().to_string();
+            let type_name = if parts.len() > 1 {
+                Some(parts[1].trim().to_string())
+            } else {
+                None
+            };
+            (var_name, type_name)
+        } else {
+            (var_part.trim().to_string(), None)
         };
         
-        ctx.consume(&TokenType::To, "Expected 'to'")?;
-        
-        let value = Self::parse_expression(ctx)?;
+        if variable.is_empty() {
+            return Err(ParseError {
+                message: "Expected variable name".to_string(),
+                line,
+                column: 0,
+            });
+        }
         
         Ok(Node::Assignment(Assignment {
             variable,
+            declared_type,
             value: Box::new(value),
             line_number: Some(line),
         }))
@@ -202,12 +231,13 @@ impl StatementParser {
         
         Ok(Node::Assignment(Assignment {
             variable,
+            declared_type: None, // Simple assignment without type declaration
             value: Box::new(value),
             line_number: Some(line),
         }))
     }
     
-    /// Parse when statement (conditional)
+    /// Parse when statement (conditional) with support for else-if chains
     fn parse_when_statement(ctx: &mut ParserContext) -> ParseResult<Node> {
         let line = ctx.peek().line;
         ctx.consume(&TokenType::When, "Expected 'when'")?;
@@ -217,8 +247,10 @@ impl StatementParser {
         ctx.consume(&TokenType::Then, "Expected 'then'")?;
         
         let mut then_body = Vec::new();
+        let mut elseif_clauses = Vec::new();
         let mut else_body = None;
         
+        // Parse the main 'then' body
         while !ctx.check(&TokenType::EndWhen) && !ctx.check(&TokenType::Otherwise) && !ctx.is_at_end() {
             ctx.skip_newlines_and_comments();
             if ctx.check(&TokenType::EndWhen) || ctx.check(&TokenType::Otherwise) || ctx.is_at_end() {
@@ -227,19 +259,50 @@ impl StatementParser {
             then_body.push(Self::parse_statement(ctx)?);
         }
         
-        if ctx.check(&TokenType::Otherwise) {
+        // Parse else-if clauses (otherwise when ...)
+        while ctx.check(&TokenType::Otherwise) {
             ctx.advance(); // consume 'otherwise'
-            let mut otherwise_body = Vec::new();
+            ctx.skip_newlines_and_comments();
             
-            while !ctx.check(&TokenType::EndWhen) && !ctx.is_at_end() {
-                ctx.skip_newlines_and_comments();
-                if ctx.check(&TokenType::EndWhen) || ctx.is_at_end() {
-                    break;
+            // Check if this is "otherwise when" (else-if) or just "otherwise" (else)
+            if ctx.check(&TokenType::When) {
+                // This is an else-if clause
+                let elseif_line = ctx.peek().line;
+                ctx.advance(); // consume 'when'
+                
+                let elseif_condition = Self::parse_expression(ctx)?;
+                ctx.consume(&TokenType::Then, "Expected 'then' after 'otherwise when'")?;
+                
+                let mut elseif_body = Vec::new();
+                
+                while !ctx.check(&TokenType::EndWhen) && !ctx.check(&TokenType::Otherwise) && !ctx.is_at_end() {
+                    ctx.skip_newlines_and_comments();
+                    if ctx.check(&TokenType::EndWhen) || ctx.check(&TokenType::Otherwise) || ctx.is_at_end() {
+                        break;
+                    }
+                    elseif_body.push(Self::parse_statement(ctx)?);
                 }
-                otherwise_body.push(Self::parse_statement(ctx)?);
+                
+                elseif_clauses.push(ElseIfClause {
+                    condition: Box::new(elseif_condition),
+                    body: elseif_body,
+                    line_number: Some(elseif_line),
+                });
+            } else {
+                // This is the final 'otherwise' (else) clause
+                let mut otherwise_body = Vec::new();
+                
+                while !ctx.check(&TokenType::EndWhen) && !ctx.is_at_end() {
+                    ctx.skip_newlines_and_comments();
+                    if ctx.check(&TokenType::EndWhen) || ctx.is_at_end() {
+                        break;
+                    }
+                    otherwise_body.push(Self::parse_statement(ctx)?);
+                }
+                
+                else_body = Some(otherwise_body);
+                break; // Final else clause, exit the loop
             }
-            
-            else_body = Some(otherwise_body);
         }
         
         ctx.consume(&TokenType::EndWhen, "Expected 'end when'")?;
@@ -247,6 +310,7 @@ impl StatementParser {
         Ok(Node::IfStatement(IfStatement {
             condition: Box::new(condition),
             then_body,
+            elseif_clauses,
             else_body,
             line_number: Some(line),
         }))
@@ -284,6 +348,46 @@ impl StatementParser {
         ctx.consume(&TokenType::For, "Expected 'for'")?;
         ctx.consume(&TokenType::Each, "Expected 'each'")?;
         
+        // Check if this is character iteration by looking ahead
+        let is_char_iteration = if let TokenType::Identifier(name) = &ctx.peek().token_type {
+            name == "char"
+        } else if let TokenType::Char = &ctx.peek().token_type {
+            true
+        } else {
+            false
+        };
+        
+        if is_char_iteration {
+            ctx.advance(); // consume 'char' (either as identifier or keyword)
+            ctx.consume(&TokenType::In, "Expected 'in'")?;
+            
+            let string_expr = Self::parse_expression(ctx)?;
+            
+            // For character iteration, the variable is typically a single character variable
+            // We'll use a default name or allow custom naming in the future
+            let variable = "char".to_string();
+            
+            let mut body = Vec::new();
+            
+            while !ctx.check(&TokenType::EndFor) && !ctx.is_at_end() {
+                ctx.skip_newlines_and_comments();
+                if ctx.check(&TokenType::EndFor) || ctx.is_at_end() {
+                    break;
+                }
+                body.push(Self::parse_statement(ctx)?);
+            }
+            
+            ctx.consume(&TokenType::EndFor, "Expected 'end for'")?;
+            
+            return Ok(Node::ForEachCharLoop(ForEachCharLoop {
+                variable,
+                string_expr: Box::new(string_expr),
+                body,
+                line_number: Some(line),
+            }));
+        }
+        
+        // Regular for each loop
         let variable = match &ctx.advance().token_type {
             TokenType::Identifier(name) => name.clone(),
             _ => return Err(ParseError {
@@ -387,10 +491,98 @@ impl StatementParser {
         }))
     }
     
-    /// Parse expression (delegated to expression parser for now)
+    /// Parse expression with support for logical operators and grouping
     fn parse_expression(ctx: &mut ParserContext) -> ParseResult<Node> {
-        // For now, use a simple expression parsing
-        // In the future, we could integrate the ExpressionParser here
+        Self::parse_logical_or(ctx)
+    }
+    
+    /// Parse logical OR expressions (lowest precedence)
+    fn parse_logical_or(ctx: &mut ParserContext) -> ParseResult<Node> {
+        let mut expr = Self::parse_logical_and(ctx)?;
+        
+        while ctx.check(&TokenType::Or) {
+            ctx.advance(); // consume 'or'
+            let right = Self::parse_logical_and(ctx)?;
+            expr = Node::BinaryOp(BinaryOp {
+                left: Box::new(expr),
+                operator: "or".to_string(),
+                right: Box::new(right),
+                line_number: Some(ctx.previous().line),
+            });
+        }
+        
+        Ok(expr)
+    }
+    
+    /// Parse logical AND expressions (higher precedence than OR)
+    fn parse_logical_and(ctx: &mut ParserContext) -> ParseResult<Node> {
+        let mut expr = Self::parse_comparison(ctx)?;
+        
+        while ctx.check(&TokenType::And) {
+            ctx.advance(); // consume 'and'
+            let right = Self::parse_comparison(ctx)?;
+            expr = Node::BinaryOp(BinaryOp {
+                left: Box::new(expr),
+                operator: "and".to_string(),
+                right: Box::new(right),
+                line_number: Some(ctx.previous().line),
+            });
+        }
+        
+        Ok(expr)
+    }
+    
+    /// Parse comparison expressions
+    fn parse_comparison(ctx: &mut ParserContext) -> ParseResult<Node> {
+        let left = Self::parse_primary(ctx)?;
+        
+        // Check for comparison operators
+        let operator = match &ctx.peek().token_type {
+            TokenType::IsGreaterThan => "is greater than",
+            TokenType::IsLessThan => "is less than",
+            TokenType::IsGreaterThanOrEqualTo => "is greater than or equal to",
+            TokenType::IsLessThanOrEqualTo => "is less than or equal to",
+            TokenType::Equals => "equals",
+            TokenType::DoesNotEqual => "does not equal",
+            TokenType::Is => "is",
+            _ => return Ok(left), // Not a comparison
+        };
+        
+        ctx.advance(); // consume operator
+        let right = Self::parse_primary(ctx)?;
+        
+        Ok(Node::BinaryOp(BinaryOp {
+            left: Box::new(left),
+            operator: operator.to_string(),
+            right: Box::new(right),
+            line_number: Some(ctx.previous().line),
+        }))
+    }
+    
+    /// Parse primary expressions (literals, identifiers, parenthesized expressions)
+    fn parse_primary(ctx: &mut ParserContext) -> ParseResult<Node> {
+        // Handle parenthesized expressions
+        if ctx.check(&TokenType::LeftParen) {
+            ctx.advance(); // consume '('
+            let expr = Self::parse_logical_or(ctx)?; // Parse full expression inside parentheses
+            ctx.consume(&TokenType::RightParen, "Expected ')' after expression")?;
+            return Ok(expr);
+        }
+        
+        // Check if it's a string literal that needs interpolation
+        let is_interpolation = if let TokenType::StringLiteral(value) = &ctx.peek().token_type {
+            value.contains('[') && value.contains(']')
+        } else {
+            false
+        };
+        
+        if is_interpolation {
+            if let TokenType::StringLiteral(value) = &ctx.advance().token_type {
+                return Self::parse_string_interpolation(value.clone(), ctx.previous().line);
+            }
+        }
+        
+        // Parse literals and identifiers
         match &ctx.advance().token_type {
             TokenType::BooleanLiteral(value) => Ok(Node::Literal(Literal {
                 value: LiteralValue::Boolean(*value),
@@ -421,5 +613,63 @@ impl StatementParser {
                 column: ctx.previous().column,
             }),
         }
+    }
+    
+    /// Parse string interpolation
+    fn parse_string_interpolation(content: String, line: usize) -> ParseResult<Node> {
+        let mut parts = Vec::new();
+        let mut current_pos = 0;
+
+        while current_pos < content.len() {
+            // Find next interpolation
+            if let Some(start) = content[current_pos..].find('[') {
+                let abs_start = current_pos + start;
+                
+                // Add literal part before interpolation
+                if abs_start > current_pos {
+                    parts.push(Node::Literal(Literal {
+                        value: LiteralValue::String(content[current_pos..abs_start].to_string()),
+                        literal_type: "string".to_string(),
+                        line_number: Some(line),
+                    }));
+                }
+                
+                // Find end of interpolation
+                if let Some(end) = content[abs_start + 1..].find(']') {
+                    let abs_end = abs_start + 1 + end;
+                    let var_name = &content[abs_start + 1..abs_end];
+                    
+                    // Add the variable reference
+                    parts.push(Node::Identifier(Identifier {
+                        name: var_name.trim().to_string(),
+                        line_number: Some(line),
+                    }));
+                    
+                    current_pos = abs_end + 1;
+                } else {
+                    // No closing bracket found
+                    return Err(ParseError {
+                        message: "Unclosed interpolation bracket '['".to_string(),
+                        line,
+                        column: 0,
+                    });
+                }
+            } else {
+                // No more interpolations, add remaining text
+                if current_pos < content.len() {
+                    parts.push(Node::Literal(Literal {
+                        value: LiteralValue::String(content[current_pos..].to_string()),
+                        literal_type: "string".to_string(),
+                        line_number: Some(line),
+                    }));
+                }
+                break;
+            }
+        }
+
+        Ok(Node::StringInterpolation(StringInterpolation {
+            parts,
+            line_number: Some(line),
+        }))
     }
 }

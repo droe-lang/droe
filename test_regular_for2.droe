@@ -1,0 +1,4 @@
+set items which is text to "abc"
+for each item in items
+    display "Item: [item]"
+end for

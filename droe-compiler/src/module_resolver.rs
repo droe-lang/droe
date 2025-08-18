@@ -3,7 +3,7 @@
 //! This module handles resolving include statements, loading modules from files,
 //! detecting circular imports, and merging module statements into the main program.
 
-use crate::ast::{Program, Node, IncludeStatement, ModuleDefinition, ActionDefinition, ActionDefinitionWithParams};
+use crate::ast::{Program, Node, IncludeStatement, ActionDefinitionWithParams};
 use crate::parser::Parser;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};

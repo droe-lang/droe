@@ -1,0 +1,69 @@
+display "Comprehensive Control Flow Test"
+display "================================"
+
+set age which is int to 25
+set status which is text to "active"
+set score which is int to 85
+set role which is text to "user"
+set balance which is int to 150
+
+display "1. Basic comparison operators:"
+when age is greater than 18 then
+    display "✓ greater than works"
+end when
+
+when age is less than 30 then
+    display "✓ less than works"
+end when
+
+when age is greater than or equal to 25 then
+    display "✓ greater than or equal to works"
+end when
+
+when score is less than or equal to 100 then
+    display "✓ less than or equal to works"
+end when
+
+when status equals "active" then
+    display "✓ equals works"
+end when
+
+display "2. Compound conditions with AND:"
+when age is greater than 18 and status equals "active" then
+    display "✓ AND condition works"
+end when
+
+when age is greater than or equal to 25 and score is greater than 80 and balance is greater than 100 then
+    display "✓ Multiple AND conditions work"
+end when
+
+display "3. Compound conditions with OR:"
+when role equals "admin" or role equals "moderator" or score is greater than 90 then
+    display "✓ OR condition works (score > 90)"
+end when
+
+when balance is less than 50 or status equals "active" then
+    display "✓ OR condition works (status active)"
+end when
+
+display "4. Complex conditions with parentheses:"
+when (age is greater than 21 and status equals "active") or score is greater than 95 then
+    display "✓ Parentheses grouping works"
+end when
+
+when (role equals "admin" or role equals "user") and (balance is greater than 100 or score is greater than 80) then
+    display "✓ Complex nested conditions work"
+end when
+
+display "5. Else-if chains:"
+when score is greater than 95 then
+    display "✓ Score: Excellent!"
+otherwise when score is greater than 85 then
+    display "✓ Score: Very Good!"
+otherwise when score is greater than 75 then
+    display "Score: Good"
+otherwise
+    display "Score: Needs improvement"
+end when
+
+display "Control flow test completed successfully!"

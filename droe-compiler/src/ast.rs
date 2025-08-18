@@ -29,6 +29,7 @@ pub enum Node {
     IfStatement(IfStatement),
     WhileLoop(WhileLoop),
     ForEachLoop(ForEachLoop),
+    ForEachCharLoop(ForEachCharLoop),
     ReturnStatement(ReturnStatement),
     
     // Definitions
@@ -139,7 +140,15 @@ pub struct DisplayStatement {
 pub struct IfStatement {
     pub condition: Box<Node>,
     pub then_body: Vec<Node>,
+    pub elseif_clauses: Vec<ElseIfClause>,
     pub else_body: Option<Vec<Node>>,
+    pub line_number: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ElseIfClause {
+    pub condition: Box<Node>,
+    pub body: Vec<Node>,
     pub line_number: Option<usize>,
 }
 
@@ -153,6 +162,7 @@ pub struct PropertyAccess {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Assignment {
     pub variable: String,
+    pub declared_type: Option<String>,
     pub value: Box<Node>,
     pub line_number: Option<usize>,
 }
@@ -174,6 +184,14 @@ pub struct WhileLoop {
 pub struct ForEachLoop {
     pub variable: String,
     pub iterable: Box<Node>,
+    pub body: Vec<Node>,
+    pub line_number: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ForEachCharLoop {
+    pub variable: String,
+    pub string_expr: Box<Node>,
     pub body: Vec<Node>,
     pub line_number: Option<usize>,
 }

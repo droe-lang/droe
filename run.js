@@ -245,6 +245,62 @@ const path = process.argv[2];
         memoryBytes.set(formattedBytes, resultOffset);
         return resultOffset;
       },
+      // Core library functions
+      string_concat: (str1Offset, str2Offset) => {
+        const memory = instance.exports.memory;
+        const bytes = new Uint8Array(memory.buffer);
+        
+        // Get first string
+        let str1Length = 0;
+        while (bytes[str1Offset + str1Length] !== 0) str1Length++;
+        const str1 = new TextDecoder().decode(new Uint8Array(memory.buffer, str1Offset, str1Length));
+        
+        // Get second string
+        let str2Length = 0;
+        while (bytes[str2Offset + str2Length] !== 0) str2Length++;
+        const str2 = new TextDecoder().decode(new Uint8Array(memory.buffer, str2Offset, str2Length));
+        
+        // Concatenate and store result
+        const result = str1 + str2;
+        const resultBytes = new TextEncoder().encode(result + '\0');
+        const resultOffset = memory.buffer.byteLength - 4096;
+        const memoryBytes = new Uint8Array(memory.buffer);
+        memoryBytes.set(resultBytes, resultOffset);
+        return resultOffset;
+      },
+      string_length: (strOffset) => {
+        const memory = instance.exports.memory;
+        const bytes = new Uint8Array(memory.buffer);
+        let length = 0;
+        while (bytes[strOffset + length] !== 0) length++;
+        return length;
+      },
+      string_substring: (strOffset, start, length) => {
+        const memory = instance.exports.memory;
+        const bytes = new Uint8Array(memory.buffer);
+        
+        // Get original string
+        let strLength = 0;
+        while (bytes[strOffset + strLength] !== 0) strLength++;
+        const str = new TextDecoder().decode(new Uint8Array(memory.buffer, strOffset, strLength));
+        
+        // Extract substring
+        const result = str.substring(start, start + length);
+        const resultBytes = new TextEncoder().encode(result + '\0');
+        const resultOffset = memory.buffer.byteLength - 5120;
+        const memoryBytes = new Uint8Array(memory.buffer);
+        memoryBytes.set(resultBytes, resultOffset);
+        return resultOffset;
+      },
+      // Math functions
+      math_abs_i32: (value) => Math.abs(value),
+      math_abs_decimal: (scaledValue) => Math.abs(scaledValue),
+      math_max_i32: (a, b) => Math.max(a, b),
+      math_min_i32: (a, b) => Math.min(a, b),
+      math_power_i32: (base, exp) => Math.pow(base, exp),
+      math_decimal_multiply: (a, b) => Math.round((a * b) / 100),
+      math_decimal_divide: (a, b) => b !== 0 ? Math.round((a * 100) / b) : 0,
+      math_sqrt_decimal: (scaledValue) => Math.round(Math.sqrt(scaledValue / 100) * 100),
     },
   };
 

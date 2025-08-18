@@ -1,0 +1,23 @@
+display "Variables in Droelang"
+display "==================="
+
+display "1. Number variables:"
+set count which is number to 42
+display count
+
+display "2. Decimal variables:"
+set price which is decimal to 99.50
+display price
+
+display "3. Text variables:"
+set message which is text to "Hello World"
+display message
+
+display "4. Boolean variables:"
+set active which is flag to true
+display active
+
+set ready which is flag to false
+display ready
+
+display "Variables example completed!"

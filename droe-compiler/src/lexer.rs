@@ -21,6 +21,7 @@ pub enum TokenType {
     EndWhile,
     For,
     Each,
+    Char,
     In,
     EndFor,
     Give,
@@ -436,12 +437,31 @@ impl Lexer {
             "while" => TokenType::While,
             "for" => TokenType::For,
             "each" => TokenType::Each,
+            "char" => TokenType::Char,
             "in" => TokenType::In,
             "give" => TokenType::Give,
             "display" => TokenType::Display,
             "set" => TokenType::Set,
             "to" => TokenType::To,
-            "is" => TokenType::Is,
+            "is" => {
+                // Check for compound comparison operators (longest match first)
+                self.skip_whitespace();
+                if self.match_phrase("greater than or equal to") {
+                    lexeme = "is greater than or equal to".to_string();
+                    TokenType::IsGreaterThanOrEqualTo
+                } else if self.match_phrase("less than or equal to") {
+                    lexeme = "is less than or equal to".to_string();
+                    TokenType::IsLessThanOrEqualTo
+                } else if self.match_phrase("greater than") {
+                    lexeme = "is greater than".to_string();
+                    TokenType::IsGreaterThan
+                } else if self.match_phrase("less than") {
+                    lexeme = "is less than".to_string();
+                    TokenType::IsLessThan
+                } else {
+                    TokenType::Is
+                }
+            }
             "include" => TokenType::Include,
             "from" => TokenType::From,
             "equals" => TokenType::Equals,
@@ -610,6 +630,32 @@ impl Lexer {
             self.line = saved_line;
             self.column = saved_column;
             return false;
+        }
+        
+        true
+    }
+
+    fn match_phrase(&mut self, phrase: &str) -> bool {
+        let saved_pos = self.current;
+        let saved_line = self.line;
+        let saved_column = self.column;
+        
+        let words: Vec<&str> = phrase.split_whitespace().collect();
+        
+        for (i, word) in words.iter().enumerate() {
+            // Skip whitespace before each word (except the first)
+            if i > 0 {
+                self.skip_whitespace();
+            }
+            
+            // Try to match the word
+            if !self.match_word(word) {
+                // Restore position and return false
+                self.current = saved_pos;
+                self.line = saved_line;
+                self.column = saved_column;
+                return false;
+            }
         }
         
         true

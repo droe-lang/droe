@@ -22,6 +22,12 @@ pub struct VariableType {
     pub line_declared: usize,
 }
 
+impl Default for SymbolTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbolTable {
     pub fn new() -> Self {
         Self {
@@ -65,6 +71,21 @@ impl TypeChecker {
             symbol_table: SymbolTable::new(),
             action_types: HashMap::new(),
             task_types: HashMap::new(),
+        }
+    }
+    
+    /// Check if a type name is valid
+    fn is_valid_type(&self, type_name: &str) -> bool {
+        match type_name.to_lowercase().as_str() {
+            // Core types
+            "number" | "int" | "integer" | "decimal" | "float" | "double" => true,
+            "text" | "string" | "str" => true,
+            "flag" | "bool" | "boolean" => true,
+            "list" | "array" => true,
+            "map" | "dict" | "dictionary" | "object" => true,
+            "date" | "time" | "datetime" => true,
+            "any" | "void" => true,
+            _ => false,
         }
     }
     
@@ -154,10 +175,24 @@ impl TypeChecker {
         // Check if value expression is valid
         self.check_expression(&assignment.value, diagnostics);
         
+        // Check if declared type is valid (if present)
+        if let Some(declared_type) = &assignment.declared_type {
+            if !self.is_valid_type(declared_type) {
+                diagnostics.push(Diagnostic::error(
+                    format!("Invalid type '{}' for variable '{}'", declared_type, assignment.variable),
+                    assignment.line_number.unwrap_or(0),
+                    0,
+                ));
+            }
+        }
+        
         // Add variable to symbol table
         let var_type = VariableType {
             name: assignment.variable.clone(),
-            type_name: "unknown".to_string(), // TODO: infer type from expression
+            type_name: assignment.declared_type.clone().unwrap_or_else(|| {
+                // TODO: Infer type from expression if not explicitly declared
+                "inferred".to_string()
+            }),
             line_declared: assignment.line_number.unwrap_or(0),
         };
         

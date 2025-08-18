@@ -24,6 +24,12 @@ pub struct JavaCodeGenerator {
     has_modules: bool,
 }
 
+impl Default for JavaCodeGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JavaCodeGenerator {
     pub fn new() -> Self {
         Self::with_options(None, false, "plain", None)
@@ -72,7 +78,7 @@ impl JavaCodeGenerator {
     }
     
     fn to_pascal_case(name: &str) -> String {
-        let binding = name.replace('-', "_").replace(' ', "_");
+        let binding = name.replace(['-', ' '], "_");
         let parts: Vec<&str> = binding.split('_').collect();
         let mut result = String::new();
         

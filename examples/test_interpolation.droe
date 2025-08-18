@@ -1,0 +1,4 @@
+set name to "World"
+display "Hello, [name]!"
+set count to 42
+display "The answer is [count]"

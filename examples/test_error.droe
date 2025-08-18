@@ -1,0 +1,5 @@
+display "Line 1: This works"
+
+set invalid_syntax this will cause an error
+
+display "Line 4: This won't be reached"

@@ -44,7 +44,7 @@ impl CompilerTarget {
         match self {
             Self::JavaScript => ".js",
             Self::WebAssembly => ".wasm",
-            Self::Bytecode => ".bc",
+            Self::Bytecode => ".droebc",
             Self::Go => ".go", 
             Self::Python => ".py",
             Self::Rust => ".rs",
@@ -316,7 +316,7 @@ impl Default for CompilerFactory {
     }
 }
 
-/// Global factory instance
+// Global factory instance
 lazy_static::lazy_static! {
     pub static ref COMPILER_FACTORY: CompilerFactory = CompilerFactory::new();
 }

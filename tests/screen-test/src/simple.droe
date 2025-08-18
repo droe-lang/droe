@@ -1,0 +1,14 @@
+@target html
+
+module TestModule
+    layout SimpleLayout
+        main class "simple-main"
+            slot "content"
+        end main
+    end layout
+
+    screen TestScreen layout="SimpleLayout"
+        title "Hello World"
+        text "This is a simple test screen"
+    end screen
+end module

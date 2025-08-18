@@ -343,6 +343,12 @@ enum UpdateStrategy {
 
 pub struct DiffEngine;
 
+impl Default for DiffEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DiffEngine {
     pub fn new() -> Self {
         Self

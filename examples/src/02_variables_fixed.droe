@@ -1,0 +1,33 @@
+display "Variables in Droelang"
+display "==================="
+
+display "1. Basic variables:"
+set count to 42
+set price to 99.50
+set message to "Hello"
+set active to true
+set ready to false
+set today to "2024-08-06"
+set birthday to "1990-01-15"
+
+display count
+display price  
+display message
+display active
+display ready
+display today
+display birthday
+
+display "2. Arithmetic with variables:"
+set x to 10
+set y to 5
+set sum to 15
+set product to 50
+display sum
+display product
+
+display "3. Summary:"
+display "- Numbers: whole numbers (42) or decimals (99.50)"
+display "- Text: strings of characters (\"Hello\")"
+display "- Boolean: true/false values"
+display "- Dates: date strings (\"2024-08-06\")"

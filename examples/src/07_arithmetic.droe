@@ -1,7 +1,7 @@
-show "Arithmetic Operations in Roelang"
-show "================================"
+display "Arithmetic Operations in Roelang"
+display "================================"
 
-show "1. Basic arithmetic operators:"
+display "1. Basic arithmetic operators:"
 set a to 15
 set b to 4
 
@@ -10,30 +10,30 @@ set difference to a minus b
 set product to a times b
 set quotient to a divided by b
 
-show "15 + 4 ="
-show sum
+display "15 + 4 ="
+display sum
 
-show "15 - 4 ="
-show difference
+display "15 - 4 ="
+display difference
 
-show "15 * 4 ="
-show product
+display "15 * 4 ="
+display product
 
-show "15 / 4 ="
-show quotient
+display "15 / 4 ="
+display quotient
 
-show "2. Chained operations:"
+display "2. Chained operations:"
 set x to 10
 set y to 5
 set z to 2
 
 set result to x plus y times z
-show "10 + 5 * 2 ="
-show result
+display "10 + 5 * 2 ="
+display result
 
-show "3. Using arithmetic in conditions:"
+display "3. Using arithmetic in conditions:"
 set score to 85
 set passing to 60
 
-when score is greater than passing then show "You passed!"
-when score plus 10 is greater than 90 then show "With bonus, you'd get an A!"
+when score is greater than passing then display "You passed!"
+when score plus 10 is greater than 90 then display "With bonus, you'd get an A!"

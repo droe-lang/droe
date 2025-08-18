@@ -1,0 +1,5 @@
+set word which is text to "hi"
+
+for each char in word
+    display "Char: [char]"
+end for

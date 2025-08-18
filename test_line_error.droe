@@ -1,0 +1,16 @@
+display "Welcome to Droelang!"
+display "This example demonstrates the 'display' statement"
+
+display "You can display text with double quotes:"
+display "Hello, World!"
+
+display "Or with single quotes:"
+display 'Single quotes work too!'
+
+display "Numbers can be displayed via variables:"
+set answer which is zzz to 42
+display "Answer is [answer]"
+
+display "Boolean values via variables:"
+set status which is flag to true
+display "Status is [status]"

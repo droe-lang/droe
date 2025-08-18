@@ -1,0 +1,5 @@
+set x which is number to 42
+set y which is invalidtype to "hello" 
+set z which is string to "world"
+set a which is foobar to true
+set b which is flag to false

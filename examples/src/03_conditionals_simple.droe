@@ -1,0 +1,15 @@
+display "Simple Conditionals in Droelang"
+display "================================"
+
+display "1. Boolean conditionals:"
+set condition which is flag to true
+when condition then display "Condition is true"
+
+set active which is flag to false
+when active then display "This won't display"
+
+display "2. Variable comparisons:"
+set age which is int to 25
+set limit which is int to 18
+
+display "Conditionals example completed!"

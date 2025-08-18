@@ -18,7 +18,7 @@ pub mod database;
 pub mod metadata;
 
 use crate::ast::*;
-use crate::lexer::{Lexer, Token};
+use crate::lexer::Lexer;
 use self::base::{BaseParser, ParserContext};
 use self::statements::StatementParser;
 use self::metadata::MetadataParser;

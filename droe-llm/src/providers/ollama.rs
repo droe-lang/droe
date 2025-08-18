@@ -101,7 +101,7 @@ impl OllamaClient {
 
         let response = self
             .client
-            .post(&format!("{}/api/generate", self.base_url))
+            .post(format!("{}/api/generate", self.base_url))
             .json(&request)
             .send()
             .await?;
@@ -152,7 +152,7 @@ impl OllamaClient {
 
         let response = self
             .client
-            .post(&format!("{}/api/generate", self.base_url))
+            .post(format!("{}/api/generate", self.base_url))
             .json(&request)
             .send()
             .await?;
@@ -176,7 +176,7 @@ impl OllamaClient {
     pub async fn check_model_exists(&self, model_name: &str) -> Result<bool, OllamaError> {
         let response = self
             .client
-            .get(&format!("{}/api/tags", self.base_url))
+            .get(format!("{}/api/tags", self.base_url))
             .send()
             .await?;
 
@@ -209,7 +209,7 @@ impl OllamaClient {
 
         let response = self
             .client
-            .post(&format!("{}/api/pull", self.base_url))
+            .post(format!("{}/api/pull", self.base_url))
             .json(&request)
             .send()
             .await?;
@@ -227,7 +227,7 @@ impl OllamaClient {
     pub async fn get_server_info(&self) -> Result<Value, OllamaError> {
         let response = self
             .client
-            .get(&format!("{}/api/version", self.base_url))
+            .get(format!("{}/api/version", self.base_url))
             .send()
             .await?;
 

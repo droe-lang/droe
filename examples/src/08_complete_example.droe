@@ -1,25 +1,25 @@
-show "Complete Roelang Example"
-show "======================="
-show "A program that demonstrates multiple features working together"
+display "Complete Roelang Example"
+display "======================="
+display "A program that demonstrates multiple features working together"
 
-show "Setting up data:"
+display "Setting up data:"
 set students which are group of text to ["Alice", "Bob", "Charlie"]
 set scores which are group of numbers to [85, 92, 78]
 set passing_grade to 80
 
-show "Students and their scores:"
+display "Students and their scores:"
 set index to 0
 
 for each student in students
-  show student
+  display student
 end for
 
-show "Scores:"
+display "Scores:"
 for each score in scores
-  show score
+  display score
 end for
 
-show "Analysis:"
+display "Analysis:"
 set total to 0
 set count to 0
 
@@ -27,13 +27,13 @@ for each score in scores
   set total to total plus score
   set count to count plus 1
   
-  when score is greater than or equal to passing_grade then show "Passing grade!"
-  when score is less than passing_grade then show "Needs improvement"
+  when score is greater than or equal to passing_grade then display "Passing grade!"
+  when score is less than passing_grade then display "Needs improvement"
 end for
 
 set average to total divided by count
-show "Class average:"
-show average
+display "Class average:"
+display average
 
-when average is greater than or equal to passing_grade then show "Class performed well overall!"
-when average is less than passing_grade then show "Class needs more practice"
+when average is greater than or equal to passing_grade then display "Class performed well overall!"
+when average is less than passing_grade then display "Class needs more practice"

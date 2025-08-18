@@ -159,7 +159,7 @@ impl RustGenerator {
     fn get_template_context(&self) -> Context {
         let mut context = Context::new();
         
-        context.insert("package_name", &self.package.replace('.', "_").replace('-', "_"));
+        context.insert("package_name", &self.package.replace(['.', '-'], "_"));
         context.insert("has_serve_endpoints", &self.has_serve_endpoints);
         context.insert("has_database_ops", &self.has_database_ops);
         context.insert("data_structures", &self.data_structures);
@@ -287,7 +287,7 @@ impl RustGenerator {
             content.push_str("pub mod db;\n");
         }
         
-        content.push_str("\n");
+        content.push('\n');
         if !self.data_structures.is_empty() {
             content.push_str("pub use models::*;\n");
         }
@@ -484,7 +484,7 @@ r#"        .layer(CorsLayer::permissive())
             }
         }
         
-        content.push_str("\n");
+        content.push('\n');
         
         for (name, data_def) in &self.data_structures {
             content.push_str("#[derive(Debug, Clone, Serialize, Deserialize");
@@ -527,7 +527,7 @@ use crate::{AppState"#);
             content.push_str("use crate::db::Database;\n");
         }
         
-        content.push_str("\n");
+        content.push('\n');
         
         for endpoint in &self.serve_endpoints {
             content.push_str(&format!(
@@ -546,7 +546,7 @@ r#"pub async fn {}(
     
     fn generate_db_rs(&self, context: &Context) -> Result<String, CodeGenError> {
         let db_type = context.get("db_type").unwrap().as_str().unwrap();
-        let db_type_cap = capitalize_first(&db_type);
+        let db_type_cap = capitalize_first(db_type);
         
         let mut content = format!(
 r#"use sqlx::{{{}Pool, Pool, {}::{}}};
@@ -568,7 +568,7 @@ impl Database {{
 
 "#, db_type_cap, db_type, db_type_cap, db_type_cap, db_type_cap, db_type_cap);
 
-        for (name, _data_def) in &self.data_structures {
+        for name in self.data_structures.keys() {
             let snake_name = to_snake_case(name);
             content.push_str(&format!(
 r#"    pub async fn find_{}_by_id(&self, id: &str) -> Result<Option<{}>, sqlx::Error> {{

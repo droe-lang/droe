@@ -20,6 +20,12 @@ pub struct FastAPIAdapter {
     tera: Tera,
 }
 
+impl Default for FastAPIAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FastAPIAdapter {
     pub fn new() -> Self {
         let mut tera = Tera::default();

@@ -1,0 +1,3 @@
+@target wasm
+
+display "This file has @target wasm metadata"

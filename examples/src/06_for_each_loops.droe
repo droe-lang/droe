@@ -1,35 +1,35 @@
-show "For Each Loops in Roelang"
-show "========================="
+display "For Each Loops in Roelang"
+display "========================="
 
-show "1. Iterating over number arrays:"
+display "1. Iterating over number arrays:"
 set numbers to [1, 2, 3, 4, 5]
 
 for each num in numbers
-  show num
+  display num
 end for
 
-show "2. Iterating over string arrays:"
+display "2. Iterating over string arrays:"
 set fruits to ["apple", "banana", "cherry"]
 
 for each fruit in fruits
-  show fruit
+  display fruit
 end for
 
-show "3. Using 'loop' syntax (equivalent to 'for each'):"
+display "3. Using 'loop' syntax (equivalent to 'for each'):"
 set colors to ["red", "green", "blue"]
 
 loop color in colors
-  show color
+  display color
 end loop
 
-show "4. Processing array elements:"
+display "4. Processing array elements:"
 set values to [10, 20, 30]
 set sum to 0
 
 for each value in values
-  show value
+  display value
   set sum to sum plus value
 end for
 
-show "Total sum:"
-show sum
+display "Total sum:"
+display sum

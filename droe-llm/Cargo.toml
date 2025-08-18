@@ -6,6 +6,9 @@ description = "Centralized LLM service for DROELANG - Adaptive AI for robotics a
 license = "MIT"
 authors = ["DROELANG Team"]
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "droe-llm"
 path = "src/main.rs"
@@ -59,11 +62,3 @@ ollama = []
 openai = []
 anthropic = []
 
-[profile.release]
-lto = true
-codegen-units = 1
-strip = true
-opt-level = "z"
-
-[profile.dev]
-debug = true

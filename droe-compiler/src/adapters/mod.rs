@@ -5,7 +5,6 @@
 use crate::ast::Program;
 use serde_json::Value;
 use std::collections::HashMap;
-use tera::Tera;
 
 /// Base trait for framework adapters
 pub trait FrameworkAdapter {
@@ -51,6 +50,12 @@ pub struct AdapterOutput {
 /// Template context builder for Tera
 pub struct TemplateContext {
     context: tera::Context,
+}
+
+impl Default for TemplateContext {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TemplateContext {

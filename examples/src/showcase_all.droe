@@ -1,100 +1,100 @@
 @name "Complete Language Showcase"
 @description "Comprehensive demonstration of all Roelang language features"
 
-module showcase_all
+module displaycase_all
 
   // Basic data types demonstration
-  show "=== ROELANG COMPLETE SHOWCASE ==="
-  show ""
+  display "=== ROELANG COMPLETE SHOWCASE ==="
+  display ""
   
-  show "1. Basic Variables and Types:"
+  display "1. Basic Variables and Types:"
   set name which is text to "Roelang"
   set version which is number to 2.1
   set isActive which is boolean to true
-  show name
-  show version
-  show isActive
+  display name
+  display version
+  display isActive
   
-  show ""
-  show "2. String interpolation:"
-  show "Project: [name] v[version]"
-  show "Status: [isActive]"
+  display ""
+  display "2. String interpolation:"
+  display "Project: [name] v[version]"
+  display "Status: [isActive]"
   
-  show ""
-  show "3. Modern type system:"
+  display ""
+  display "3. Modern type system:"
   set count which is int to 42
   set price which is decimal to 99.50
   set message which is text to "Hello World"
   set ready which is flag to true
   set today which is date to "2024-08-06"
   
-  show "Count: [count]"
-  show "Price: $[price]"
-  show "Message: [message]"
-  show "Ready: [ready]"
-  show "Today: [today]"
+  display "Count: [count]"
+  display "Price: $[price]"
+  display "Message: [message]"
+  display "Ready: [ready]"
+  display "Today: [today]"
   
-  show ""
-  show "4. String concatenation:"
+  display ""
+  display "4. String concatenation:"
   set greeting which is text to "Hello " + message + "!"
-  show greeting
+  display greeting
   
-  show ""
-  show "5. Arrays (Collections):"
+  display ""
+  display "5. Arrays (Collections):"
   set numbers which are group of number to [10, 20, 30, 40, 50]
   set names which are group of text to ["Alice", "Bob", "Charlie"]
   set scores which are list of int to [95, 87, 92, 88]
   
-  show "Numbers array created"
-  show "Names array created" 
-  show "Scores list created"
+  display "Numbers array created"
+  display "Names array created" 
+  display "Scores list created"
   
-  show ""
-  show "6. Arithmetic Operations:"
+  display ""
+  display "6. Arithmetic Operations:"
   set a which is int to 15
   set b which is int to 4
   set sum which is int to a + b
   set product which is int to a * b
   set quotient which is decimal to a / b
   
-  show "a = [a], b = [b]"
-  show "Sum: [sum]"
-  show "Product: [product]" 
-  show "Division: [quotient]"
+  display "a = [a], b = [b]"
+  display "Sum: [sum]"
+  display "Product: [product]" 
+  display "Division: [quotient]"
   
-  show ""
-  show "7. Conditional Logic:"
+  display ""
+  display "7. Conditional Logic:"
   set score which is int to 85
   
-  show "Score: [score]"
+  display "Score: [score]"
   
-  when score is greater than or equal to 90 then show "Grade: A - Excellent!"
-  when score is greater than or equal to 80 then show "Grade: B - Good work!"
-  when score is greater than or equal to 70 then show "Grade: C - Satisfactory"
-  when score is less than 70 then show "Grade: F - Need improvement"
+  when score is greater than or equal to 90 then display "Grade: A - Excellent!"
+  when score is greater than or equal to 80 then display "Grade: B - Good work!"
+  when score is greater than or equal to 70 then display "Grade: C - Satisfactory"
+  when score is less than 70 then display "Grade: F - Need improvement"
   
-  show ""
-  show "8. Loops - While Loop:"
+  display ""
+  display "8. Loops - While Loop:"
   set counter which is int to 1
   while counter <= 3
-    show "Count: [counter]"
+    display "Count: [counter]"
     set counter which is int to counter + 1
   end while
   
-  show ""
-  show "9. Boolean Logic:"
+  display ""
+  display "9. Boolean Logic:"
   set x which is int to 10
   set y which is int to 5
   set isGreater which is boolean to x > y
   set isEqual which is boolean to x equals y
   
-  show "x = [x], y = [y]"
-  show "x > y: [isGreater]" 
-  show "x = y: [isEqual]"
+  display "x = [x], y = [y]"
+  display "x > y: [isGreater]" 
+  display "x = y: [isEqual]"
   
-  when isGreater equals true then show "x is definitely greater than y"
+  when isGreater equals true then display "x is definitely greater than y"
   
-  show ""
-  show "=== SHOWCASE COMPLETE ==="
+  display ""
+  display "=== SHOWCASE COMPLETE ==="
 
 end module

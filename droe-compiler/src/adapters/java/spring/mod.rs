@@ -11,6 +11,12 @@ pub struct SpringAdapter {
     templates: Tera,
 }
 
+impl Default for SpringAdapter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SpringAdapter {
     pub fn new() -> Self {
         let mut templates = Tera::default();
@@ -195,7 +201,7 @@ impl SpringAdapter {
     }
     
     fn to_pascal_case(name: &str) -> String {
-        let binding = name.replace('-', "_").replace(' ', "_");
+        let binding = name.replace(['-', ' '], "_");
         let parts: Vec<&str> = binding.split('_').collect();
         let mut result = String::new();
         

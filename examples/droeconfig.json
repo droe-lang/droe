@@ -3,7 +3,7 @@
   "build": "build",
   "dist": "dist",
   "main": "src/main.droe",
-  "target": "python",
+  "target": "droe",
   "mobile": {
     "enabled": false,
     "platforms": ["android", "ios"],

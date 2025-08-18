@@ -57,7 +57,7 @@ impl MetadataParser {
     /// Check if current token starts a metadata annotation
     pub fn is_metadata_start(ctx: &ParserContext) -> bool {
         // Check if line starts with @ followed by identifier
-        let mut check_pos = ctx.current();
+        let check_pos = ctx.current();
         if check_pos < ctx.tokens().len() {
             if let TokenType::Identifier(s) = &ctx.tokens()[check_pos].token_type {
                 if s.starts_with('@') {

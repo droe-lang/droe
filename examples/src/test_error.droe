@@ -1,0 +1,5 @@
+display "Line 1"
+display "Line 2"
+display "Line 3"
+set invalid syntax here
+display "Line 5"

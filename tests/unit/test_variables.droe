@@ -1,24 +1,24 @@
-show "Unit Test: Variables"
-show "===================="
+display "Unit Test: Variables"
+display "===================="
 
-show "Testing basic variable assignment:"
+display "Testing basic variable assignment:"
 set x to 42
-show x
+display x
 
-show "Testing string variables:"
+display "Testing string variables:"
 set name to "Alice"
-show name
+display name
 
-show "Testing type-safe declarations:"
+display "Testing type-safe declarations:"
 set count which is number to 100
 set title which is text to "Test"
-show count
-show title
+display count
+display title
 
-show "Testing arithmetic:"
+display "Testing arithmetic:"
 set a to 10
 set b to 5
 set sum to a plus b
-show sum
+display sum
 
-show "Variable tests completed successfully!"
+display "Variable tests completed successfully!"

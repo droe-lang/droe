@@ -1,0 +1,40 @@
+display "Working Control Flow Test"
+display "========================"
+
+set age which is int to 25
+set status which is text to "active"
+set score which is int to 85
+
+display "1. Basic comparisons:"
+when age is greater than 18 then
+    display "✓ Basic comparison works"
+end when
+
+display "2. Complex comparison:"
+when age is greater than or equal to 25 then
+    display "✓ Complex operator works"
+end when
+
+display "3. AND conditions:"
+when age is greater than 18 and status equals "active" then
+    display "✓ AND condition works"
+end when
+
+display "4. OR conditions:"
+when score is greater than 90 or status equals "active" then
+    display "✓ OR condition works"
+end when
+
+display "5. Parentheses grouping:"
+when (age is greater than 21 and status equals "active") or score is greater than 95 then
+    display "✓ Grouped conditions work"
+end when
+
+display "6. Basic if-else:"
+when score is greater than 80 then
+    display "✓ High score detected"
+otherwise
+    display "Normal score"
+end when
+
+display "All tests passed!"

@@ -122,8 +122,7 @@ impl FastifyAdapter {
             .collect();
         
         let package_name = options.package_name.as_deref().unwrap_or("droe_app")
-            .replace('.', "_")
-            .replace('-', "_");
+            .replace(['.', '-'], "_");
         
         context.insert("package_name", &package_name);
         context.insert("has_serve_endpoints", &analysis.has_serve_endpoints);

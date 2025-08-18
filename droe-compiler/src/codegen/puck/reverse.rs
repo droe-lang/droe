@@ -90,7 +90,7 @@ impl PuckToDSLConverter {
 
     fn to_pascal_case(&self, text: &str) -> String {
         // Remove special characters and split on word boundaries
-        let processed_text = text.replace('-', " ").replace('_', " ");
+        let processed_text = text.replace(['-', '_'], " ");
         let words: Vec<&str> = processed_text.split_whitespace().collect();
         // Capitalize each word and join
         words.iter()

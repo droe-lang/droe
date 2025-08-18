@@ -707,7 +707,7 @@ async fn lint_file(file: &str, json_output: bool) -> Result<()> {
                     _ => "ℹ️",
                 };
                 let line_info = if diag.line > 0 {
-                    format!(":{}:{}", diag.line + 1, diag.character)
+                    format!(":{}:{}", diag.line, diag.character)
                 } else {
                     String::new()
                 };

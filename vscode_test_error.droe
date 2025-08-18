@@ -1,0 +1,3 @@
+display "Line 1 - This is good"
+set badvar which is invalidtype to "hello"
+display "Line 3 - This should be fine"

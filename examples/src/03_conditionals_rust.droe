@@ -1,0 +1,18 @@
+display "Conditionals in Droelang"
+display "========================"
+
+display "Testing conditional blocks:"
+
+set condition which is flag to true
+
+when condition then
+  display "Condition is true"
+end when
+
+set age which is int to 25
+
+when age then
+  display "Age variable is set"
+end when
+
+display "Conditionals example completed!"

@@ -213,16 +213,23 @@ class StatementParser(ExpressionParser):
     
     def parse_foreach_loop(self, line: str) -> ForEachLoop:
         """Parse for each loop."""
-        # Extract iteration spec from 'for each <item> in <collection>'
-        match = re.match(r'for each\s+(\w+)\s+in\s+(.+)', line)
-        if not match:
-            raise ParseError(f"Invalid for each syntax: {line}")
-        
-        item_var = match.group(1)
-        collection_expr = match.group(2).strip()
-        
-        # Parse collection as expression
-        collection = self.parse_expression(collection_expr)
+        # Check for character iteration: 'for each char in <string>'
+        char_match = re.match(r'for each\s+char\s+in\s+(.+)', line)
+        if char_match:
+            string_expr = char_match.group(1).strip()
+            collection = self.parse_expression(string_expr)
+            item_var = 'char'  # Default variable name for character iteration
+        else:
+            # Extract iteration spec from 'for each <item> in <collection>'
+            match = re.match(r'for each\s+(\w+)\s+in\s+(.+)', line)
+            if not match:
+                raise ParseError(f"Invalid for each syntax: {line}")
+            
+            item_var = match.group(1)
+            collection_expr = match.group(2).strip()
+            
+            # Parse collection as expression
+            collection = self.parse_expression(collection_expr)
         
         # Parse body
         body = []
