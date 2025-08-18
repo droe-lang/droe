@@ -1,0 +1,66 @@
+"""FastAPI routers for API endpoints"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+{% if has_data_definitions %}
+from .database import get_db
+from . import models, schemas
+{% endif %}
+
+router = APIRouter()
+
+{% for data_def in data_definitions %}
+# {{ data_def.name }} endpoints
+@router.post("/{{ data_def.name | snake_case }}s/", response_model=schemas.{{ data_def.name }}Response, status_code=status.HTTP_201_CREATED)
+async def create_{{ data_def.name | snake_case }}(item: schemas.{{ data_def.name }}Create, db: Session = Depends(get_db)):
+    """Create a new {{ data_def.name | snake_case }}"""
+    db_item = models.{{ data_def.name }}(**item.dict())
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@router.get("/{{ data_def.name | snake_case }}s/", response_model=List[schemas.{{ data_def.name }}Response])
+async def list_{{ data_def.name | snake_case }}s(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """List all {{ data_def.name | snake_case }}s with pagination"""
+    items = db.query(models.{{ data_def.name }}).offset(skip).limit(limit).all()
+    return items
+
+@router.get("/{{ data_def.name | snake_case }}s/{item_id}", response_model=schemas.{{ data_def.name }}Response)
+async def get_{{ data_def.name | snake_case }}(item_id: int, db: Session = Depends(get_db)):
+    """Get a {{ data_def.name | snake_case }} by ID"""
+    item = db.query(models.{{ data_def.name }}).filter(models.{{ data_def.name }}.id == item_id).first()
+    if item is None:
+        raise HTTPException(status_code=404, detail="{{ data_def.name }} not found")
+    return item
+
+@router.put("/{{ data_def.name | snake_case }}s/{item_id}", response_model=schemas.{{ data_def.name }}Response)
+async def update_{{ data_def.name | snake_case }}(item_id: int, item_update: schemas.{{ data_def.name }}Update, db: Session = Depends(get_db)):
+    """Update a {{ data_def.name | snake_case }} by ID"""
+    db_item = db.query(models.{{ data_def.name }}).filter(models.{{ data_def.name }}.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="{{ data_def.name }} not found")
+    for field, value in item_update.dict(exclude_unset=True).items():
+        setattr(db_item, field, value)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+@router.delete("/{{ data_def.name | snake_case }}s/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_{{ data_def.name | snake_case }}(item_id: int, db: Session = Depends(get_db)):
+    """Delete a {{ data_def.name | snake_case }} by ID"""
+    db_item = db.query(models.{{ data_def.name }}).filter(models.{{ data_def.name }}.id == item_id).first()
+    if db_item is None:
+        raise HTTPException(status_code=404, detail="{{ data_def.name }} not found")
+    db.delete(db_item)
+    db.commit()
+
+{% endfor %}
+{% for serve_stmt in serve_statements %}
+@router.{{ serve_stmt.method | lower }}("{{ serve_stmt.endpoint }}")
+async def {{ serve_stmt.method | lower }}_{{ serve_stmt.endpoint | handler_name }}():
+    """Custom endpoint - implement business logic here"""
+    # TODO: Implement custom endpoint logic
+    return {"message": "Custom endpoint", "method": "{{ serve_stmt.method }}", "path": "{{ serve_stmt.endpoint }}"}
+
+{% endfor %}

@@ -1,0 +1,28 @@
+"""Pydantic schemas for request/response validation"""
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+{% for data_def in data_definitions %}
+class {{ data_def.name }}Base(BaseModel):
+    {% for field in data_def.fields %}
+    {{ field.name }}: {% if field.annotations and "required" in field.annotations %}{{ field.field_type | python_type }}{% else %}Optional[{{ field.field_type | python_type }}]{% endif %}
+    {% endfor %}
+
+class {{ data_def.name }}Create({{ data_def.name }}Base):
+    pass
+
+class {{ data_def.name }}Update(BaseModel):
+    {% for field in data_def.fields %}
+    {{ field.name }}: Optional[{{ field.field_type | python_type }}] = None
+    {% endfor %}
+
+class {{ data_def.name }}Response({{ data_def.name }}Base):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+{% endfor %}

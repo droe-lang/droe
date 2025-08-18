@@ -1,0 +1,23 @@
+package {{ package_name }}.controller;
+
+import {{ package_name }}.service.{{ module.service_name }};
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/{{ module.name | lower }}")
+public class {{ module.name }}Controller {
+    
+    @Autowired
+    private {{ module.service_name }} {{ module.name | lower }}Service;
+    
+    // REST endpoints can be defined here
+    // Example:
+    // @GetMapping
+    // public ResponseEntity<List<Object>> getAll() {
+    //     return ResponseEntity.ok(service.findAll());
+    // }
+}

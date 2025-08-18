@@ -1,0 +1,22 @@
+package main
+
+import (
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+)
+
+{% for data in data_definitions %}
+// RegisterRoutes{{ data.name }} registers all routes for {{ data.name }}
+func RegisterRoutes{{ data.name }}(app *fiber.App, db *gorm.DB) {
+	// API group for {{ data.name | lower }}s
+	api := app.Group("/api/{{ data.name | lower }}s")
+	
+	// CRUD routes
+	api.Get("/", GetAll{{ data.name }}s)                    // GET /api/{{ data.name | lower }}s
+	api.Get("/:id", Get{{ data.name }}ByID)                // GET /api/{{ data.name | lower }}s/:id
+	api.Post("/", Create{{ data.name }})                   // POST /api/{{ data.name | lower }}s
+	api.Put("/:id", Update{{ data.name }})                 // PUT /api/{{ data.name | lower }}s/:id
+	api.Delete("/:id", Delete{{ data.name }})              // DELETE /api/{{ data.name | lower }}s/:id
+}
+
+{% endfor %}

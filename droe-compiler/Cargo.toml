@@ -1,0 +1,23 @@
+[package]
+name = "droe-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+nom = { workspace = true }
+regex = { workspace = true }
+tera = { workspace = true }
+tracing = { workspace = true }
+lazy_static = "1.4"
+uuid = { version = "1.0", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[lib]
+name = "droe_compiler"
+path = "src/lib.rs"

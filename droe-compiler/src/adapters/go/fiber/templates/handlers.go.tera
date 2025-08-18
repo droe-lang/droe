@@ -1,0 +1,160 @@
+package main
+
+import (
+	"strconv"
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+)
+
+{% for data in data_definitions %}
+// {{ data.name }} handlers
+
+// Get all {{ data.name | lower }}s
+func GetAll{{ data.name }}s(c *fiber.Ctx) error {
+	db := c.Locals("db").(*gorm.DB)
+	
+	var {{ data.name | lower }}s []{{ data.name }}
+	result := db.Find(&{{ data.name | lower }}s)
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to fetch {{ data.name | lower }}s",
+		})
+	}
+	
+	return c.JSON({{ data.name | lower }}s)
+}
+
+// Get {{ data.name | lower }} by ID
+func Get{{ data.name }}ByID(c *fiber.Ctx) error {
+	db := c.Locals("db").(*gorm.DB)
+	
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid ID format",
+		})
+	}
+	
+	var {{ data.name | lower }} {{ data.name }}
+	result := db.First(&{{ data.name | lower }}, uint(id))
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "{{ data.name }} not found",
+			})
+		}
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to fetch {{ data.name | lower }}",
+		})
+	}
+	
+	return c.JSON({{ data.name | lower }})
+}
+
+// Create new {{ data.name | lower }}
+func Create{{ data.name }}(c *fiber.Ctx) error {
+	db := c.Locals("db").(*gorm.DB)
+	
+	var {{ data.name | lower }} {{ data.name }}
+	if err := c.BodyParser(&{{ data.name | lower }}); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	
+	result := db.Create(&{{ data.name | lower }})
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to create {{ data.name | lower }}",
+		})
+	}
+	
+	return c.Status(201).JSON({{ data.name | lower }})
+}
+
+// Update {{ data.name | lower }}
+func Update{{ data.name }}(c *fiber.Ctx) error {
+	db := c.Locals("db").(*gorm.DB)
+	
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid ID format",
+		})
+	}
+	
+	var {{ data.name | lower }} {{ data.name }}
+	result := db.First(&{{ data.name | lower }}, uint(id))
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return c.Status(404).JSON(fiber.Map{
+				"error": "{{ data.name }} not found",
+			})
+		}
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to fetch {{ data.name | lower }}",
+		})
+	}
+	
+	var updateData {{ data.name }}
+	if err := c.BodyParser(&updateData); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	
+	// Update fields
+	{% for field in data.fields %}
+	{{ data.name | lower }}.{{ field.name | title }} = updateData.{{ field.name | title }}
+	{% endfor %}
+	
+	result = db.Save(&{{ data.name | lower }})
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to update {{ data.name | lower }}",
+		})
+	}
+	
+	return c.JSON({{ data.name | lower }})
+}
+
+// Delete {{ data.name | lower }}
+func Delete{{ data.name }}(c *fiber.Ctx) error {
+	db := c.Locals("db").(*gorm.DB)
+	
+	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid ID format",
+		})
+	}
+	
+	result := db.Delete(&{{ data.name }}{}, uint(id))
+	if result.Error != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Failed to delete {{ data.name | lower }}",
+		})
+	}
+	
+	if result.RowsAffected == 0 {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "{{ data.name }} not found",
+		})
+	}
+	
+	return c.Status(204).Send(nil)
+}
+
+{% endfor %}
+
+{% for action in actions %}
+// Custom action handler: {{ action.name }}
+func Handle{{ action.name }}(c *fiber.Ctx) error {
+	// TODO: Implement custom action logic
+	return c.JSON(fiber.Map{
+		"message": "{{ action.name }} executed successfully",
+		"action": "{{ action.name }}",
+	})
+}
+
+{% endfor %}

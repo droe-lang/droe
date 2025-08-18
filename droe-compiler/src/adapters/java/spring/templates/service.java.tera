@@ -1,0 +1,27 @@
+package {{ package_name }}.service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import java.util.List;
+import java.util.Optional;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Service
+public class {{ module.service_name }} {
+    
+    // Repository injections would go here
+    // @Autowired
+    // private SomeRepository someRepository;
+    
+    {% for action in module.actions %}
+    public {{ action.return_type }} {{ action.name }}({% if action.has_params %}{% for param in action.params %}{{ param.java_type }} {{ param.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}) {
+        // TODO: Implement business logic for {{ action.name }}
+        {% if action.return_type != "void" %}
+        return null;
+        {% endif %}
+    }
+    
+    {% endfor %}
+}

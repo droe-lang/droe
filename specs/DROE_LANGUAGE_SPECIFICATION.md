@@ -1,4 +1,4 @@
-# Droelang Language Specification
+# Droe Language Specification
 
 **Version:** 4.0  
 **Date:** January 2025  

@@ -1,0 +1,68 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"gorm.io/gorm"
+	{% if database_type == "postgres" %}
+	"gorm.io/driver/postgres"
+	{% elif database_type == "mysql" %}
+	"gorm.io/driver/mysql"
+	{% elif database_type == "sqlite" %}
+	"gorm.io/driver/sqlite"
+	{% endif %}
+)
+
+// InitDB initializes the database connection
+func InitDB() (*gorm.DB, error) {
+	{% if database_type == "postgres" %}
+	host := getEnv("DB_HOST", "localhost")
+	user := getEnv("DB_USER", "postgres")
+	password := getEnv("DB_PASSWORD", "")
+	dbname := getEnv("DB_NAME", "{{ package_name }}")
+	port := getEnv("DB_PORT", "5432")
+	sslmode := getEnv("DB_SSLMODE", "disable")
+	
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=UTC",
+		host, user, password, dbname, port, sslmode)
+	
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	{% elif database_type == "mysql" %}
+	user := getEnv("DB_USER", "root")
+	password := getEnv("DB_PASSWORD", "")
+	host := getEnv("DB_HOST", "localhost")
+	port := getEnv("DB_PORT", "3306")
+	dbname := getEnv("DB_NAME", "{{ package_name }}")
+	
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		user, password, host, port, dbname)
+	
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	{% elif database_type == "sqlite" %}
+	dbpath := getEnv("DB_PATH", "./{{ package_name }}.db")
+	db, err := gorm.Open(sqlite.Open(dbpath), &gorm.Config{})
+	{% endif %}
+	
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+	
+	return db, nil
+}
+
+// AutoMigrate runs database migrations for all models
+func AutoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(
+		{% for data in data_definitions %}
+		&{{ data.name }}{},
+		{% endfor %}
+	)
+}
+
+// getEnv gets environment variable with fallback
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}

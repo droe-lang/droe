@@ -1,0 +1,44 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from .core import {{ package_name | pascal_case }}Core
+{% if has_data_definitions %}
+from .database import engine, Base
+{% endif %}
+{% if has_serve_statements %}
+from .routers import router
+{% endif %}
+
+app = FastAPI(title="Droe API", version="1.0.0")
+
+# Initialize core business logic
+core = {{ package_name | pascal_case }}Core()
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+{% if has_data_definitions %}
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables on startup"""
+    Base.metadata.create_all(bind=engine)
+
+{% endif %}
+{% if has_serve_statements %}
+# Include API routers
+app.include_router(router, prefix="/api", tags=["api"])
+
+{% endif %}
+@app.get("/")
+async def root():
+    """Health check endpoint"""
+    return {"message": "Droe FastAPI service is running", "status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

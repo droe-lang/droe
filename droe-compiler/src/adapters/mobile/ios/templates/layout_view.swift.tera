@@ -1,0 +1,151 @@
+import SwiftUI
+
+struct {{ layout.name | pascalcase }}View: View {
+    {%- for component in layout.components %}
+    {%- if component.type == 'input' %}
+    @State private var {{ component.id | camelcase }} = ""
+    {%- elif component.type == 'toggle' %}
+    @State private var {{ component.id | camelcase }} = false
+    {%- elif component.type == 'dropdown' %}
+    @State private var {{ component.id | camelcase }}Selection = {{ component.default | default(value=0) }}
+    {%- endif %}
+    {%- endfor %}
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                {%- for component in layout.components %}
+                {%- if component.type == 'title' %}
+                Text("{{ component.text }}")
+                    .font(.{% if component.level == 1 %}largeTitle{% elif component.level == 2 %}title{% else %}headline{% endif %})
+                    .padding(.bottom, 8)
+                
+                {%- elif component.type == 'input' %}
+                VStack(alignment: .leading) {
+                    {%- if component.placeholder %}
+                    Text("{{ component.placeholder }}")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    {%- endif %}
+                    {%- if component.input_type == 'password' %}
+                    SecureField("", text: ${{ component.id | camelcase }})
+                    {%- else %}
+                    TextField("", text: ${{ component.id | camelcase }})
+                        {%- if component.input_type == 'email' %}
+                        .keyboardType(.emailAddress)
+                        {%- elif component.input_type == 'number' %}
+                        .keyboardType(.numberPad)
+                        {%- endif %}
+                    {%- endif %}
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                
+                {%- elif component.type == 'textarea' %}
+                VStack(alignment: .leading) {
+                    {%- if component.placeholder %}
+                    Text("{{ component.placeholder }}")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    {%- endif %}
+                    TextEditor(text: ${{ component.id | camelcase }})
+                        .frame(minHeight: {{ component.rows * 30 }})
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+                }
+                
+                {%- elif component.type == 'button' or component.type is starting_with('mobile_') %}
+                Button(action: {
+                    {%- if component.action %}
+                    self.{{ component.action }}()
+                    {%- endif %}
+                }) {
+                    Text("{{ component.text }}")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                
+                {%- elif component.type == 'toggle' %}
+                Toggle("{{ component.label }}", isOn: ${{ component.id | camelcase }})
+                
+                {%- elif component.type == 'dropdown' %}
+                Picker("", selection: ${{ component.id | camelcase }}Selection) {
+                    {%- for option in component.options %}
+                    Text("{{ option }}").tag({{ loop.index0 }})
+                    {%- endfor %}
+                }
+                .pickerStyle(MenuPickerStyle())
+                .frame(maxWidth: .infinity)
+                .padding(8)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                
+                {%- elif component.type == 'checkbox' %}
+                VStack(alignment: .leading) {
+                    {%- for option in component.options %}
+                    HStack {
+                        Image(systemName: {{ component.id | camelcase }}{{ loop.index0 }} ? "checkmark.square.fill" : "square")
+                            .foregroundColor({{ component.id | camelcase }}{{ loop.index0 }} ? .blue : .gray)
+                            .onTapGesture {
+                                {{ component.id | camelcase }}{{ loop.index0 }}.toggle()
+                            }
+                        Text("{{ option }}")
+                    }
+                    {%- endfor %}
+                }
+                
+                {%- elif component.type == 'radio' %}
+                VStack(alignment: .leading) {
+                    {%- for option in component.options %}
+                    HStack {
+                        Image(systemName: {{ component.id | camelcase }}Selection == {{ loop.index0 }} ? "largecircle.fill.circle" : "circle")
+                            .foregroundColor({{ component.id | camelcase }}Selection == {{ loop.index0 }} ? .blue : .gray)
+                            .onTapGesture {
+                                {{ component.id | camelcase }}Selection = {{ loop.index0 }}
+                            }
+                        Text("{{ option }}")
+                    }
+                    {%- endfor %}
+                }
+                
+                {%- elif component.type == 'image' %}
+                Image("{{ component.src }}")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .accessibility(label: Text("{{ component.alt }}"))
+                
+                {%- elif component.type == 'video' %}
+                // Video player would go here
+                // In a real app, use AVPlayer with VideoPlayer view
+                Text("Video: {{ component.src }}")
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .background(Color.black)
+                    .foregroundColor(.white)
+                
+                {%- endif %}
+                {%- endfor %}
+            }
+            .padding()
+        }
+    }
+    
+    {%- for component in layout.components %}
+    {%- if component.type == 'checkbox' %}
+    {%- for option in component.options %}
+    @State private var {{ component.id | camelcase }}{{ loop.index0 }} = false
+    {%- endfor %}
+    {%- elif component.type == 'radio' %}
+    @State private var {{ component.id | camelcase }}Selection = 0
+    {%- endif %}
+    {%- endfor %}
+}
+
+struct {{ layout.name | pascalcase }}View_Previews: PreviewProvider {
+    static var previews: some View {
+        {{ layout.name | pascalcase }}View()
+    }
+}

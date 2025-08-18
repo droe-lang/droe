@@ -1,0 +1,19 @@
+"""SQLAlchemy ORM models"""
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
+
+Base = declarative_base()
+
+{% for data_def in data_definitions %}
+class {{ data_def.name }}(Base):
+    __tablename__ = "{{ data_def.name | snake_case }}"
+
+    id = Column(Integer, primary_key=True, index=True)
+    {% for field in data_def.fields %}
+    {{ field.name }} = Column({{ field.field_type | sqlalchemy_type }}{% if field.annotations and "required" in field.annotations %}, nullable=False{% endif %})
+    {% endfor %}
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+{% endfor %}

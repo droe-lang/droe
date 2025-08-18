@@ -1,0 +1,25 @@
+package main
+
+import (
+	"time"
+	"gorm.io/gorm"
+)
+
+{% for data in data_definitions %}
+// {{ data.name }} model
+type {{ data.name }} struct {
+	ID        uint           `json:"id" gorm:"primarykey"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	{% for field in data.fields %}
+	{{ field.name | title }} {% if field.field_type == "text" %}string{% elif field.field_type == "number" or field.field_type == "int" %}int{% elif field.field_type == "decimal" %}float64{% elif field.field_type == "flag" or field.field_type == "boolean" %}bool{% elif field.field_type == "date" %}time.Time{% else %}interface{}{% endif %} `json:"{{ field.name }}" gorm:"{% if field.field_type == "text" %}type:varchar(255){% endif %}"`
+	{% endfor %}
+}
+
+// Table name for {{ data.name }}
+func ({{ data.name }}) TableName() string {
+	return "{{ data.name | lower }}s"
+}
+
+{% endfor %}
