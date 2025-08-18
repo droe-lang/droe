@@ -5,6 +5,9 @@
 
 set -e
 
+# Ensure we're in the project root directory
+cd "$(dirname "$0")/.."
+
 echo "🔄 Syncing unified droe binary to ~/.droelang/"
 
 # Ensure ~/.droelang exists

@@ -1,7 +1,10 @@
 #!/bin/bash
 
-echo "🧪 Running Roelang Comprehensive Tests"
-echo "======================================"
+# Ensure we're in the project root directory
+cd "$(dirname "$0")/.."
+
+echo "🧪 Running Droe Comprehensive Tests"
+echo "====================================="
 
 # Test counter
 TOTAL=0
@@ -17,15 +20,14 @@ run_test() {
     
     TOTAL=$((TOTAL + 1))
     
-    # Compile
-    if python -m compiler.compiler "$test_file" 2>/dev/null; then
-        # Convert to WASM
-        local wat_file="${test_file%.*}.wat"
-        local wasm_file="${test_file%.*}.wasm"
+    # Compile using Rust droe compiler
+    if droe compile "$test_file" --target wasm 2>/dev/null; then
+        # Get the generated WASM file path
+        local wasm_file="${test_file%/*}/build/${test_file##*/}"
+        wasm_file="${wasm_file%.*}.wasm"
         
-        if wat2wasm "$wat_file" -o "$wasm_file" 2>/dev/null; then
-            # Run
-            if node run.js "$wasm_file" >/dev/null 2>&1; then
+        # Run the WASM file
+        if [ -f "$wasm_file" ] && node run.js "$wasm_file" >/dev/null 2>&1; then
                 echo "✅ PASSED"
                 PASSED=$((PASSED + 1))
             else

@@ -381,14 +381,16 @@ when age is greater than limit then display "Adult"
 
 ### Conditional Statements
 
-**Basic Conditional:**
+Droelang provides comprehensive conditional logic with natural language syntax, supporting basic if-else, multiple else-if chains, and complex compound conditions.
 
+#### Basic Conditional
+
+**Single-line condition:**
 ```droe
 when <condition> then <statement>
 ```
 
-**If-Else Structure:**
-
+**If-else block:**
 ```droe
 when <condition> then
     // statements
@@ -397,25 +399,145 @@ otherwise
 end when
 ```
 
+#### Comparison Operators
+
+Droelang uses natural language comparison operators (longest-match-first parsing):
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| `is greater than` | Greater than comparison | `age is greater than 18` |
+| `is less than` | Less than comparison | `score is less than 100` |
+| `is greater than or equal to` | Greater than or equal | `age is greater than or equal to 21` |
+| `is less than or equal to` | Less than or equal | `score is less than or equal to 100` |
+| `equals` | Equality comparison | `status equals "active"` |
+| `does not equal` | Inequality comparison | `role does not equal "guest"` |
+| `is` | Basic equality | `flag is true` |
+
+#### Compound Conditions
+
+**Logical Operators:**
+- `and` (higher precedence) - Both conditions must be true
+- `or` (lower precedence) - Either condition must be true
+- `()` parentheses for explicit grouping
+
 **Examples:**
+```droe
+// AND condition
+when age is greater than 18 and status equals "active" then
+    display "Qualified user"
+end when
+
+// OR condition  
+when role equals "admin" or score is greater than 90 then
+    display "Special access granted"
+end when
+
+// Complex conditions with parentheses
+when (age is greater than 21 and status equals "active") or role equals "admin" then
+    display "Full access granted"
+end when
+
+// Multiple conditions
+when age is greater than or equal to 18 and status equals "active" and score is greater than 75 then
+    display "All requirements met"
+end when
+```
+
+#### Else-If Chains (Otherwise When)
+
+Droelang supports multiple conditional branches using `otherwise when`:
+
+**Syntax:**
+```droe
+when <condition1> then
+    // statements
+otherwise when <condition2> then
+    // statements  
+otherwise when <condition3> then
+    // statements
+otherwise
+    // final else statements
+end when
+```
+
+**Complete Example:**
+```droe
+set score which is int to 85
+
+when score is greater than or equal to 90 then
+    display "Grade: A - Excellent!"
+    display "Outstanding performance"
+otherwise when score is greater than or equal to 80 then
+    display "Grade: B - Very Good!"
+    display "Great work"
+otherwise when score is greater than or equal to 70 then
+    display "Grade: C - Good"
+    display "Keep it up"
+otherwise when score is greater than or equal to 60 then
+    display "Grade: D - Passing"
+    display "You passed"
+otherwise
+    display "Grade: F - Needs Improvement"
+    display "Please study more"
+end when
+```
+
+#### Nested Conditions
+
+Conditions can be nested for complex decision trees:
 
 ```droe
-// Simple condition
-when age is greater than 18 then display "Adult"
-
-// If-else block
-when score is greater than or equal to 90 then
-    display "Grade A"
-    display "Excellent work!"
+when age is greater than or equal to 18 then
+    when (status equals "active" and score is greater than 70) or role equals "admin" then
+        display "Full access granted"
+        when role equals "admin" then
+            display "Admin privileges enabled"
+        otherwise
+            display "Standard user access"
+        end when
+    otherwise
+        display "Limited access - requirements not met"
+    end when
 otherwise
-    display "Keep trying"
+    display "Access denied - must be 18 or older"
+end when
+```
+
+#### Advanced Examples
+
+**User Authentication Logic:**
+```droe
+when username is not empty and password is not empty then
+    when (role equals "admin" or role equals "moderator") and account_status equals "active" then
+        display "Login successful - management access"
+    otherwise when role equals "user" and account_status equals "active" then
+        display "Login successful - user access"
+    otherwise when account_status equals "suspended" then
+        display "Account suspended - contact administrator"
+    otherwise
+        display "Invalid account status"
+    end when
+otherwise
+    display "Please enter both username and password"
+end when
+```
+
+**Shopping Cart Logic:**
+```droe
+when cart_total is greater than 100 then
+    display "Free shipping applied!"
+otherwise when cart_total is greater than 50 and (customer_type equals "premium" or has_coupon equals true) then
+    display "Reduced shipping: $2.99"
+otherwise when cart_total is greater than 25 then
+    display "Standard shipping: $5.99"
+otherwise
+    display "Add $[25 minus cart_total] more for reduced shipping"
 end when
 ```
 
 ### While Loops
 
 **Syntax:**
-
 ```droe
 while <condition>
     // statements
@@ -423,7 +545,6 @@ end while
 ```
 
 **Examples:**
-
 ```droe
 // Counting loop
 set counter to 1
@@ -440,14 +561,57 @@ while i is less than or equal to 10
     set i to i plus 1
 end while
 display "Sum: [total]"
+
+// Complex condition in while loop
+set attempts to 0
+set success to false
+while attempts is less than 3 and success is not true
+    display "Attempt [attempts plus 1]"
+    // ... attempt logic here ...
+    set attempts to attempts plus 1
+end while
 ```
 
 ### For-Each Loops
 
+#### Standard For-Each
 ```droe
 set numbers which are list of int to [1, 2, 3, 4, 5]
 for each num in numbers
     display "Number: [num]"
+end for
+```
+
+#### Character Iteration
+Iterate over each character in a string:
+```droe
+set word which is text to "hello"
+for each char in word
+    display "Character: [char]"
+end for
+```
+
+#### Advanced For-Each Examples
+```droe
+// Processing user list
+set users which are list of text to ["Alice", "Bob", "Charlie"]
+for each user in users
+    when user equals "Alice" then
+        display "Welcome back, Alice!"
+    otherwise
+        display "Hello, [user]"
+    end when
+end for
+
+// String processing
+set message which is text to "Droelang"
+display "Processing each character:"
+for each char in message
+    when char equals "a" or char equals "e" or char equals "i" or char equals "o" or char equals "u" then
+        display "[char] is a vowel"
+    otherwise
+        display "[char] is a consonant"
+    end when
 end for
 ```
 
